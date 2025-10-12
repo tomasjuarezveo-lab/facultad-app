@@ -1,0 +1,340 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor</title>
+  <style>
+    :root{
+      --padTop: 78px; --padBottom: 100px;
+      --glass: rgba(255,255,255,.82);
+      --bg1:#f8fafc; --bg2:#eef2f7; --shadow: 0 12px 36px rgba(0,0,0,.08);
+      --radius: 16px;
+    }
+    html, body { height:100%; margin:0; padding:0; background: linear-gradient(180deg,var(--bg1),var(--bg2));
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif; }
+    #viewer { position:fixed; inset:0; overflow:auto; -webkit-overflow-scrolling:touch; }
+    #column {
+      display:flex; flex-direction:column; align-items:center; width:fit-content; min-width:320px;
+      margin: var(--padTop) auto var(--padBottom) auto;
+      transform-origin: top center; will-change: transform;
+      position: relative;
+    }
+    .page-shell { position: relative; margin:14px 0; border-radius:12px; box-shadow: var(--shadow); background:#fff; }
+    .page-canvas { display:block; border-radius:12px; }
+    .textLayer { position:absolute; left:0; top:0; right:0; bottom:0; overflow:hidden; pointer-events:auto; }
+    .textLayer span { position:absolute; transform-origin:0 0; white-space:pre; color: transparent; }
+    .textLayer span::selection { background: rgba(56,189,248,.35); }
+    .textLayer .hl { background: rgba(253,224,71,.6); border-radius:4px; }
+    .textLayer .hl.active { outline: 2px solid #f59e0b; }
+
+    .glass { background:var(--glass); backdrop-filter:saturate(180%) blur(14px);
+             border:1px solid rgba(0,0,0,.06); box-shadow: var(--shadow); border-radius: var(--radius); }
+    #hambox { position:fixed; top:12px; left:12px; z-index:260; padding:6px; }
+    #zoombar { position:fixed; top:12px; right:12px; z-index:260; display:flex; gap:8px; padding:6px; }
+    .btn { padding:10px 12px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,.08);
+           cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.06); user-select:none; }
+    .btn:active { transform: translateY(1px); }
+    #thumbsPanel { position:fixed; top:56px; left:12px; bottom:90px; width:300px; overflow:auto; z-index:300; display:none; padding:10px; }
+    .thumb { display:block; margin:10px auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06); border-radius:10px; cursor:pointer; transition:transform .08s ease; }
+    .thumb:hover{ transform:scale(1.02); }
+    #spinner { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(241,245,249,.30); z-index:240; }
+    .dot { width:10px; height:10px; margin:4px; border-radius:999px; background:#111; animation:pulse .9s infinite alternate; }
+    .dot:nth-child(2){ animation-delay:.15s } .dot:nth-child(3){ animation-delay:.3s }
+    @keyframes pulse { from{ opacity:.25; transform:scale(.8)} to{ opacity:.9; transform:scale(1.12)} }
+
+    /* Caja de búsqueda (Ctrl+F) */
+    #findBox { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 280; display:none; }
+    #findBox .inner { display:flex; align-items:center; gap:8px; padding:6px; }
+    #findBox input { padding:8px 10px; border-radius:10px; border:1px solid #e5e7eb; outline:none; min-width: 220px; }
+    #findBox .count { font-size:12px; color:#555; min-width: 60px; text-align:center; }
+
+    @media (max-width: 640px){
+      :root{ --padTop: 90px; }
+      #thumbsPanel{ width: 86vw; left: 7vw; right: 7vw; }
+      .btn{ padding:12px 14px; }
+      #findBox input { min-width: 54vw; }
+    }
+  </style>
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';</script>
+</head>
+<body>
+  <div id="hambox" class="glass"><button id="toggle" class="btn">☰</button></div>
+  <div id="zoombar" class="glass">
+    <button id="zOut" class="btn">−</button>
+    <button id="zReset" class="btn">100%</button>
+    <button id="zIn" class="btn">＋</button>
+  </div>
+  <div id="thumbsPanel" class="glass"></div>
+  <div id="spinner"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+  <!-- Caja de búsqueda Ctrl+F -->
+  <div id="findBox" class="glass">
+    <div class="inner">
+      <input id="findInput" type="text" placeholder="Buscar en el PDF…" />
+      <button id="findPrev" class="btn" title="Anterior">⟨</button>
+      <button id="findNext" class="btn" title="Siguiente">⟩</button>
+      <span class="count" id="findCount">0/0</span>
+      <button id="findClose" class="btn" title="Cerrar">✕</button>
+    </div>
+  </div>
+
+  <div id="viewer"><div id="column"></div></div>
+
+  <script>
+    const file = "<%= file %>";
+    const viewer = document.getElementById('viewer');
+    const column = document.getElementById('column');
+    const thumbsPanel = document.getElementById('thumbsPanel');
+    const spinner = document.getElementById('spinner');
+    const toggle = document.getElementById('toggle');
+    const zIn = document.getElementById('zIn'), zOut = document.getElementById('zOut'), zReset = document.getElementById('zReset');
+
+    const findBox = document.getElementById('findBox');
+    const findInput = document.getElementById('findInput');
+    const findPrev = document.getElementById('findPrev');
+    const findNext = document.getElementById('findNext');
+    const findClose = document.getElementById('findClose');
+    const findCount = document.getElementById('findCount');
+
+    // Heurísticas
+    const dm = navigator.deviceMemory || 4;
+    const cores = navigator.hardwareConcurrency || 4;
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const prefReducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let DPR_CAP = 2.5; if (isMobile) DPR_CAP = 1.75; if (dm<=2) DPR_CAP=1.5; if (cores<=2) DPR_CAP=Math.min(DPR_CAP,1.5); if (prefReducedMotion) DPR_CAP=Math.min(DPR_CAP,1.5);
+    const MAX_DPR = Math.min(DPR_CAP, window.devicePixelRatio || 1);
+    const MIN_Z = 0.6, MAX_Z = 3.0, STEP = 0.15;
+    const IO_MARGIN = isMobile ? '900px 0px' : '700px 0px';
+
+    let pdf, pageCount = 0;
+    let baseScale = 1.0;
+    let cssScale  = 1.0;
+    let zoomTimer = null;
+    const pages = new Map(); // num -> { shell, canvas, textLayer, w1, h1, renderedScale, task }
+
+    // ===== Zoom =====
+    function setCssScale(s){ cssScale = s; column.style.transform = `translateZ(0) scale(${cssScale})`; }
+    function updateZoomLabel(){ zReset.textContent = Math.round(baseScale*cssScale*100)+'%'; }
+    function fitToWidth() {
+      const first = pages.get(1); if (!first) return;
+      const target = Math.min(viewer.clientWidth * 0.92, 1200);
+      baseScale = Math.max(0.8, Math.min(1.4, target / first.w1));
+      recalcShellSizes(); updateZoomLabel();
+    }
+    function setZoom(newVisual){
+      newVisual = Math.max(MIN_Z, Math.min(MAX_Z, newVisual));
+      const center = viewer.scrollTop + viewer.clientHeight/2;
+      const ratio = center / Math.max(1, viewer.scrollHeight);
+      const css = newVisual / baseScale;
+      setCssScale(css); updateZoomLabel();
+      if (zoomTimer) clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(()=>{
+        baseScale = newVisual; setCssScale(1.0); updateZoomLabel();
+        recalcShellSizes(); renderVisible(true).then(()=>{
+          viewer.scrollTop = Math.max(0, ratio * viewer.scrollHeight - viewer.clientHeight/2);
+        });
+      }, 140);
+    }
+    toggle.onclick = () => { thumbsPanel.style.display = (thumbsPanel.style.display==='block'?'none':'block'); };
+    zIn.onclick = () => setZoom(baseScale*cssScale + STEP);
+    zOut.onclick = () => setZoom(baseScale*cssScale - STEP);
+    zReset.onclick = () => setZoom(1.0);
+    viewer.addEventListener('wheel',(e)=>{ if(e.ctrlKey){ e.preventDefault(); setZoom(baseScale*cssScale + (e.deltaY>0?-STEP:STEP)); } }, {passive:false});
+    window.addEventListener('keydown',(e)=>{
+      if(e.ctrlKey && (e.key==='+'||e.key==='=')){ e.preventDefault(); setZoom(baseScale*cssScale + STEP); }
+      if(e.ctrlKey && e.key==='-'){ e.preventDefault(); setZoom(baseScale*cssScale - STEP); }
+      if(e.ctrlKey && e.key==='0'){ e.preventDefault(); setZoom(1.0); }
+    });
+    viewer.addEventListener('dblclick', ()=> setZoom(Math.min(MAX_Z, baseScale*cssScale + .25)));
+
+    // ===== Shells y render =====
+    function createShell(num, w1, h1){
+      const shell = document.createElement('div');
+      shell.className = 'page-shell'; shell.id = 'shell_'+num;
+      shell.style.width  = (w1*baseScale)+'px'; shell.style.height = (h1*baseScale)+'px';
+      shell.style.scrollMarginTop = '90px';
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'page-canvas'; shell.appendChild(canvas);
+
+      const textLayer = document.createElement('div');
+      textLayer.className = 'textLayer'; shell.appendChild(textLayer);
+
+      column.appendChild(shell);
+      pages.set(num, { shell, canvas, textLayer, w1, h1, renderedScale: 0, task: null });
+    }
+    function resizeShell(num){
+      const p = pages.get(num); if(!p) return;
+      p.shell.style.width  = (p.w1*baseScale)+'px';
+      p.shell.style.height = (p.h1*baseScale)+'px';
+    }
+    function recalcShellSizes(){ for (let n=1;n<=pageCount;n++) resizeShell(n); }
+
+    async function renderTextLayer(page, viewport, p){
+      try{
+        const textContent = await page.getTextContent({ normalizeWhitespace:true });
+        p.textLayer.innerHTML = '';
+        await pdfjsLib.renderTextLayer({
+          textContentSource: textContent,
+          container: p.textLayer,
+          viewport,
+          textDivs: []
+        }).promise;
+      } catch(e){ /* no-op */ }
+    }
+
+    async function renderPage(num, force=false){
+      const p = pages.get(num); if(!p) return;
+      if (!force && Math.abs(p.renderedScale - baseScale) < 0.02) return;
+      if (p.task) { try{ p.task.cancel(); }catch(_){} p.task=null; }
+      const page = await pdf.getPage(num);
+      const vp = page.getViewport({ scale: baseScale });
+      const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
+      p.canvas.width  = Math.floor(vp.width  * dpr);
+      p.canvas.height = Math.floor(vp.height * dpr);
+      p.canvas.style.width  = vp.width + 'px';
+      p.canvas.style.height = vp.height + 'px';
+
+      const ctx = p.canvas.getContext('2d', { alpha:false });
+      const rc = { canvasContext: ctx, viewport: vp, transform:[dpr,0,0,dpr,0,0] };
+      const task = page.render(rc); p.task = task;
+      try { await task.promise; } catch(_) { /* cancelado */ }
+      if (p.task !== task) return;
+      p.task = null; p.renderedScale = baseScale;
+
+      // Renderizar texto (seleccionable)
+      await renderTextLayer(page, vp, p);
+      // Aplicar resaltado actual si hay búsqueda
+      if (currentQuery) highlightInPage(p.textLayer, currentQuery);
+    }
+
+    // Virtualización
+    const io = new IntersectionObserver((entries)=>{
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        const num = parseInt(e.target.dataset.num, 10);
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(()=>renderPage(num,false), { timeout: 120 });
+        } else { renderPage(num,false); }
+      }
+    }, { root: viewer, rootMargin: IO_MARGIN });
+
+    async function renderVisible(force=false){
+      if (force) spinner.style.display = 'flex';
+      const shells = Array.from(column.children);
+      const top = viewer.scrollTop, bottom = top + viewer.clientHeight;
+      for (let i=0;i<shells.length;i++){
+        const el = shells[i];
+        const r = el.getBoundingClientRect();
+        const t = r.top + viewer.scrollTop, b = t + r.height;
+        if (b >= top - 800 && t <= bottom + 800) { await renderPage(i+1, force); }
+      }
+      spinner.style.display = 'none';
+    }
+
+    function buildThumbs(){
+      thumbsPanel.innerHTML = '';
+      const mk = async (n)=>{
+        const t = document.createElement('canvas');
+        t.className='thumb'; t.title='Página '+n;
+        t.onclick = ()=> document.getElementById('shell_'+n)?.scrollIntoView({ behavior:'smooth', block:'start' });
+        thumbsPanel.appendChild(t);
+        const page = await pdf.getPage(n);
+        const scale = 0.18, vp = page.getViewport({ scale });
+        t.width = vp.width; t.height = vp.height;
+        const ctx = t.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      };
+      (async ()=>{ for(let n=1;n<=pageCount;n++){
+        if ('requestIdleCallback' in window) await new Promise(res=> requestIdleCallback(()=>{ mk(n).then(res) }, {timeout:150}));
+        else await mk(n);
+      }})();
+    }
+
+    // ====== Buscar (Ctrl+F) ======
+    let currentQuery = '';
+    let matches = []; // elementos .hl
+    let activeIndex = -1;
+
+    function clearHighlights(){
+      matches.forEach(el => el.classList.remove('hl','active'));
+      matches = []; activeIndex = -1; findCount.textContent = '0/0';
+    }
+    function highlightInPage(layer, query){
+      const spans = layer.querySelectorAll('span');
+      const q = query.toLowerCase();
+      spans.forEach(s=>{
+        s.classList.remove('hl','active');
+        const txt = (s.textContent||'').toLowerCase();
+        if (!q || q.length<2) return;
+        if (txt.includes(q)) s.classList.add('hl');
+      });
+    }
+    function collectMatches(){
+      matches = Array.from(document.querySelectorAll('.textLayer .hl'));
+      findCount.textContent = matches.length ? `1/${matches.length}` : '0/0';
+      activeIndex = matches.length ? 0 : -1;
+      if (activeIndex >= 0) focusMatch(activeIndex);
+    }
+    function focusMatch(i){
+      matches.forEach(m => m.classList.remove('active'));
+      const el = matches[i];
+      if (!el) return;
+      el.classList.add('active');
+      el.scrollIntoView({ behavior:'smooth', block:'center' });
+      findCount.textContent = `${i+1}/${matches.length}`;
+    }
+    function search(query){
+      currentQuery = query.trim();
+      clearHighlights();
+      if (currentQuery.length < 2) return;
+      document.querySelectorAll('.textLayer').forEach(layer => highlightInPage(layer, currentQuery));
+      collectMatches();
+    }
+
+    // Atajos Ctrl+F / Enter / Escape
+    window.addEventListener('keydown', (e)=>{
+      if (e.ctrlKey && (e.key === 'f' || e.key === 'F')){
+        e.preventDefault();
+        findBox.style.display = 'block'; findInput.focus(); findInput.select();
+      } else if (e.key === 'Enter' && findBox.style.display==='block'){
+        e.preventDefault(); (e.shiftKey ? prevMatch() : nextMatch());
+      } else if (e.key === 'Escape' && findBox.style.display==='block'){
+        e.preventDefault(); findBox.style.display = 'none';
+      }
+    });
+    function nextMatch(){ if (!matches.length) return; activeIndex = (activeIndex+1) % matches.length; focusMatch(activeIndex); }
+    function prevMatch(){ if (!matches.length) return; activeIndex = (activeIndex-1+matches.length) % matches.length; focusMatch(activeIndex); }
+    findInput.addEventListener('input', ()=> search(findInput.value));
+    findNext.addEventListener('click', nextMatch);
+    findPrev.addEventListener('click', prevMatch);
+    findClose.addEventListener('click', ()=>{ findBox.style.display='none'; });
+
+    // ===== Cargar PDF =====
+    pdfjsLib.getDocument(file).promise.then(async _pdf=>{
+      pdf=_pdf; pageCount=pdf.numPages;
+      // Medir 1ª página y ajustar ancho
+      const p1 = await pdf.getPage(1); const v1 = p1.getViewport({ scale: 1 });
+      createShell(1, v1.width, v1.height); fitToWidth();
+      // Resto de shells
+      for (let n=2;n<=pageCount;n++){
+        const pg = await pdf.getPage(n); const v = pg.getViewport({ scale: 1 });
+        createShell(n, v.width, v.height);
+      }
+      // Observar shells
+      for (let n=1;n<=pageCount;n++){ const p=pages.get(n); p.shell.dataset.num = String(n); io.observe(p.shell); }
+      await renderVisible(true);
+      buildThumbs();
+
+      new ResizeObserver(()=>{ fitToWidth(); renderVisible(true); }).observe(viewer);
+      window.addEventListener('resize', ()=>{ fitToWidth(); renderVisible(true); });
+      viewer.addEventListener('scroll', ()=> { requestAnimationFrame(()=> renderVisible(false)); }, { passive:true });
+    }).catch(err=>{
+      column.innerHTML = '<div style="padding:20px;color:#888">No se pudo abrir el documento.</div>';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

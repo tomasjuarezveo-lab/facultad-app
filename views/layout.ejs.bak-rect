@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="es" class="<%= hideTabbar ? 'auth-html' : '' %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= title || "Facultad" %></title>
+  <link rel="stylesheet" href="/public/css/app.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-[#fff9f3] min-h-screen"> <!-- fondo marfil suave como en la captura -->
+  <% if (hideTabbar) { %><div class="auth-brand">Facultad</div><% } %>
+
+  <div class="max-w-6xl mx-auto px-4 <%= hideTabbar ? 'pb-0' : 'pb-40' %>">
+    <% if (!hideTabbar) { %>
+    <header class="flex items-center justify-between py-4">
+      <div class="text-xl font-semibold">Facultad</div>
+      <% if (user) { %>
+      <form method="POST" action="/logout">
+        <button class="text-sm text-gray-600 hover:underline">Salir</button>
+      </form>
+      <% } %>
+    </header>
+    <% } %>
+
+    <main>
+      <%- body %>
+    </main>
+  </div>
+
+  <% if (user && !hideTabbar) { %>
+    <nav class="tabbar-wrap" role="navigation" aria-label="Barra de pestañas">
+    <div class="tabbar dock">
+      <a class="dock-item" data-route="/app/materias" href="/app/materias" data-label="Materias">
+        <span class="appicon materias">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="14" y="14" width="36" height="36" rx="10" fill="rgba(0,0,0,.08)"/>
+            <rect x="18" y="18" width="22" height="28" rx="6" class="ai-book"/>
+          </svg>
+        </span>
+      </a>
+      <a class="dock-item" data-route="/app/autoevaluaciones" href="/app/autoevaluaciones" data-label="Autoevaluaciones">
+        <span class="appicon autoeval">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="18" y="16" width="28" height="32" rx="8" fill="#ffffff"/>
+            <path d="M22 32l8 8 12-16" class="ai-clip"/>
+          </svg>
+        </span>
+      </a>
+      <a class="dock-item" data-route="/app/juegos" href="/app/juegos" data-label="Juegos">
+        <span class="appicon juegos">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M18 38c0-8 6-12 14-12s14 4 14 12c0 6-4 8-10 6l-8 0c-6 2-10 0-10-6z" fill="#ffffff"/>
+            <circle cx="26" cy="34" r="3" fill="#6B7280"/>
+            <circle cx="40" cy="34" r="3" fill="#4763FF"/>
+            <circle cx="44" cy="38" r="2.5" fill="#FF77AA"/>
+            <circle cx="38" cy="38" r="2.5" fill="#6EC1FF"/>
+          </svg>
+        </span>
+      </a>
+      <a class="dock-item" data-route="/app/correlativas" href="/app/correlativas" data-label="Correlativas">
+        <span class="appicon correl">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="22" cy="42" r="7" class="ai-dot2"/>
+            <circle cx="42" cy="42" r="7" class="ai-dot3"/>
+            <circle cx="32" cy="22" r="7" class="ai-dot1"/>
+            <path d="M26 38L32 28L38 38" fill="none" stroke="rgba(0,0,0,.25)" stroke-width="3" stroke-linecap="round"/>
+          </svg>
+        </span>
+      </a>
+      <a class="dock-item" data-route="/app/finales" href="/app/finales" data-label="Finales">
+        <span class="appicon finales">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <rect x="16" y="20" width="32" height="26" rx="8" class="ai-cal2"/>
+            <rect x="18" y="22" width="28" height="22" rx="6" fill="#ffffff"/>
+            <rect x="22" y="28" width="6" height="6" rx="2" class="ai-cal"/>
+            <rect x="32" y="28" width="6" height="6" rx="2" class="ai-cal"/>
+          </svg>
+        </span>
+      </a>
+      <a class="dock-item" data-route="/app/profesores" href="/app/profesores" data-label="Profesores">
+        <span class="appicon profes">
+          <svg viewBox="0 0 64 64" aria-hidden="true">
+            <circle cx="40" cy="22" r="10" class="ai-head"/>
+            <path d="M16 48c2-10 12-14 16-14s14 4 16 14" class="ai-body"/>
+          </svg>
+        </span>
+      </a>
+    </div>
+  </nav>
+
+  <% /* Badge fijo (ya existente) */ if (isMainPage) { 
+       const initials = (user.name || 'U').split(' ').slice(0,2).map(s=>s && s[0]).join('').toUpperCase();
+  %>
+    <div class="user-badge user-badge-fixed" id="userBadge">
+      <div class="avatar">
+        <% if (user.avatarUrl) { %><img src="<%= user.avatarUrl %>" alt="Avatar" /><% } else { %><span><%= initials %></span><% } %>
+      </div>
+      <div class="meta">
+        <div class="name"><%= user.name || 'Usuario' %></div>
+        <div class="sub">
+          <% if (user.career && user.plan) { %>
+            <%= (user.career.includes('Admin') ? 'Lic. en Admin.' : (user.career.includes('Econom') ? 'Lic. en Economía' : (user.career || ''))) %>
+            <%= user.plan ? (' · Plan ' + user.plan) : '' %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% } %>
+  <% } %>
+
+  <script src="/public/js/app.js"></script>
+</body>
+</html>
+

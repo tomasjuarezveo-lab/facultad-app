@@ -1,0 +1,131 @@
+Contabilidad I (Bases y Fundamentos)
+  Regularizadas: Ninguna
+  Final aprobado: Ninguna
+
+Introducción a la Economía y Estructura Económica Argentina
+  Regularizadas: Ninguna
+  Final aprobado: Ninguna
+
+Administración I (Introducción a la Administración y al Estudio de las Organizaciones)
+  Regularizadas: Ninguna
+  Final aprobado: Ninguna
+
+Microeconomía I
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Contabilidad I (Bases y Fundamentos) (7114)
+
+Matemática I
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Contabilidad I (Bases y Fundamentos) (7114)
+
+Derecho Constitucional y Administrativo
+  Regularizadas: Contabilidad I (Bases y Fundamentos) (7114), Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones)
+
+Introducción a las Ciencias Sociales y al Conocimiento Científico (7174)
+  Regularizadas: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Contabilidad I (Bases y Fundamentos) (7114)
+
+Comportamiento Humano en las Organizaciones (721A)
+  Regularizadas: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134)
+  Final aprobado: Contabilidad I (Bases y Fundamentos) (7114), Introducción a la Economía y Estructura Económica Argentina (7124)
+
+MacroeconomÃ­a I (7224)
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Contabilidad I (Bases y Fundamentos) (7114)
+
+Historia Económica y Social I (7234)
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Contabilidad I (Bases y Fundamentos) (7114)
+
+Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243)
+  Regularizadas: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134)
+  Final aprobado: Contabilidad I (Bases y Fundamentos) (7114), Introducción a la Economía y Estructura Económica Argentina (7124)
+
+Derecho Privado (7252)
+  Regularizadas: Derecho Constitucional y Administrativo
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones)
+
+Finanzas Públicas (7264)
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124), Microeconomía I (7144)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones), Contabilidad I (Bases y Fundamentos) (7114)
+
+Matemática II (7272)
+  Regularizadas: Introducción a la Economía y Estructura Económica Argentina (7124), Matemática I (7154)
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones), Contabilidad I (Bases y Fundamentos) (7114)
+
+InterpretaciÃ³n de los Estados Contables (728A)
+  Regularizadas: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Introducción a la Economía y Estructura Económica Argentina (7124)
+  Final aprobado: Contabilidad I (Bases y Fundamentos) (7114)
+
+Administración III (Planeamiento y Control Organizacional) (731A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243), Derecho Constitucional y Administrativo (7164), InterpretaciÃ³n de los Estados Contables (728A), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), Matemática I (7154), Microeconomía I (7144)
+
+Administración PÃºblica (732A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Comportamiento Humano en las Organizaciones (721A), Derecho Constitucional y Administrativo (7164), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), Matemática I (7154), Microeconomía I (7144)
+
+EstadÃ­stica Aplicada (7332)
+  Regularizadas: Ninguna
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Derecho Constitucional y Administrativo (7164), Introducción a la Economía y Estructura Económica Argentina (7124), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), Matemática I (7154), Matemática II (7272), Microeconomía I (7144)
+
+Derecho Empresario (734A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Derecho Constitucional y Administrativo (7164), Derecho Privado (7252), Introducción a la Economía y Estructura Económica Argentina (7124), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), Matemática I (7154), Microeconomía I (7144)
+
+Matemática para Decisiones Empresarias (7352)
+  Regularizadas: Ninguna
+  Final aprobado: Administración I (Introducción a la Administración y al Estudio de las Organizaciones) (7134), Derecho Constitucional y Administrativo (7164), Introducción a la Economía y Estructura Económica Argentina (7124), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), Matemática I (7154), Matemática II (7272), Microeconomía I (7144)
+
+Administración de la ProducciÃ³n (736A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243), EstadÃ­stica Aplicada (7332)
+
+Diseño de Sistemas de InformaciÃ³n (741A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración III (Planeamiento y Control Organizacional) (731A), Comportamiento Humano en las Organizaciones (721A), Derecho Privado (7252), Finanzas Públicas (7264), Historia Económica y Social I (7234), MacroeconomÃ­a I (7224), Matemática II (7272)
+
+Marketing Estratégico (742A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243), Comportamiento Humano en las Organizaciones (721A), Derecho Privado (7252), EstadÃ­stica Aplicada (7332), Finanzas Públicas (7264), Historia Económica y Social I (7234), InterpretaciÃ³n de los Estados Contables (728A), MacroeconomÃ­a I (7224)
+
+Trabajo y Sociedad (743A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243), Comportamiento Humano en las Organizaciones (721A), Derecho Constitucional y Administrativo (7164), Derecho Privado (7252), Finanzas Públicas (7264), Historia Económica y Social I (7234), InterpretaciÃ³n de los Estados Contables (728A), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), MacroeconomÃ­a I (7224), Matemática I (7154), Matemática II (7272), Microeconomía I (7144)
+
+Finanzas de Empresas (744A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración III (Planeamiento y Control Organizacional) (731A), Comportamiento Humano en las Organizaciones (721A), Derecho Privado (7252), Finanzas Públicas (7264), Historia Económica y Social I (7234), MacroeconomÃ­a I (7224), Matemática para Decisiones Empresarias (7352)
+
+Psicosociología Organizacional (745A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración II (TÃ©cnicas Administrativas y Gestión Organizacional) (7243), Comportamiento Humano en las Organizaciones (721A), Derecho Constitucional y Administrativo (7164), Derecho Privado (7252), Finanzas Públicas (7264), Historia Económica y Social I (7234), InterpretaciÃ³n de los Estados Contables (728A), Introducción a las Ciencias Sociales y al Conocimiento Científico (7174), MacroeconomÃ­a I (7224), Matemática I (7154), Matemática II (7272), Microeconomía I (7144)
+
+Costos para la Gestión (7462)
+  Regularizadas: Ninguna
+  Final aprobado: Administración de la ProducciÃ³n (736A), Comportamiento Humano en las Organizaciones (721A), Derecho Privado (7252), Finanzas Públicas (7264), Historia Económica y Social I (7234), InterpretaciÃ³n de los Estados Contables (728A), MacroeconomÃ­a I (7224)
+
+Gestión y Desarrollo de las personas en las Organizaciones (751A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración III (Planeamiento y Control Organizacional) (731A), Administración PÃºblica (732A), Administración de la ProducciÃ³n (736A), Derecho Empresario (734A), Matemática para Decisiones Empresarias (7352), Trabajo y Sociedad (743A)
+
+TecnologÃ­a Informática y Sistemas de InformaciÃ³n para la DirecciÃ³n (752A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración PÃºblica (732A), Administración de la ProducciÃ³n (736A), Derecho Empresario (734A), Diseño de Sistemas de InformaciÃ³n (741A), Matemática para Decisiones Empresarias (7352)
+
+Marketing Táctico y Operativo (753A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración III (Planeamiento y Control Organizacional) (731A), Administración PÃºblica (732A), Administración de la ProducciÃ³n (736A), Derecho Empresario (734A), Marketing Estratégico (742A), Matemática para Decisiones Empresarias (7352)
+
+Negocios Internacionales (754A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración III (Planeamiento y Control Organizacional) (731A), Administración PÃºblica (732A), Administración de la ProducciÃ³n (736A), Derecho Empresario (734A), Marketing Estratégico (742A), Matemática para Decisiones Empresarias (7352)
+
+TÃ³picos Avanzados en Finanzas (755A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración PÃºblica (732A), Administración de la ProducciÃ³n (736A), Derecho Empresario (734A), Finanzas de Empresas (744A)
+
+DirecciÃ³n General (756A)
+  Regularizadas: Ninguna
+  Final aprobado: Administración PÃºblica (732A), Costos para la Gestión (7462), Derecho Empresario (734A), Finanzas de Empresas (744A), Marketing Estratégico (742A)

@@ -1,0 +1,1427 @@
+﻿<!DOCTYPE html>
+<html lang="es" class="<%= hideTabbar ? 'auth-html' : '' %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= (typeof title !== 'undefined' ? title : 'Facultad') %></title>
+
+  <!-- Favicon (logo en la pestaña del navegador) -->
+  <link rel="icon" type="image/png" href="https://www.dropbox.com/scl/fi/biw1gltms2icv30a1w25d/CW-logo.png?rlkey=vk846pz49nke0u8706gb0q11j&st=dht0fk9g&dl=1" />
+
+  <!-- Tu CSS principal -->
+  <link rel="stylesheet" href="/public/css/app.css" />
+
+  <!-- Tailwind (si ya lo cargas en tu build, puedes quitar esta línea) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Fuente -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link 
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" 
+    rel="stylesheet">
+
+  <!-- ===== Estética iOS (fondo, header, dock, badge) ===== -->
+<style>
+    :root{
+      --ink:#0f172a;
+      --muted:#64748b;
+      --glass-1:rgba(255,255,255,.65);
+      --glass-2:rgba(255,255,255,.40);
+      --stroke:rgba(255,255,255,.60);
+      --shadow-strong:0 26px 46px rgba(15,23,42,.18);
+      --shadow:0 12px 28px rgba(15,23,42,.10);
+      --shadow-soft:0 8px 20px rgba(15,23,42,.08);
+      --radius-lg:18px;
+      --radius-md:16px;
+
+      /* Badge */
+      --badge-size:56px;   /* diámetro del círculo colapsado */
+    }
+
+    /* Tipografía general */
+    body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial; color: var(--ink); }
+
+    /* ===== Fondo iOS ===== */
+    .bg-hatch-ios{
+      background-color:#F8FAFD;
+      background-image:
+        radial-gradient(1200px 900px at 18% 10%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.55) 50%, rgba(255,255,255,0) 70%),
+        radial-gradient(900px 700px at 88% 20%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 55%, rgba(255,255,255,0) 75%),
+        linear-gradient(180deg, #F7FAFE 0%, #EEF5FD 55%, #E9F1FB 100%),
+        repeating-linear-gradient(45deg, rgba(183,201,227,.10) 0 1px, rgba(255,255,255,0) 1px 22px),
+        repeating-linear-gradient(-45deg, rgba(183,201,227,.06) 0 1px, rgba(255,255,255,0) 1px 22px);
+      background-blend-mode: screen, screen, normal, normal, normal;
+      background-attachment: fixed;
+      min-height: 100%;
+    }
+
+    .container-main { max-width: 1040px; margin-left: auto; margin-right: auto; padding-left: 20px; padding-right: 20px; }
+
+    /* ===== Header ===== */
+    header { padding-top: 18px; padding-bottom: 18px; }
+    header .text-xl { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+    header form button { color:#94a3b8; }
+    header form button:hover { text-decoration: underline; }
+
+    /* Botón iOS genérico (lo usamos para la campana y otros) */
+    .btn-ios{
+      display:inline-grid; place-items:center;
+      width:40px; height:40px; border-radius:12px;
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border:1px solid var(--stroke);
+      box-shadow:
+        0 10px 20px rgba(15,23,42,.12),
+        inset 0 1px 0 rgba(255,255,255,.85),
+        inset 0 -8px 18px rgba(15,23,42,.06);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .15s ease, box-shadow .2s ease, opacity .2s ease;
+    }
+    .btn-ios:active{ transform: translateY(1px) scale(.99); }
+    .btn-ios svg{ width:22px; height:22px; }
+
+    /* ===== Overlay del panel lateral ===== */
+    .notif-overlay{
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,.22);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s ease;
+      z-index: 1000;
+    }
+    .notif-overlay.is-open{ opacity: 1; pointer-events: auto; }
+
+    /* ===== Panel de notificaciones (sidebar fino 50px) ===== */
+    .notif-panel{
+      position: fixed;
+      top: 0; 
+      bottom: 0; 
+      right: 0;
+      width: 430px;              /* Ancho fijo de 50px */
+      max-width: none;          
+      height: 100vh;            /* De arriba a abajo */
+      background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(255,255,255,.86));
+      box-shadow: -12px 0 40px rgba(15,23,42,.20);
+      border-left: 1px solid rgba(255,255,255,.7);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      transform: translateX(100%);      /* escondido hacia la derecha */
+      transition: transform .35s cubic-bezier(.2,.8,.2,1);
+      z-index: 10000;                   /* siempre adelante */
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .notif-panel.is-open{ 
+      transform: translateX(0);         /* se abre mostrando esos 50px */
+    }
+
+    .notif-head{
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 18px;
+      border-bottom: 1px solid rgba(15,23,42,.06);
+    }
+    .notif-title{ font-weight: 700; font-size: 16px; letter-spacing: -.01em; }
+    .notif-close.btn-ios{ width:34px; height:34px; }
+
+    /* Lista de notificaciones: apiladas arriba y scroll si hace falta */
+    .notif-list{
+      align-content: start;
+      justify-content: stretch;
+      grid-auto-rows: min-content;
+      display: grid;
+      gap: 0;
+      overflow: auto;
+      padding: 0;
+    }
+
+    /* Tarjeta + márgenes */
+    .notif-card{
+      border-radius: 18px;
+      background: linear-gradient(145deg, rgba(255,255,255,.9), rgba(255,255,255,.7));
+      border: 1px solid rgba(255,255,255,.7);
+      box-shadow:
+        0 12px 26px rgba(15,23,42,.10),
+        inset 0 1px 0 rgba(255,255,255,.85);
+      padding: 14px 16px;
+      margin: 5px 10px;                 /* 5px top/bottom, 10px left/right */
+
+      /* Efecto botón */
+      cursor: pointer;
+      user-select: none;
+      transition: transform .12s ease, box-shadow .18s ease, opacity .18s ease;
+    }
+    @media (hover:hover){
+      .notif-card:hover{
+        transform: translateY(-2px);
+        box-shadow:
+          0 16px 28px rgba(15,23,42,.16),
+          inset 0 1px 0 rgba(255,255,255,.9);
+      }
+    }
+    .notif-card:active{
+      transform: translateY(0) scale(.98);
+      opacity: .95;
+    }
+
+    /* Título 1 línea con "..." */
+    .notif-card h4{
+      font-weight: 700;
+      font-size: 14px;
+      margin: 0 0 4px 0;
+      color: var(--ink);
+      text-align: left;
+
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+    }
+
+    /* Texto 2 líneas máx con "..." y más pequeño */
+    .notif-card p{
+      margin: 0;
+      font-size: 11px;
+      color: #4b5563;
+      text-align: left;
+
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: normal;
+    }
+
+    /* Estado vacío centrado/ gris */
+    .notif-empty{
+      display:flex; align-items:center; justify-content:center; text-align:center;
+      min-height:50vh; color:#94a3b8; font-weight:500;
+    }
+
+    /* ===== Modal de Notificación (centro) ===== */
+    .notif-modal-overlay{
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,.45); /* oscurece el fondo */
+      display: none;                  /* se muestra con .is-open */
+      align-items: center; justify-content: center;
+      z-index: 11000;                 /* por encima del panel (10000) */
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    .notif-modal-overlay.is-open{ 
+      display: flex; 
+      opacity: 1; 
+    }
+
+    .notif-modal{
+      width: min(92vw, 560px);
+      max-height: min(80vh, 720px);
+      overflow: auto;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(255,255,255,.94));
+      border: 1px solid rgba(255,255,255,.8);
+      box-shadow: 0 28px 56px rgba(15,23,42,.22);
+      backdrop-filter: blur(18px) saturate(160%);
+      -webkit-backdrop-filter: blur(18px) saturate(160%);
+      padding: 18px 20px 20px 20px;
+
+      transform: scale(.96) translateY(6px);
+      opacity: 0;
+      animation: notifModalIn .18s ease forwards;
+    }
+    @keyframes notifModalIn{
+      to { transform: scale(1) translateY(0); opacity: 1; }
+    }
+
+    .notif-modal-title{
+      margin: 0 0 10px 0;
+      font-weight: 800; 
+      font-size: 18px; 
+      letter-spacing: -.01em;
+      color: var(--ink);
+    }
+    .notif-modal-body{
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #374151;
+    }
+    .notif-modal-close{
+      position: absolute; right: 12px; top: 12px;
+      width: 34px; height: 34px; border-radius: 9999px;
+      display: inline-grid; place-items: center;
+      background: linear-gradient(145deg, rgba(255,255,255,.9), rgba(255,255,255,.7));
+      border: 1px solid rgba(255,255,255,.8);
+      box-shadow:
+        0 10px 20px rgba(15,23,42,.12),
+        inset 0 1px 0 rgba(255,255,255,.85),
+        inset 0 -8px 18px rgba(15,23,42,.06);
+      cursor: pointer;
+      transition: transform .12s ease, box-shadow .18s ease;
+    }
+    @media (hover:hover){
+      .notif-modal-close:hover{ transform: translateY(-1px); }
+    }
+    .notif-modal-close:active{ transform: translateY(0) scale(.98); }
+
+    /* ===== Dock iOS ===== */
+    .ios-dock-wrap{
+      position: fixed; left: 0; right: 0; bottom: 18px;
+      display: flex; justify-content: center; z-index: 1000;
+      pointer-events: none;
+    }
+    .ios-dock{
+      pointer-events: auto;
+      display: grid; grid-auto-flow: column; align-items: end; gap: 18px;
+      padding: 16px 20px;
+      border-radius: 22px;
+      background: var(--glass-2);
+      border: 1px solid var(--stroke);
+      box-shadow: var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,.75);
+      backdrop-filter: blur(22px) saturate(160%);
+      -webkit-backdrop-filter: blur(22px) saturate(160%);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .dock-item{
+      width: 82px;
+      display: grid; grid-template-rows: 62px auto; gap: 6px; justify-items: center;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .dock-tile{
+      width: 62px; height: 62px; border-radius: var(--radius-lg);
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border: 1px solid var(--stroke);
+      box-shadow:
+        0 12px 22px rgba(15,23,42,.14),
+        inset 0 1px 0 rgba(255,255,255,.85),
+        inset 0 -10px 24px rgba(15,23,42,.06);
+      display: grid; place-items: center;
+      will-change: transform;
+      transition: transform .2s cubic-bezier(.2,.8,.2,1), box-shadow .2s ease;
+    }
+    .dock-icon{ width: 30px; height: 30px; filter: drop-shadow(0 1px 0 rgba(255,255,255,.55)); transition: transform .2s cubic-bezier(.2,.8,.2,1), opacity .2s ease; }
+    .dock-label{ font-size: 12px; line-height: 1; color: #76839b; text-shadow: 0 1px 2px rgba(0,0,0,.08); transition: transform .2s cubic-bezier(.2,.8,.2,1), color .2s ease; }
+
+    @media (hover:hover){
+      .dock-item:hover .dock-tile{
+        transform: translateY(-8px) scale(1.04);
+        box-shadow:
+          0 18px 34px rgba(15,23,42,.20),
+          inset 0 1px 0 rgba(255,255,255,.92),
+          inset 0 -12px 28px rgba(15,23,42,.08);
+      }
+      .dock-item:hover .dock-icon{ transform: translateY(-2px); opacity: .95; }
+      .dock-item:hover .dock-label{ transform: translateY(-2px); color:#55657c; }
+    }
+
+    .dock-item.active .dock-tile{
+      box-shadow:
+        0 20px 30px rgba(15,23,42,.18),
+        0 0 0 3px rgba(255,255,255,.55) inset,
+        inset 0 1px 0 rgba(255,255,255,.95);
+    }
+
+    /* ===== User badge (izquierda) ===== */
+    .user-badge-fixed{
+      position: fixed; left: 18px; bottom: 26px;
+      display: flex; align-items: center;
+      height: var(--badge-size);
+      width: var(--badge-size);
+      box-sizing: border-box;
+      padding: 0;
+      overflow: hidden;
+      background: var(--glass-1);
+      border: 1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      border-radius: 9999px;
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      -webkit-tap-highlight-color: transparent;
+      transition:
+        width .28s cubic-bezier(.2,.8,.2,1),
+        padding .28s cubic-bezier(.2,.8,.2,1),
+        box-shadow .2s ease;
+      z-index: 1001;
+    }
+    .user-badge-fixed:focus-visible{ outline: 2px solid #2563eb; outline-offset: 2px; }
+
+    .user-badge .avatar{
+      width: 36px; height: 36px; border-radius: 9999px;
+      background: #f1f5f9; color: #64748b; font-weight: 700;
+      overflow: hidden; display: grid; place-items: center;
+      position: absolute;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .user-badge .avatar img{ width: 100%; height: 100%; object-fit: cover; display:block; }
+
+    .user-badge .meta{
+      display: grid; align-content: center; justify-items: start;
+      row-gap: 2px; white-space: nowrap;
+      opacity: 0; pointer-events: none;
+      margin-left: 0;
+      transition: opacity .22s ease;
+      text-align: left;
+    }
+    .user-badge .meta .name{ font-weight: 600; font-size: 14px; color: var(--ink); line-height: 1.15; margin: 0; }
+    .user-badge .meta .sub{ color: #8a99ad; font-size: 12px; line-height: 1.15; margin: 0; }
+
+    @media (hover:hover){
+      .user-badge-fixed:hover{
+        width: auto;
+        padding: 9px 12px 9px 9px;
+        box-shadow: var(--shadow-strong);
+      }
+      .user-badge-fixed:hover .avatar{
+        position: static;
+        transform: none;
+        margin-right: 5px;
+      }
+      .user-badge-fixed:hover .meta{
+        opacity: 1; pointer-events: auto;
+      }
+    }
+
+    .user-badge-fixed.is-expanded{
+      width: auto;
+      padding: 9px 12px 9px 9px;
+      box-shadow: var(--shadow-strong);
+    }
+    .user-badge-fixed.is-expanded .avatar{
+      position: static;
+      transform: none;
+      margin-right: 5px;
+    }
+    .user-badge-fixed.is-expanded .meta{
+      opacity: 1; pointer-events: auto;
+    }
+
+    /* ===== Help badge (derecha) ===== */
+    .help-badge-fixed{
+      position: fixed; right: 18px; bottom: 16px;
+      height: var(--badge-size);
+      min-width: var(--badge-size);
+      padding: 10px 14px;
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--glass-1);
+      border: 1px solid var(--stroke);
+      border-radius: 9999px;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      text-decoration: none;
+      color: var(--ink);
+      -webkit-tap-highlight-color: transparent;
+      transition: box-shadow .2s ease, transform .15s ease;
+      z-index: 1001;
+    }
+    @media (hover:hover){
+      .help-badge-fixed:hover{
+        box-shadow: var(--shadow-strong);
+        transform: translateY(-2px);
+      }
+    }
+    .help-circle{
+      width: 36px; height: 36px; border-radius: 9999px;
+      background: linear-gradient(145deg, rgba(255,255,255,.9), rgba(255,255,255,.7));
+      border: 1px solid var(--stroke);
+      box-shadow:
+        0 10px 20px rgba(15,23,42,.12),
+        inset 0 1px 0 rgba(255,255,255,.85),
+        inset 0 -8px 18px rgba(15,23,42,.06);
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 18px; color: #1f2937;
+    }
+    .help-text{
+      font-size: 14px; font-weight: 600; color: #334155;
+      white-space: nowrap;
+    }
+
+    /* Reduce motion */
+    @media (prefers-reduced-motion: reduce){
+      .dock-tile, .dock-icon, .dock-label, .user-badge-fixed, .help-badge-fixed,
+      .notif-overlay, .notif-panel, .notif-modal-overlay, .notif-modal { transition: none !important; animation: none !important; }
+    }
+
+    /* Responsive */
+    @media (max-width: 640px){
+      .container-main{ padding-left: 14px; padding-right: 14px; }
+      .ios-dock{ gap: 14px; padding: 12px 14px; border-radius: 20px; }
+      .dock-item{ width: 68px; grid-template-rows: 54px auto; }
+      .dock-tile{ width: 54px; height: 54px; border-radius: 16px; }
+      .dock-icon{ width: 26px; height: 26px; }
+
+      :root{ --badge-size:52px; }
+      .user-badge .avatar{ width: 32px; height: 32px; }
+      .help-circle{ width: 32px; height: 32px; font-size: 16px; }
+      .help-text{ font-size: 13px; }
+    }
+
+    /* Botón de notificaciones coherente con HTML (.btn-not) */
+    .btn-not{
+      display:inline-grid; place-items:center;
+      width:40px; height:40px; border-radius:12px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0), rgba(255,255,255,.18));
+      border:1px solid var(--stroke);
+      -webkit-tap-highlight-color: transparent;
+      transition: transform .15s ease, box-shadow .2s ease, opacity .2s ease;
+    }
+    .btn-not:active{ transform: translateY(1px) scale(.99); }
+    .btn-not svg{ width:31px; height:31px; }
+
+    /* Estado activo de los chips de carrera (modal admin) */
+    .career-btn.active{ background:rgba(37,99,235,.12); border-color:rgba(37,99,235,.35); }
+
+
+    /* ====== Botón topbar (iOS-like) ====== */
+    .cw-topbtn {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:34px; height:34px; border-radius:9999px;
+      border:1px solid rgba(15, 23, 42, 0); background:#ffffff00; color:#0f172a;
+      box-shadow: 0 1px 0 rgba(255,255,255,.8) inset;
+      cursor:pointer; padding:0; margin:0 8px; transition: transform .08s ease;
+    }
+    .cw-topbtn:hover { transform: translateY(-1px); }
+    .cw-topbtn:active { transform: translateY(0); }
+    .cw-topbtn--info { /* reservado por si querés variar color en el futuro */ }
+
+    /* ====== Modal iOS-style ====== */
+    .cw-help{
+      position: fixed; inset: 0; z-index: 1000000;
+      display: none; align-items: center; justify-content: center;
+    }
+    .cw-help[aria-hidden="false"]{ display:flex; }
+    .cw-help__backdrop{
+      position:absolute; inset:0; background: rgba(2,6,23,.40);
+      backdrop-filter: blur(8px) saturate(110%);
+      -webkit-backdrop-filter: blur(8px) saturate(110%);
+    }
+    .cw-help__card{
+      position: relative; width: min(92vw, 520px);
+      background: #fff; color:#0f172a;
+      border: 1px solid rgba(15,23,42,.08);
+      border-radius: 20px;
+      box-shadow: 0 30px 70px rgba(15,23,42,.25), 0 1px 0 rgba(255,255,255,.85) inset;
+      padding: 20px 18px 18px;
+      transform-origin: 50% 40%;
+      animation: cwPop .18s ease-out;
+    }
+    @keyframes cwPop {
+      0%   { opacity: 0; transform: scale(.98) translateY(8px); }
+      100% { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .cw-help__title{
+      margin: 2px 0 10px; font-weight: 900; letter-spacing: -.01em;
+      font-size: 18px;
+    }
+    .cw-help__text{
+      margin: 0; font-size: 14px; line-height: 1.55; color:#334155;
+    }
+    .cw-help__text a{
+      color:#0f172a; font-weight: 700; text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .cw-help__close{
+      position:absolute; top: 10px; right: 10px;
+      width: 32px; height: 32px; border-radius: 9999px;
+      border:1px solid rgba(15,23,42,.12); background:#fff; color:#0f172a;
+      display:inline-flex; align-items:center; justify-content:center;
+      cursor:pointer; font-size:18px; line-height:1;
+      box-shadow: 0 1px 0 rgba(255,255,255,.8) inset;
+    }
+    .cw-help__close:hover{ filter: brightness(1.02); }
+    /* 1) Reducí el padding lateral global del topbar (opcional) */
+    .topbar { padding-inline: 8px; }              /* antes quizá eran 16–24px */
+
+    /* 2) Asegurate de que los TRES botones estén en el MISMO contenedor */
+    .topbar__actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;                   /* evita "space-between" que los separa */
+      gap: 6px;                                    /* separación compacta entre íconos */
+    }
+
+    /* 3) Eliminá márgenes propios en los botones para no sumar con el gap */
+    .cw-topbtn { margin: -10px; }                      /* nuestro botón “i” */
+    .topbar__actions > button { margin: 0; }       /* notif/salir si tenían márgenes */
+
+    /* (Opcional) un pelín más compacto aún */
+    .cw-topbtn,
+    .topbar__actions > button {
+      width: 32px; height: 32px;                   /* en lugar de 34px */
+    }
+
+</style>
+
+  <!-- Injected: Mobile-friendly baseline -->
+<style>
+  /* Baseline mobile improvements (non-breaking) */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:50; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+
+<body
+  data-user-id="<%= (user && (user._id || user.id || user.email)) || '' %>"
+  data-user-role="<%= (user && user.role) || '' %>"
+  data-section="<%= (typeof sectionKey !== 'undefined' ? sectionKey : '') %>"
+  class="bg-hatch-ios min-h-screen <%= (typeof bodyClass !== 'undefined' ? bodyClass : '') %>"
+>
+  <% if (hideTabbar) { %>
+    <div class="auth-brand">
+    <img 
+      src="https://www.dropbox.com/scl/fi/c99rsjmvveqcmz4k87zjh/clear-way.png?rlkey=pm6e7lcz5m9fozzl1mq74h61d&st=z15teun3&dl=1" 
+      alt="Clear Way" 
+      class="h-12 w-auto mx-auto"
+    />
+  </div>
+  <% } %>
+
+  <!-- Contenido -->
+  <div class="container-main <%= hideTabbar ? 'pb-0' : 'pb-40' %>">
+  <% if (!hideTabbar) { %>
+    <!-- Alto fijo para que el logo no mueva el layout -->
+      <header class="flex items-center justify-between h-20">
+        <!-- Logo -->
+        <a href="/app/materias" aria-label="Ir a Materias" class="flex items-center h-full">
+          <img
+            src="https://www.dropbox.com/scl/fi/c99rsjmvveqcmz4k87zjh/clear-way.png?rlkey=pm6e7lcz5m9fozzl1mq74h61d&st=z15teun3&dl=1"
+            alt="Clear Way"
+            class="h-full w-auto object-contain"
+          />
+        </a>
+        
+        <% if (user) { %>
+          <div style="display:flex; align-items:center; gap:8px; max-width:100%; height:auto;">
+            <!-- Botón Notificaciones -->
+            <% if (user && user.role === 'admin') { %>
+            <!-- Botón Crear Notificación (solo admin) -->
+            <button id="btnComposeNotif" class="btn-not" title="Crear notificación" aria-label="Crear notificación" type="button">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 5v14M5 12h14" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <% } %>
+
+            
+            <!-- === TOPBAR: colocar este botón entre Notificaciones y Salir === -->
+          <button id="cwHelpBtn"
+                  class="cw-topbtn cw-topbtn--info"
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-controls="cwHelpModal"
+                  title="Ayuda">
+            <!-- ícono “i” en círculo -->
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="10" fill="none" stroke="#CACDD6" stroke-width="1.6"/>
+              <path d="M12 10.5 v6" stroke="#f8c160" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="12" cy="7.5" r="1.2" fill="#f8c160"/>
+            </svg>
+
+          </button>
+
+          
+            <button id="btnNotifications" class="btn-not" title="Notificaciones" aria-label="Notificaciones" type="button">
+              <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <g id="SVGRepo_iconCarrier">
+                  <path opacity="0.5" d="M18.7491 9V9.7041C18.7491 10.5491 18.9903 11.3752 19.4422 12.0782L20.5496 13.8012C21.5612 15.3749 20.789 17.5139 19.0296 18.0116C14.4273 19.3134 9.57274 19.3134 4.97036 18.0116C3.21105 17.5139 2.43882 15.3749 3.45036 13.8012L4.5578 12.0782C5.00972 11.3752 5.25087 10.5491 5.25087 9.7041V9C5.25087 5.13401 8.27256 2 12 2C15.7274 2 18.7491 5.13401 18.7491 9Z" fill="#1C274C"></path>
+                  <path d="M7.24316 18.5454C7.8941 20.5506 9.77767 22.0002 11.9998 22.0002C14.222 22.0002 16.1055 20.5506 16.7565 18.5454C13.611 19.1357 10.3886 19.1357 7.24316 18.5454Z" fill="#1C274C"></path>
+                </g>
+              </svg>
+            </button>
+
+
+            <!-- Botón Salir -->
+            <form method="POST" action="/logout" style="display: flex; align-items: center; gap: 6px; max-width:100%; height:auto;">
+              <button class="text-sm hover:underline" type="submit">Salir</button>
+
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  style="height: 20px; transform: rotate(90deg); max-width:100%; height:auto;">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd"
+                    d="M3 14.25C3.41421 14.25 3.75 14.5858 3.75 15C3.75 16.4354 3.75159 17.4365 3.85315 18.1919C3.9518 18.9257 4.13225 19.3142 4.40901 19.591C4.68577 19.8678 5.07435 20.0482 5.80812 20.1469C6.56347 20.2484 7.56459 20.25 9 20.25H15C16.4354 20.25 17.4365 20.2484 18.1919 20.1469C18.9257 20.0482 19.3142 19.8678 19.591 19.591C19.8678 19.3142 20.0482 18.9257 20.1469 18.1919C20.2484 17.4365 20.25 16.4354 20.25 15C20.25 14.5858 20.5858 14.25 21 14.25C21.4142 14.25 21.75 14.5858 21.75 15V15.0549C21.75 16.4225 21.75 17.5248 21.6335 18.3918C21.5125 19.2919 21.2536 20.0497 20.6517 20.6516C20.0497 21.2536 19.2919 21.5125 18.3918 21.6335C17.5248 21.75 16.4225 21.75 15.0549 21.75H8.94513C7.57754 21.75 6.47522 21.75 5.60825 21.6335C4.70814 21.5125 3.95027 21.2536 3.34835 20.6517C2.74643 20.0497 2.48754 19.2919 2.36652 18.3918C2.24996 17.5248 2.24998 16.4225 2.25 15.0549C2.25 15.0366 2.25 15.0183 2.25 15C2.25 14.5858 2.58579 14.25 3 14.25Z"
+                    fill="#1C274C"></path>
+                  <path fill-rule="evenodd" clip-rule="evenodd"
+                    d="M12 2.25C12.2106 2.25 12.4114 2.33852 12.5535 2.49392L16.5535 6.86892C16.833 7.17462 16.8118 7.64902 16.5061 7.92852C16.2004 8.20802 15.726 8.18678 15.4465 7.88108L12.75 4.9318V16C12.75 16.4142 12.4142 16.75 12 16.75C11.5858 16.75 11.25 16.4142 11.25 16V4.9318L8.55353 7.88108C8.27403 8.18678 7.79963 8.20802 7.49393 7.92852C7.18823 7.64902 7.16698 7.17462 7.44648 6.86892L11.4465 2.49392C11.5886 2.33852 11.7894 2.25 12 2.25Z"
+                    fill="#F8C160"></path>
+                </g>
+              </svg>
+            </form>
+          </div>
+        <% } %>
+      </header>
+    <% } %>
+
+    <main>
+      <%- body %>
+    </main>
+  </div>
+
+  <!-- === MODAL DE AYUDA (centrado en pantalla) === -->
+<div id="cwHelpModal" class="cw-help" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="cwHelpTitle">
+  <div class="cw-help__backdrop" data-close="1"></div>
+  <div class="cw-help__card" role="document">
+    <button class="cw-help__close" type="button" aria-label="Cerrar" title="Cerrar" data-close="1">×</button>
+    <h3 id="cwHelpTitle" class="cw-help__title">Ayuda</h3>
+    <p class="cw-help__text">
+      ¿Necesitás asistencia? Escribinos a
+      <a href="mailto:cleverwave@gmail.com">claverwave@gmail.com</a>.
+      Nuestro equipo te responderá a la brevedad y te ayudará con lo que necesites.
+    </p>
+  </div>
+</div>
+
+  <!-- ===== Overlay + Panel de Notificaciones ===== -->
+  <div id="notifOverlay" class="notif-overlay"></div>
+  <aside id="notifPanel" class="notif-panel" aria-hidden="true" aria-label="Notificaciones">
+    <div class="notif-head">
+      <div class="notif-title">Notificaciones</div>
+      <button id="notifClose" class="notif-close btn-ios" aria-label="Cerrar notificaciones" type="button">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 7L17 17M17 7L7 17" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    <div id="notifList" class="notif-list"><!-- items por JS --></div>
+  </aside>
+
+  <!-- ===== Modal de Notificación ===== -->
+  <div id="notifModalOverlay" class="notif-modal-overlay" aria-hidden="true">
+    <div class="notif-modal" role="dialog" aria-modal="true" aria-labelledby="notifModalTitle">
+      <button id="notifModalClose" class="notif-modal-close" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M7 7L17 17M17 7L7 17" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <h3 id="notifModalTitle" class="notif-modal-title"></h3>
+      <p id="notifModalBody" class="notif-modal-body"></p>
+    </div>
+  </div>
+
+  <!-- ===== Modal de Composición de Notificación (solo admin) ===== -->
+  <div id="composeOverlay" class="notif-modal-overlay" aria-hidden="true">
+    <div class="notif-modal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
+      <button id="composeClose" class="notif-modal-close" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 7L17 17M17 7L7 17" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <h3 id="composeTitle" class="notif-modal-title">Nueva notificación</h3>
+      <div style="display:flex; flex-direction:column; gap:12px; max-width:100%; height:auto;">
+        <textarea id="composeText" rows="4" placeholder="Escribe tu mensaje..." style="width:100%; padding:12px; border-radius:14px; border:1px solid var(--stroke); background:rgba(255,255,255,.6); backdrop-filter: blur(10px); max-width:100%; height:auto;"></textarea>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; max-width:100%; height:auto;">
+          <button class="btn-ios career-btn" data-career="Lic. en Administración de Empresas" type="button">Lic. en Administración</button>
+          <button class="btn-ios career-btn" data-career="Contabilidad" type="button">Contabilidad</button>
+          <button class="btn-ios career-btn" data-career="Lic. en Economía" type="button">Lic. en Economía</button>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:6px; max-width:100%; height:auto;">
+          <button id="composeSend" class="btn-ios" type="button">Enviar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Dock iOS (menú principal). Oculto en login/register -->
+    <% if (user && !hideTabbar) { %>
+      <div class="ios-dock-wrap">
+        <nav class="ios-dock">
+          <!-- Materias -->
+          <a class="dock-item" href="/app/materias" data-route="/app/materias" aria-label="Materias">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.6" fill-rule="evenodd" clip-rule="evenodd" d="M3.46447 20.5355C4.92893 22 7.28595 22 12 22C16.714 22 19.0711 22 20.5355 20.5355C22 19.0711 22 16.714 22 12C22 11.3317 22 10.7107 21.9958 10.133C21.9938 9.85399 21.9928 9.71451 21.9394 9.49183C21.8861 9.26915 21.8562 9.2093 21.7964 9.08961C21.7932 9.08322 21.79 9.07686 21.7868 9.07053C21.3793 8.27084 20.7291 7.62067 19.9295 7.21321C19.518 7.00357 19.0103 6.87995 18.2229 6.81562C18.0734 6.8034 17.9161 6.79345 17.75 6.78536L16.25 6.75232V10.8076C16.25 11.3043 16.2497 11.6442 16.2351 11.8976C16.22 12.16 16.1923 12.2408 16.1854 12.2563C16.0383 12.5875 15.6753 12.7662 15.323 12.6807C15.3066 12.6767 15.2257 12.6493 15.0085 12.5012C14.7989 12.3582 14.5294 12.151 14.1358 11.848L14.0688 11.7963C13.6986 11.5109 13.4101 11.2885 13.0958 11.1519C12.3968 10.8483 11.6032 10.8483 10.9042 11.1519C10.5899 11.2885 10.3014 11.5109 9.9312 11.7963L9.86419 11.848C9.47062 12.151 9.20112 12.3582 8.99148 12.5012C8.77428 12.6493 8.69342 12.6767 8.67695 12.6807C8.32471 12.7662 7.96171 12.5875 7.81457 12.2563C7.80769 12.2408 7.78003 12.16 7.7649 11.8976C7.7503 11.6442 7.75 11.3043 7.75 10.8076V6.75232L6.25 6.78536C6.08387 6.79345 5.92663 6.8034 5.77708 6.81562C4.9897 6.87995 4.48197 7.00357 4.07054 7.21321C3.27085 7.62067 2.62068 8.27084 2.21322 9.07053C2.20999 9.07686 2.20679 9.08322 2.2036 9.0896C2.14382 9.2093 2.11393 9.26915 2.06056 9.49182C2.0072 9.7145 2.00619 9.85399 2.00417 10.133C2 10.7107 2 11.3317 2 12C2 16.714 2 19.0711 3.46447 20.5355Z" fill="#1C274D"></path> <path d="M7.75 6.75244V10.8077C7.75 11.3044 7.7503 11.6443 7.7649 11.8977C7.78003 12.1602 7.80769 12.2409 7.81457 12.2564C7.96171 12.5877 8.32471 12.7663 8.67695 12.6808C8.69342 12.6768 8.77428 12.6494 8.99148 12.5013C9.20112 12.3583 9.47062 12.1512 9.86419 11.8481L9.9312 11.7965C10.3014 11.5111 10.5899 11.2886 10.9042 11.1521C11.6032 10.8484 12.3968 10.8484 13.0958 11.1521C13.4101 11.2886 13.6986 11.5111 14.0688 11.7965L14.1358 11.8481C14.5294 12.1512 14.7989 12.3583 15.0085 12.5013C15.2257 12.6494 15.3066 12.6768 15.323 12.6808C15.6753 12.7663 16.0383 12.5877 16.1854 12.2564C16.1923 12.2409 16.22 12.1602 16.2351 11.8977C16.2497 11.6443 16.25 11.3044 16.25 10.8077V6.75244H7.75Z" fill="#1C274D"></path> <g opacity="0.4"> <path d="M20.5351 3.46447C19.0706 2 16.7136 2 11.9996 2C7.28551 2 4.92849 2 3.46402 3.46447C2.6948 4.23369 2.32962 5.24918 2.15625 6.72315L2.03715 9.60194C2.04355 9.56702 2.05126 9.53074 2.06056 9.49195C2.11393 9.26927 2.14382 9.20942 2.2036 9.08973L2.21322 9.07065C2.62068 8.27096 3.27085 7.62079 4.07054 7.21333C4.48197 7.0037 4.9897 6.88007 5.77708 6.81574C5.92663 6.80352 6.08387 6.79358 6.25 6.78548L7.75 6.75244V10.5H16.25V6.75244L17.75 6.78548C17.9161 6.79358 18.0734 6.80352 18.2229 6.81574C19.0103 6.88007 19.518 7.0037 19.9295 7.21333C20.7291 7.62079 21.3793 8.27096 21.7868 9.07065L21.7964 9.08973C21.814 9.12503 21.8291 9.15513 21.8429 9.18573V6.72315C21.6695 5.24918 21.3043 4.23369 20.5351 3.46447Z" fill="#1C274D"></path> <path d="M2.00207 10.5C2.00215 10.4812 2.00224 10.4625 2.00233 10.4437L2 10.5H2.00207Z" fill="#1C274D"></path> </g> </g></svg>
+            </div>
+            <span class="dock-label">Materias</span>
+          </a>
+
+          <!-- Autoevaluaciones -->
+
+          <a class="dock-item" href="/app/autoevaluaciones" data-route="/app/autoevaluaciones" aria-label="Autoevaluaciones">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path opacity="0.5" d="M4.72718 2.73332C5.03258 2.42535 5.46135 2.22456 6.27103 2.11478C7.10452 2.00177 8.2092 2 9.7931 2H14.2069C15.7908 2 16.8955 2.00177 17.729 2.11478C18.5387 2.22456 18.9674 2.42535 19.2728 2.73332C19.5782 3.0413 19.7773 3.47368 19.8862 4.2902C19.9982 5.13073 20 6.24474 20 7.84202L20 18H7.42598C6.34236 18 5.96352 18.0057 5.67321 18.0681C5.15982 18.1785 4.71351 18.4151 4.38811 18.7347C4.27837 18.8425 4.22351 18.8964 4.09696 19.2397C4.02435 19.4367 4 19.5687 4 19.7003V7.84202C4 6.24474 4.00176 5.13073 4.11382 4.2902C4.22268 3.47368 4.42179 3.0413 4.72718 2.73332Z" fill="#1C274D"></path>
+                  <path d="M20 18H7.42598C6.34236 18 5.96352 18.0057 5.67321 18.0681C5.15982 18.1785 4.71351 18.4151 4.38811 18.7347C4.27837 18.8425 4.22351 18.8964 4.09696 19.2397C3.97041 19.5831 3.99045 19.7288 4.03053 20.02C4.03761 20.0714 4.04522 20.1216 4.05343 20.1706C4.16271 20.8228 4.36259 21.1682 4.66916 21.4142C4.97573 21.6602 5.40616 21.8206 6.21896 21.9083C7.05566 21.9986 8.1646 22 9.75461 22H14.1854C15.7754 22 16.8844 21.9986 17.7211 21.9083C18.5339 21.8206 18.9643 21.6602 19.2709 21.4142C19.4705 21.254 19.6249 21.0517 19.7385 20.75H8C7.58579 20.75 7.25 20.4142 7.25 20C7.25 19.5858 7.58579 19.25 8 19.25H19.9754C19.9926 18.8868 19.9982 18.4741 20 18Z" fill="#1C274D"></path>
+                  <path d="M7.25 7C7.25 6.58579 7.58579 6.25 8 6.25H16C16.4142 6.25 16.75 6.58579 16.75 7C16.75 7.41421 16.4142 7.75 16 7.75H8C7.58579 7.75 7.25 7.41421 7.25 7Z" fill="#1C274D"></path>
+                  <path d="M8 9.75C7.58579 9.75 7.25 10.0858 7.25 10.5C7.25 10.9142 7.58579 11.25 8 11.25H13C13.4142 11.25 13.75 10.9142 13.75 10.5C13.75 10.0858 13.4142 9.75 13 9.75H8Z" fill="#1C274D"></path>
+                </g>
+              </svg>
+              </div>
+              <span class="dock-label">Autoeval.</span>
+            </a>
+
+          <!-- Juegos -->
+          <a class="dock-item" href="/app/juegos" data-route="/app/juegos" aria-label="Juegos">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12.75 18.968C13.1813 18.857 13.5 18.4655 13.5 17.9996V17.2733C13.5 17.1099 13.3954 16.9649 13.2404 16.9132C12.4353 16.6448 11.5647 16.6448 10.7596 16.9132C10.6046 16.9649 10.5 17.1099 10.5 17.2733V17.9996C10.5 18.4655 10.8187 18.857 11.25 18.968V22.25C11.25 22.6642 11.5858 23 12 23C12.4142 23 12.75 22.6642 12.75 22.25V18.968Z" fill="#1C274C"></path>
+                <g opacity="0.5">
+                  <path d="M10.165 4.77922L10.6669 5.13443C11.0567 5.41029 11.5225 5.55844 12 5.55844C12.4776 5.55844 12.9434 5.41029 13.3332 5.13441L13.8351 4.77922C14.5514 4.27225 15.4074 4 16.2849 4H16.8974C17.3016 4 17.7099 4.02549 18.0908 4.16059C20.4735 5.00566 22.1125 8.09503 21.994 15.1026C21.9701 16.5145 21.6397 18.075 20.3658 18.6842C19.9688 18.8741 19.5033 19 18.9733 19C18.3373 19 17.8322 18.8187 17.4424 18.5632C17.0336 18.2953 16.6737 17.9471 16.3139 17.599C15.8693 17.1688 15.4249 16.7389 14.8888 16.4609C14.3048 16.1581 13.6566 16 12.9989 16H11.0011C10.3434 16 9.69519 16.1581 9.11125 16.4609C8.57511 16.7389 8.13071 17.1688 7.68612 17.599C7.32633 17.9471 6.96641 18.2953 6.55763 18.5632C6.1678 18.8187 5.66273 19 5.02671 19C4.49667 19 4.03121 18.8741 3.63423 18.6842C2.3603 18.075 2.02992 16.5145 2.00604 15.1026C1.88749 8.09504 3.52645 5.00566 5.90915 4.16059C6.29009 4.02549 6.69838 4 7.10257 4H7.71504C8.59264 4 9.44862 4.27225 10.165 4.77922Z" fill="#1C274C"></path>
+                </g>
+                <path d="M16.75 8C17.1642 8 17.5 8.33579 17.5 8.75C17.5 9.16421 17.1642 9.5 16.75 9.5C16.3358 9.5 16 9.16421 16 8.75C16 8.33579 16.3358 8 16.75 8Z" fill="#1C274C"></path>
+                <path d="M7.5 8.25C7.91421 8.25 8.25 8.58579 8.25 9V9.75H9C9.41421 9.75 9.75 10.0858 9.75 10.5C9.75 10.9142 9.41421 11.25 9 11.25H8.25V12C8.25 12.4142 7.91421 12.75 7.5 12.75C7.08579 12.75 6.75 12.4142 6.75 12V11.25H6C5.58579 11.25 5.25 10.9142 5.25 10.5C5.25 10.0858 5.58579 9.75 6 9.75H6.75V9C6.75 8.58579 7.08579 8.25 7.5 8.25Z" fill="#1C274C"></path>
+                <path d="M19 10.25C19 10.6642 18.6642 11 18.25 11C17.8358 11 17.5 10.6642 17.5 10.25C17.5 9.83579 17.8358 9.5 18.25 9.5C18.6642 9.5 19 9.83579 19 10.25Z" fill="#1C274C"></path>
+                <path d="M15.25 11C15.6642 11 16 10.6642 16 10.25C16 9.83579 15.6642 9.5 15.25 9.5C14.8358 9.5 14.5 9.83579 14.5 10.25C14.5 10.6642 14.8358 11 15.25 11Z" fill="#1C274C"></path>
+                <path d="M17.5 11.75C17.5 11.3358 17.1642 11 16.75 11C16.3358 11 16 11.3358 16 11.75C16 12.1642 16.3358 12.5 16.75 12.5C17.1642 12.5 17.5 12.1642 17.5 11.75Z" fill="#1C274C"></path>
+              </svg>
+            </div>
+            <span class="dock-label">Juegos</span>
+          </a>
+
+          <!-- Correlativas -->
+                    <!-- Correlativas -->
+          <a class="dock-item" href="/app/correlativas" data-route="/app/correlativas" aria-label="Correlativas">
+            <div class="dock-tile">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path d="M4.97883 9.68508C2.99294 8.89073 2 8.49355 2 8C2 7.50645 2.99294 7.10927 4.97883 6.31492L7.7873 5.19153C9.77318 4.39718 10.7661 4 12 4C13.2339 4 14.2268 4.39718 16.2127 5.19153L19.0212 6.31492C21.0071 7.10927 22 7.50645 22 8C22 8.49355 21.0071 8.89073 19.0212 9.68508L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L4.97883 9.68508Z" fill="#1C274C"></path>
+                  <path fill-rule="evenodd" clip-rule="evenodd" d="M2 8C2 8.49355 2.99294 8.89073 4.97883 9.68508L7.7873 10.8085C9.77318 11.6028 10.7661 12 12 12C13.2339 12 14.2268 11.6028 16.2127 10.8085L19.0212 9.68508C21.0071 8.89073 22 8.49355 22 8C22 7.50645 21.0071 7.10927 19.0212 6.31492L16.2127 5.19153C14.2268 4.39718 13.2339 4 12 4C10.7661 4 9.77318 4.39718 7.7873 5.19153L4.97883 6.31492C2.99294 7.10927 2 7.50645 2 8Z" fill="#1C274C"></path>
+                  <path opacity="0.7" d="M5.76613 10L4.97883 10.3149C2.99294 11.1093 2 11.5065 2 12C2 12.4935 2.99294 12.8907 4.97883 13.6851L7.7873 14.8085C9.77318 15.6028 10.7661 16 12 16C13.2339 16 14.2268 15.6028 16.2127 14.8085L19.0212 13.6851C21.0071 12.8907 22 12.4935 22 12C22 11.5065 21.0071 11.1093 19.0212 10.3149L18.2339 10L16.2127 10.8085C14.2268 11.6028 13.2339 12 12 12C10.7661 12 9.77318 11.6028 7.7873 10.8085L5.76613 10Z" fill="#1C274C"></path>
+                  <path opacity="0.4" d="M5.76613 14L4.97883 14.3149C2.99294 15.1093 2 15.5065 2 16C2 16.4935 2.99294 16.8907 4.97883 17.6851L7.7873 18.8085C9.77318 19.6028 10.7661 20 12 20C13.2339 20 14.2268 19.6028 16.2127 18.8085L19.0212 17.6851C21.0071 16.8907 22 16.4935 22 16C22 15.5065 21.0071 15.1093 19.0212 14.3149L18.2339 14L16.2127 14.8085C14.2268 15.6028 13.2339 16 12 16C10.7661 16 9.77318 15.6028 7.7873 14.8085L5.76613 14Z" fill="#1C274C"></path>
+                </g>
+                </svg>
+              </div>
+              <span class="dock-label">Correl.</span>
+            </a>
+
+          <!-- Finales -->
+          <a class="dock-item" href="/app/finales" data-route="/app/finales" aria-label="Finales">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6.96006 2C7.37758 2 7.71605 2.30996 7.71605 2.69231V4.08883C8.38663 4.07692 9.13829 4.07692 9.98402 4.07692H14.016C14.8617 4.07692 15.6134 4.07692 16.284 4.08883V2.69231C16.284 2.30996 16.6224 2 17.0399 2C17.4575 2 17.7959 2.30996 17.7959 2.69231V4.15008C19.2468 4.25647 20.1992 4.51758 20.899 5.15838C21.5987 5.79917 21.8838 6.67139 22 8V9H2V8C2.11618 6.67139 2.4013 5.79917 3.10104 5.15838C3.80079 4.51758 4.75323 4.25647 6.20406 4.15008V2.69231C6.20406 2.30996 6.54253 2 6.96006 2Z" fill="#1C274C"/>
+                <path opacity="0.5" d="M22 14V12C22 11.161 21.9873 9.66527 21.9744 9H2.00586C1.99296 9.66527 2.00564 11.161 2.00564 12V14C2.00564 17.7712 2.00564 19.6569 3.17688 20.8284C4.34813 22 6.23321 22 10.0034 22H14.0023C17.7724 22 19.6575 22 20.8288 20.8284C22 19.6569 22 17.7712 22 14Z" fill="#1C274C"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M18.75 16.5C17.5074 16.5 16.5 17.5074 16.5 18.75C16.5 19.9926 17.5074 21 18.75 21C19.9926 21 21 19.9926 21 18.75C21 17.5074 19.9926 16.5 18.75 16.5ZM15 18.75C15 16.6789 16.6789 15 18.75 15C20.8211 15 22.5 16.6789 22.5 18.75C22.5 19.5143 22.2713 20.2252 21.8787 20.818L23.2803 22.2197C23.5732 22.5126 23.5732 22.9874 23.2803 23.2803C22.9874 23.5732 22.5126 23.5732 22.2197 23.2803L20.818 21.8787C20.2252 22.2713 19.5143 22.5 18.75 22.5C16.6789 22.5 15 20.8211 15 18.75Z" fill="#1C274C"/>
+              </svg>
+            </div>
+            <span class="dock-label">Finales</span>
+          </a>
+
+          <!-- Profesores -->
+          <a class="dock-item" href="/app/profesores" data-route="/app/profesores" aria-label="Profesores">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path d="M14.2172 3.49965C12.7962 2.83345 11.2037 2.83345 9.78272 3.49965L3.0916 6.63659C2.0156 7.14105 1.73507 8.56352 2.25 9.54666L2.25 14.5C2.25 14.9142 2.58579 15.25 3 15.25C3.41421 15.25 3.75 14.9142 3.75 14.5V10.672L9.78281 13.5003C11.2038 14.1665 12.7963 14.1665 14.2173 13.5003L20.9084 10.3634C22.3639 9.68105 22.3639 7.31899 20.9084 6.63664L14.2172 3.49965Z" fill="#1C274D"></path>
+                  <path opacity="0.5" d="M5 11.2581L9.78281 13.5003C11.2038 14.1665 12.7963 14.1665 14.2173 13.5003L19 11.2581V16.6252C19 17.6333 18.4965 18.577 17.6147 19.0654C16.1463 19.8786 13.796 20.9998 12 20.9998C10.204 20.9998 7.8537 19.8786 6.38533 19.0654C5.5035 18.577 5 17.6333 5 16.6252V11.2581Z" fill="#1C274D"></path>
+                </g>
+              </svg>
+              </div>
+              <span class="dock-label">Profes.</span>
+            </a>
+
+          <!-- Grupos -->
+          <a class="dock-item" href="/app/grupos" data-route="/app/grupos" aria-label="Grupos">
+            <div class="dock-tile">
+              <svg class="dock-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path d="M22 5C22 6.65685 20.6569 8 19 8C17.3431 8 16 6.65685 16 5C16 3.34315 17.3431 2 19 2C20.6569 2 22 3.34315 22 5Z" fill="#1C274C"></path>
+                  <path opacity="0.5" d="M15.612 2.03826C14.59 2 13.3988 2 12 2C7.28595 2 4.92893 2 3.46447 3.46447C2 4.92893 2 7.28595 2 12C2 16.714 2 19.0711 3.46447 20.5355C4.92893 22 7.28595 22 12 22C16.714 22 19.0711 22 20.5355 20.5355C22 19.0711 22 16.714 22 12C22 10.6012 22 9.41 21.9617 8.38802C21.1703 9.08042 20.1342 9.5 19 9.5C16.5147 9.5 14.5 7.48528 14.5 5C14.5 3.86584 14.9196 2.82967 15.612 2.03826Z" fill="#1C274C"></path>
+                  <path d="M3.46451 20.5355C4.92902 22 7.28611 22 12.0003 22C16.7145 22 19.0716 22 20.5361 20.5355C21.8931 19.1785 21.9927 17.0551 22 13H18.8402C17.935 13 17.4824 13 17.0846 13.183C16.6868 13.3659 16.3922 13.7096 15.8031 14.3968L15.1977 15.1032C14.6086 15.7904 14.314 16.1341 13.9162 16.317C13.5183 16.5 13.0658 16.5 12.1606 16.5H11.84C10.9348 16.5 10.4822 16.5 10.0844 16.317C9.68655 16.1341 9.392 15.7904 8.80291 15.1032L8.19747 14.3968C7.60837 13.7096 7.31382 13.3659 6.91599 13.183C6.51815 13 6.06555 13 5.16035 13H2C2.0073 17.0551 2.10744 19.1785 3.46451 20.5355Z" fill="#1C274C"></path>
+                </g>
+              </svg>
+            </div>
+            <span class="dock-label">Grupos</span>
+          </a>
+        </nav>
+      </div>
+
+
+
+    <script>
+      (function(){
+        const path = location.pathname.toLowerCase();
+        document.querySelectorAll('.ios-dock [data-route]').forEach(a=>{
+          const r = a.getAttribute('data-route').toLowerCase();
+          if (path.startsWith(r)) a.classList.add('active');
+        });
+      })();
+    </script>
+  <% } %>
+
+  <!-- Badge fijo abajo-izquierda (solo páginas principales) -->
+  <% if (isMainPage) {
+       const initials = (user?.name || 'U').split(' ').slice(0,2).map(s=>s && s[0]).join('').toUpperCase();
+  %>
+    <div class="user-badge user-badge-fixed" id="userBadge" role="button" tabindex="0" aria-label="Perfil">
+      <div class="avatar">
+        <% if (user?.avatarUrl) { %>
+          <img src="<%= user.avatarUrl %>" alt="Avatar" />
+        <% } else { %>
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <circle cx="12" cy="6" r="4" fill="#1C274C"></circle> <ellipse opacity="0.5" cx="12" cy="17" rx="7" ry="4" fill="#1C274C"></ellipse> </g></svg>
+        <% } %>
+      </div>
+      <div class="meta" aria-hidden="true">
+        <div class="name"><%= user?.name || 'Usuario' %></div>
+        <div class="sub">
+          <% if (user?.career && user?.plan) { %>
+            <%= (user.career.includes('Admin') ? 'Lic. en Admin.' : (user.career.includes('Econom') ? 'Lic. en Economía' : (user.career || ''))) %>
+            <%= user.plan ? (' · Plan ' + user.plan) : '' %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <!-- NUEVO: Botón/rectángulo de ayuda abajo-derecha -->
+    <a href="#help" class="help-badge-fixed" id="helpFab" aria-label="Ayuda">
+      <div class="help-circle"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12 2C6.47715 2 2 6.47715 2 12C2 12.3539 2.01839 12.7036 2.05426 13.048C2.40307 13.3523 4.367 15 6 15C7.21199 15 8.60628 14.0924 9.38725 13.5L9.39619 13.4911C9.14413 13.0518 9 12.5427 9 12C9 10.3431 10.3431 9 12 9C13.6569 9 15 10.3431 15 12C15 12.8851 14.6167 13.6807 14.007 14.2298C14.4774 14.6425 15.0911 15 15.8053 15C17.4948 15 17.4948 13 19.1842 13C20.2618 13 21.1102 13.8136 21.5835 14.4029L21.6758 14.5353C21.8874 13.7256 22 12.876 22 12C22 6.47715 17.5228 2 12 2Z" fill="#f453df"></path> 
+        <path d="M19.5272 5.41717C19.5071 5.43348 19.4876 5.45098 19.4689 5.46967L18.4689 6.46967C18.176 6.76256 18.176 7.23744 18.4689 7.53033C18.7618 7.82322 19.2367 7.82322 19.5296 7.53033L20.434 6.62594C20.162 6.19995 19.8586 5.79594 19.5272 5.41717Z" fill="#1C274C"></path> <path d="M5.41644 4.47212C5.43274 4.4922 5.45025 4.51164 5.46894 4.53033L6.46894 5.53033C6.76183 5.82322 7.23671 5.82322 7.5296 5.53033C7.82249 5.23744 7.82249 4.76256 7.5296 4.46967L6.62521 3.56528C6.19922 3.83726 5.79521 4.14062 5.41644 4.47212Z" fill="#1C274C"></path> <path d="M10.4689 4.53033C10.176 4.23744 10.176 3.76256 10.4689 3.46967C10.7618 3.17678 11.2367 3.17678 11.5296 3.46967L12.5296 4.46967C12.8225 4.76256 12.8225 5.23744 12.5296 5.53033C12.2367 5.82322 11.7618 5.82322 11.4689 5.53033L10.4689 4.53033Z" fill="#1C274C"></path> 
+        <path d="M16.5993 5.45C16.8478 5.11863 16.7806 4.64853 16.4493 4.4C16.1179 4.15147 15.6478 4.21863 15.3993 4.55L13.8993 6.55C13.6507 6.88137 13.7179 7.35147 14.0493 7.6C14.3806 7.84853 14.8507 7.78137 15.0993 7.45L16.5993 5.45Z" fill="#1C274C"></path> 
+        <path d="M8.4088 7.56014C8.51601 7.96024 8.92726 8.19768 9.32736 8.09047L10.6934 7.72444C11.0935 7.61724 11.3309 7.20599 11.2237 6.80589C11.1165 6.40579 10.7053 6.16835 10.3052 6.27556L8.93913 6.64158C8.53903 6.74879 8.30159 7.16004 8.4088 7.56014Z" fill="#1C274C"></path> <path d="M17.4646 10.354C17.484 10.7678 17.1644 11.119 16.7506 11.1384C16.3368 11.1579 15.9857 10.8382 15.9662 10.4245L15.8998 9.01181C15.8804 8.59806 16.2 8.24688 16.6138 8.22743C17.0276 8.20799 17.3787 8.52764 17.3982 8.94139L17.4646 10.354Z" fill="#1C274C"></path> <path d="M18.4361 12.0586C18.7098 12.3694 19.1837 12.3995 19.4946 12.1257L21.1727 10.6479C21.4835 10.3741 21.5136 9.90018 21.2398 9.58933C20.9661 9.27848 20.4921 9.24841 20.1813 9.52217L18.5032 11C18.1924 11.2738 18.1623 11.7477 18.4361 12.0586Z" fill="#1C274C"></path> <path d="M5.52372 8.16677C5.35231 7.78969 5.51904 7.34505 5.89613 7.17364C6.27321 7.00223 6.71785 7.16896 6.88926 7.54605L7.47449 8.83349C7.64589 9.21058 7.47916 9.65522 7.10208 9.82662C6.72499 9.99803 6.28035 9.8313 6.10895 9.45422L5.52372 8.16677Z" fill="#1C274C"></path> 
+        <path d="M6.94222 10.895C7.27648 11.1397 7.34913 11.6089 7.10449 11.9432L6.26926 13.0844C6.02463 13.4187 5.55534 13.4913 5.22109 13.2467C4.88683 13.0021 4.81418 12.5328 5.05881 12.1985L5.89405 11.0573C6.13868 10.723 6.60796 10.6504 6.94222 10.895Z" fill="#1C274C"></path> <path d="M2.8547 8.97928C2.83166 8.56571 3.14825 8.21177 3.56182 8.18873C3.97539 8.16569 4.32934 8.48228 4.35238 8.89585L4.43104 10.3079C4.45408 10.7214 4.13749 11.0754 3.72392 11.0984C3.31034 11.1215 2.9564 10.8049 2.93336 10.3913L2.8547 8.97928Z" fill="#1C274C"></path> <path d="M6.00043 15C7.21242 15 8.60671 14.0924 9.38768 13.5L9.39662 13.4911C9.91405 14.3927 10.8863 15 12.0004 15C12.7722 15 13.4759 14.7086 14.0075 14.2298C14.4779 14.6425 15.0915 15 15.8058 15C16.6505 15 17.0729 14.5 17.4952 14C17.9176 13.5 18.3399 13 19.1847 13C20.2622 13 21.1107 13.8136 21.5839 14.4029L21.6762 14.5353C21.6604 14.596 21.644 14.6564 21.627 14.7166C21.0865 14.256 20.1866 14.2717 19.4792 14.7949C18.8777 15.2397 18.5862 15.9252 18.6859 16.5211L18.5845 16.6225L18.25 16.1703C17.6343 15.3377 16.3225 15.2638 15.32 16.0052C14.3174 16.7466 14.0039 18.0225 14.6196 18.8551L14.8049 19.1056L14.6196 19.2909C14.1068 19.1294 13.4721 19.2373 12.9445 19.6275C12.1472 20.2171 12.0096 21.3207 12.4919 21.988C12.3291 21.9959 12.1652 21.9999 12.0005 21.9999C6.83158 21.9999 2.57857 18.0783 2.05469 13.048C2.4035 13.3523 4.36743 15 6.00043 15Z" fill="#e59f12"></path> 
+      </g></svg></div>
+      <div class="help-text hidden sm:block">Tutorial</div>
+    </a>
+  <% } %>
+
+  <!-- JS global -->
+  <script src="/public/js/app.js"></script>
+<!-- Activa el ítem del dock según la ruta -->
+ 
+<script>
+  (function(){
+    const path = location.pathname.toLowerCase();
+    document.querySelectorAll('.ios-dock [data-route]').forEach(a=>{
+      const r = a.getAttribute('data-route').toLowerCase();
+      if (path.startsWith(r)) a.classList.add('active');
+    });
+  })();
+</script>
+
+<!-- Expansión táctil del badge (perfil abajo-izquierda) -->
+<script>
+  (function(){
+    const badge = document.getElementById('userBadge');
+    if(!badge) return;
+    const mql = window.matchMedia('(hover: none)'); // dispositivos táctiles
+    if (mql.matches){
+      // Tap para expandir/colapsar
+      badge.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        badge.classList.toggle('is-expanded');
+      });
+      // Cerrar al tocar fuera
+      document.addEventListener('click', (e)=>{
+        if (!badge.contains(e.target)) badge.classList.remove('is-expanded');
+      });
+      // Accesibilidad teclado
+      badge.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter' || e.key === ' '){
+          e.preventDefault();
+          badge.classList.toggle('is-expanded');
+        }
+        if (e.key === 'Escape'){ badge.classList.remove('is-expanded'); }
+      });
+    }
+  })();
+</script>
+
+<!-- Notificaciones: abrir/cerrar panel + render de items -->
+<script>
+  (function(){
+    const btn = document.getElementById('btnNotifications');
+    const panel = document.getElementById('notifPanel');
+    const overlay = document.getElementById('notifOverlay');
+    const closeBtn = document.getElementById('notifClose');
+    const list = document.getElementById('notifList');
+    const role = (document.body.dataset.userRole || '').toLowerCase();
+    const isAdmin = role === 'admin';
+
+    async function loadFromServer(){
+      try{
+        const res = await fetch('/app/notifications?limit=50', { credentials: 'same-origin' });
+        const data = await res.json();
+        const items = Array.isArray(data.items) ? data.items : [];
+        render(items);
+      }catch(e){
+        console.error('No se pudo cargar notificaciones', e);
+      }
+    }
+
+    function render(items){
+      if (!list) return;
+      if (!items.length){
+        list.innerHTML = `<div class="notif-empty">No hay notificaciones</div>`;
+        return;
+      }
+      function escapeHtml(s){
+        return String(s||'')
+          .replaceAll('&','&amp;')
+          .replaceAll('<','&lt;')
+          .replaceAll('>','&gt;')
+          .replaceAll('"','&quot;')
+          .replaceAll("'",'&#039;');
+      }
+      list.innerHTML = items.map(n => {
+        const b = escapeHtml(n.body||'');
+        return `
+          <div class="notif-card" data-id="${n.id}" data-title="Notificación" data-body="${b}">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; max-width:100%; height:auto;">
+              <h4>Notificación</h4>
+              ${isAdmin ? '<button class="notif-del btn-ios" title="Eliminar" aria-label="Eliminar">✕</button>' : ''}
+            </div>
+            <p>${b}</p>
+          </div>`;
+      }).join('');
+
+      if (isAdmin){
+        const dels = Array.from(list.querySelectorAll('.notif-del'));
+        dels.forEach(delBtn=>{
+          delBtn.addEventListener('click', async (e)=>{
+            e.stopPropagation();
+            const card = delBtn.closest('.notif-card');
+            const id = card && card.dataset.id;
+            if (!id) return;
+            if (!confirm('¿Eliminar esta notificación para todos?')) return;
+            try{
+              const res = await fetch(`/app/notifications/${id}`, { method: 'DELETE', credentials: 'same-origin' });
+              const data = await res.json().catch(()=>null);
+              if (res.ok && data && data.ok){
+                card.remove();
+                if (!list.querySelector('.notif-card')){
+                  list.innerHTML = `<div class="notif-empty">No hay notificaciones</div>`;
+                }
+              } else {
+                alert((data && data.error) || 'No se pudo eliminar');
+              }
+            }catch(err){
+              alert('Error de red al eliminar');
+            }
+          });
+        });
+      }
+    }
+
+    function openPanel(){
+      overlay.classList.add('is-open');
+      panel.classList.add('is-open');
+      panel.setAttribute('aria-hidden','false');
+      loadFromServer();
+    }
+    function closePanel(){
+      overlay.classList.remove('is-open');
+      panel.classList.remove('is-open');
+      panel.setAttribute('aria-hidden','true');
+    }
+
+    window.__closeNotifPanel = closePanel;
+
+    if (btn && !btn._wired){ btn._wired = true; btn.addEventListener('click', openPanel); }
+    if (closeBtn && !closeBtn._wired){ closeBtn._wired = true; closeBtn.addEventListener('click', closePanel); }
+    if (overlay && !overlay._wired){ overlay._wired = true; overlay.addEventListener('click', closePanel); }
+  })();
+
+  // ===== Composición de notificaciones (solo admin) =====
+  
+(function(){
+  const role = (document.body.dataset.userRole || '').toLowerCase();
+  if (role !== 'admin') return;
+
+  const btnCompose = document.getElementById('btnComposeNotif');
+  const composeOverlay = document.getElementById('composeOverlay');
+  const closeBtn = document.getElementById('composeClose');
+  const sendBtn = document.getElementById('composeSend');
+  const textarea = document.getElementById('composeText');
+  const careerBtns = Array.from(document.querySelectorAll('.career-btn'));
+
+  function openCompose(){
+    if (!composeOverlay) return;
+    composeOverlay.classList.add('is-open');
+    composeOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeCompose(){
+    if (!composeOverlay) return;
+    composeOverlay.classList.remove('is-open');
+    composeOverlay.setAttribute('aria-hidden','true');
+    if (textarea) textarea.value = '';
+    careerBtns.forEach(b => b.classList.remove('active'));
+    careerBtns.forEach(b => b.setAttribute('aria-pressed','false'));
+  }
+
+  careerBtns.forEach(btn=>{
+    btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+    btn.addEventListener('click', ()=>{
+      btn.classList.toggle('active');
+      btn.setAttribute('aria-pressed', btn.classList.contains('active') ? 'true' : 'false');
+    });
+  });
+
+  async function send(){
+    if (!sendBtn) return;
+    if (sendBtn._busy) return;
+    sendBtn._busy = true;
+    sendBtn.disabled = true;
+    try{
+      const text = (textarea && textarea.value || '').trim();
+      const careers = careerBtns.filter(b => b.classList.contains('active')).map(b => b.dataset.career);
+      if (!text){ alert('Escribe un mensaje.'); return; }
+      if (!careers.length){ alert('Selecciona al menos una carrera.'); return; }
+
+      const res = await fetch('/app/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ text, careers })
+      });
+
+      let data = null;
+      try { data = await res.json(); } catch(_) { data = null; }
+
+      if (res.ok && data && data.ok){
+        closeCompose();
+        const btnNotif = document.getElementById('btnNotifications');
+        if (btnNotif) btnNotif.click();
+      } else {
+        alert((data && data.error) || ('Error ' + res.status));
+      }
+    }catch(err){
+      console.error('send() error', err);
+      alert('Error de red al enviar');
+    }finally{
+      sendBtn._busy = false;
+      sendBtn.disabled = false;
+    }
+  }
+
+  if (btnCompose) btnCompose.addEventListener('click', openCompose);
+  if (closeBtn) closeBtn.addEventListener('click', closeCompose);
+  if (composeOverlay) composeOverlay.addEventListener('click', (e)=>{ if (e.target === composeOverlay) closeCompose(); });
+  if (sendBtn) sendBtn.addEventListener('click', send);
+})();
+</script>
+
+<!-- Modal de Notificación: creación on-demand + interacción -->
+<script>
+  (function(){
+    // Crea el modal en el DOM si no existe
+    function ensureModal(){
+      let overlay = document.getElementById('notifModalOverlay');
+      if (overlay) return overlay;
+
+      overlay = document.createElement('div');
+      overlay.id = 'notifModalOverlay';
+      overlay.className = 'notif-modal-overlay';
+      overlay.setAttribute('aria-hidden','true');
+
+      const modal = document.createElement('div');
+      modal.className = 'notif-modal';
+      modal.setAttribute('role','dialog');
+      modal.setAttribute('aria-modal','true');
+      modal.setAttribute('aria-labelledby','notifModalTitle');
+
+      const btn = document.createElement('button');
+      btn.id = 'notifModalClose';
+      btn.className = 'notif-modal-close';
+      btn.setAttribute('aria-label','Cerrar');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M7 7L17 17M17 7L7 17" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+      const title = document.createElement('h3');
+      title.id = 'notifModalTitle';
+      title.className = 'notif-modal-title';
+
+      const body = document.createElement('p');
+      body.id = 'notifModalBody';
+      body.className = 'notif-modal-body';
+
+      modal.appendChild(btn);
+      modal.appendChild(title);
+      modal.appendChild(body);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      return overlay;
+    }
+
+    const list = document.getElementById('notifList');
+    if (!list) return;
+
+    let overlay, titleEl, bodyEl, closeEl;
+
+    function wireRefs(){
+      overlay = document.getElementById('notifModalOverlay');
+      titleEl = document.getElementById('notifModalTitle');
+      bodyEl  = document.getElementById('notifModalBody');
+      closeEl = document.getElementById('notifModalClose');
+
+      // Listeners de cierre (solo se agregan una vez)
+      if (!overlay.__wired){
+        overlay.__wired = true;
+
+        overlay.addEventListener('click', (e)=>{
+          if (e.target === overlay) closeModal();
+        });
+        closeEl?.addEventListener('click', closeModal);
+        window.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeModal(); });
+      }
+    }
+
+    function openModal(title, body){
+      if (!document.getElementById('notifModalOverlay')) ensureModal();
+      wireRefs();
+      titleEl.textContent = title || 'Notificación';
+      bodyEl.textContent  = body  || '';
+      overlay.classList.add('is-open');
+      document.documentElement.style.overflow = 'hidden';
+    }
+    function closeModal(){
+      overlay?.classList.remove('is-open');
+      document.documentElement.style.overflow = '';
+    }
+
+    // Delegación: abrir modal al clickear una notificación
+    list.addEventListener('click', (e)=>{
+      const card = e.target.closest('.notif-card');
+      if (!card) return;
+
+      const t = card.getAttribute('data-title') || (card.querySelector('h4')?.textContent || '').trim();
+      const b = card.getAttribute('data-body')  || (card.querySelector('p')?.textContent  || '').trim();
+
+      // Cerrar el panel lateral si está abierto
+      try { window.__closeNotifPanel && window.__closeNotifPanel(); } catch(_) {}
+
+      // Abrir modal centrado
+      openModal(t, b);
+    });
+  })();
+</script>
+
+<!-- Motor mínimo para disparar tutoriales por pantalla (reutilizable) -->
+<script>
+  (function () {
+    if (window.__fabHelpHooked) return; // evitar doble hook si el layout se incluye varias veces
+    window.__fabHelpHooked = true;
+
+    function emit(evtName) {
+      window.dispatchEvent(new CustomEvent(evtName, { bubbles: true }));
+    }
+
+    function currentScreen() {
+      // Devuelve un alias de pantalla. Ajustá si usás otras rutas.
+      var p = location.pathname;
+      if (p.indexOf('/app/materias') === 0) return 'materias';
+      if (p.indexOf('/app/profesores') === 0) return 'profesores';
+      if (p.indexOf('/app/autoevaluaciones') === 0) return 'autoevaluaciones';
+      if (p.indexOf('/app/juegos') === 0) return 'juegos';
+      if (p.indexOf('/app/correlativas') === 0) return 'correlativas';
+      if (p.indexOf('/app/finales') === 0) return 'finales';
+      if (p.indexOf('/app/grupos') === 0) return 'grupos';
+      return 'other';
+    }
+
+    var fab = document.getElementById('helpFab');
+    if (fab) {
+      fab.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var screen = currentScreen();
+        emit('open-tutorial:' + screen);
+      });
+    }
+  })();
+</script>
+
+<!-- Auto-open del tutorial la PRIMERA vez por sección -->
+<script>
+/* Auto-open de tutorial por sección, una sola vez por usuario.
+   - Usa /api/tutorial/should y /api/tutorial/mark si existen (persisten en servidor)
+   - Si no existen o fallan, usa localStorage como respaldo (solo dispositivo/navegador actual)
+*/
+(function () {
+  function currentSection () {
+    var s = document.body.getAttribute('data-section');
+    if (s) return s;
+
+    var p = (location.pathname || '').toLowerCase();
+    if (p.indexOf('/app/materias') === 0) return 'materias';
+    if (p.indexOf('/app/profesores') === 0) return 'profesores';
+    if (p.indexOf('/app/autoevaluaciones') === 0) return 'autoevaluaciones';
+    if (p.indexOf('/app/juegos') === 0) return 'juegos';
+    if (p.indexOf('/app/correlativas') === 0) return 'correlativas';
+    if (p.indexOf('/app/finales') === 0) return 'finales';
+    if (p.indexOf('/app/grupos') === 0) return 'grupos';
+    return '';
+  }
+
+  function storageKey (section) {
+    var uid = document.body.getAttribute('data-user-id') || 'anon';
+    return 'cw:tutorialSeen:' + uid + ':' + section;
+  }
+
+  async function shouldOpen (section) {
+    // 1) Intento servidor
+    try {
+      const r = await fetch('/api/tutorial/should?section=' + encodeURIComponent(section), { credentials: 'include' });
+      if (r.ok) {
+        const j = await r.json();
+        if (typeof j.show === 'boolean') return j.show;
+      }
+    } catch (_) {}
+    // 2) Fallback localStorage
+    try { return !localStorage.getItem(storageKey(section)); } catch (_) { return false; }
+  }
+
+  async function markSeen (section) {
+    // 1) Servidor
+    try {
+      const r = await fetch('/api/tutorial/mark', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ section })
+      });
+      if (r.ok) return;
+    } catch (_) {}
+    // 2) Fallback localStorage
+    try { localStorage.setItem(storageKey(section), '1'); } catch (_) {}
+  }
+
+  function openTutorial (section) {
+    window.dispatchEvent(new CustomEvent('open-tutorial:' + section, { bubbles: true }));
+  }
+
+  document.addEventListener('DOMContentLoaded', async function () {
+    const section = currentSection();
+    if (!section) return;
+
+    if (await shouldOpen(section)) {
+      openTutorial(section);
+      markSeen(section);
+    }
+  });
+})();
+</script>
+
+<!-- BRIDGE Solo Materias: dispara el tutorial EXISTENTE sin crear uno nuevo -->
+<script>
+(function () {
+  // Evita reentradas/loops
+  const FLAG = '__openingMateriasOnce';
+  const FAB_ID = 'helpFab'; // tu botón "Tutorial" existente
+
+  // Intenta invocar APIs comunes si tu tutorial expone funciones globales
+  function tryCallExistingAPIs() {
+    try {
+      if (typeof window.startMateriasTutorial === 'function') {
+        window.startMateriasTutorial(); // p.ej. si tu tutorial expone esta función
+        return true;
+      }
+    } catch (_) {}
+
+    try {
+      if (window.CW_Tutorials && window.CW_Tutorials.materias && typeof window.CW_Tutorials.materias.start === 'function') {
+        window.CW_Tutorials.materias.start(); // p.ej. CW_Tutorials.materias.start()
+        return true;
+      }
+    } catch (_) {}
+
+    return false;
+  }
+
+  // Fallback seguro: simular click en el FAB de ayuda (ese click ya abre tu tutorial existente)
+  function clickHelpFabOnce() {
+    const fab = document.getElementById(FAB_ID);
+    if (!fab) return false;
+    // Simulamos click; el click del FAB emite open-tutorial:<sección> y abre el flujo real
+    fab.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return true;
+  }
+
+  window.addEventListener('open-tutorial:materias', function onOpenMaterias() {
+    if (window[FLAG]) return;      // ya estamos abriendo; evitar loop
+    window[FLAG] = true;
+
+    // 1) Preferimos API pública de tu tutorial (si existe)
+    if (tryCallExistingAPIs()) {
+      // liberamos el flag un poco después por si el tutorial vuelve a emitir eventos
+      setTimeout(() => { window[FLAG] = false; }, 800);
+      return;
+    }
+
+    // 2) Fallback: click al FAB (abre el tutorial que ya tenés)
+    clickHelpFabOnce();
+    // Evitar bucle si el click vuelve a disparar open-tutorial:materias
+    setTimeout(() => { window[FLAG] = false; }, 800);
+  });
+})();
+</script>
+
+
+
+<script>
+  (function(){
+    const helpBtn  = document.getElementById('cwHelpBtn');
+    const modal    = document.getElementById('cwHelpModal');
+    if(!helpBtn || !modal) return;
+
+    const closeEls = modal.querySelectorAll('[data-close="1"]');
+    const card     = modal.querySelector('.cw-help__card');
+    let lastFocus  = null;
+
+    function openHelp(){
+      lastFocus = document.activeElement;
+      modal.setAttribute('aria-hidden', 'false');
+      // focus seguro en el botón cerrar
+      const closeBtn = modal.querySelector('.cw-help__close');
+      closeBtn && closeBtn.focus();
+      // prevenir scroll de fondo (opcional)
+      document.documentElement.style.overflow = 'hidden';
+    }
+    function closeHelp(){
+      modal.setAttribute('aria-hidden', 'true');
+      document.documentElement.style.overflow = '';
+      // devolver foco al botón que abrió
+      lastFocus && typeof lastFocus.focus === 'function' && lastFocus.focus();
+    }
+
+    helpBtn.addEventListener('click', openHelp);
+    closeEls.forEach(el => el.addEventListener('click', closeHelp));
+
+    // Cerrar con ESC
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape' && modal.getAttribute('aria-hidden') === 'false'){
+        closeHelp();
+      }
+    });
+
+    // Cerrar si clickea fuera de la tarjeta
+    modal.addEventListener('click', (e)=>{
+      const isBackdrop = e.target === modal || e.target.hasAttribute('data-close');
+      if(isBackdrop) closeHelp();
+    });
+
+    // Evitar que clics dentro de la card cierren
+    card && card.addEventListener('click', (e)=> e.stopPropagation());
+  })();
+</script>
+
+
+  <!-- Carga de tutorial de Profesores (solo ahí hace efecto) -->
+  <script defer src="/public/js/tutorial-profesores.js"></script>
+  
+  <!-- Verificación global de código (no afecta a admin ni pantallas de auth) -->
+  <script src="/public/js/verification.js"></script>
+
+</body>
+</html>

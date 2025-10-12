@@ -1,0 +1,1666 @@
+﻿/* Estética iOS base + nav ya existentes… (mantengo tus reglas anteriores) */
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; }
+.glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+.btn { padding: 10px 14px; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); transition: transform .05s ease; }
+.btn:active { transform: translateY(1px); }
+.tab { padding: 10px 16px; border-radius: 14px; }
+.card { border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.fixed-bottom { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 40; }
+.search { border-radius: 14px; padding: 10px 14px; background: #f2f3f5; }
+
+/* Bottom nav (icono + etiqueta) */
+.bottom-nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; border-radius:12px; min-width:56px; }
+.bottom-nav-item svg { width:22px; height:22px; }
+.bottom-nav-item span { font-size:11px; color:#111; }
+
+/* Tabs flotantes y botón subir */
+.top-tabs { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 60; }
+.top-right-controls { position: fixed; top: 12px; right: 12px; z-index: 60; }
+
+/* Sidebar derecha solo iconos — NO recorta el tooltip hacia la izquierda */
+.sidebar-floating { position: fixed; top: 90px; right: 12px; bottom: 90px; width: 74px; overflow-y: auto; overflow-x: visible; z-index: 50; padding:8px; }
+.doc-list { display:flex; flex-direction:column; gap:10px; }
+.doc-item-icon { position: relative; display:flex; align-items:center; justify-content:center; width: 100%; height: 68px; border-radius: 16px; background: white; box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+.doc-item-icon svg { width:32px; height:32px; }
+.doc-item-icon:hover { transform: translateY(-1px); }
+
+/* Tooltip GLOBAL (viñeta) para documentos */
+#docTooltip{
+  position: fixed; z-index: 9999; display: none; pointer-events: none;
+  background: white; border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:8px 10px; white-space:nowrap;
+  box-shadow:0 12px 28px rgba(0,0,0,.18); font-size:12px; color:#111;
+}
+#docTooltip::after{
+  content:""; position:absolute; right:-8px; top:50%; transform: translateY(-50%);
+  border-width:8px; border-style:solid; border-color: transparent transparent transparent white;
+  filter: drop-shadow(-1px 1px 1px rgba(0,0,0,.08));
+}
+
+/* Visor a pantalla completa detrás de todo */
+.viewer-iframe { position: fixed; inset: 0; width: 100vw; height: 100vh; border: none; z-index: 1; }
+.viewer-empty { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; color:#6b7280; z-index: 1; }
+
+/* TEXT LAYER (selección de texto) para PDF.js */
+.textLayer { position:absolute; left:0; top:0; right:0; bottom:0; overflow:hidden; pointer-events:auto; }
+.textLayer span { position:absolute; transform-origin:0 0; white-space:pre; color: transparent; }
+.textLayer span::selection { background: rgba(56,189,248,.35); }
+.textLayer .hl { background: rgba(253,224,71,.6); border-radius:4px; }
+.textLayer .hl.active { outline: 2px solid #f59e0b; }
+
+/* Responsive móvil */
+@media (max-width: 640px){
+  .tab { padding: 12px 18px; font-size: 15px; }
+  .top-tabs { top: 10px; }
+  .bottom-nav-item { padding:10px 6px; }
+  .bottom-nav-item svg { width:26px; height:26px; }
+  .bottom-nav-item span { font-size:12px; }
+  .sidebar-floating { width: 80px; padding:10px; }
+  .doc-item-icon { height: 76px; }
+  .doc-item-icon svg { width:36px; height:36px; }
+}
+/* ==== iOS TAB BAR ==== */
+.tabbar-wrap{
+  position: fixed; left: 0; right: 0;
+  bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  z-index: 80;
+}
+.tabbar{
+  margin: 0 auto; max-width: 920px;
+  display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; gap: 6px;
+  height: 68px; padding: 6px; border-radius: 26px;
+  background: rgba(255,255,255,.78); backdrop-filter: saturate(180%) blur(14px);
+  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 12px 36px rgba(0,0,0,.12);
+  position: relative;
+}
+.tabbar-item{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height: 54px; gap: 4px; border-radius: 16px; text-decoration:none;
+  color:#0f172a; -webkit-tap-highlight-color: transparent; position:relative; z-index:2;
+  transition: transform .05s ease;
+}
+.tabbar-item:active{ transform: translateY(1px); }
+.tabbar-item svg{ width: 22px; height: 22px; }
+.tabbar-item span{ font-size: 11px; }
+.tabbar-item.active{ color:#007aff; }
+.tabbar-indicator{
+  position: absolute; top: 6px; bottom: 6px; left: 6px;
+  width: calc(100%/6 - 12px);
+  background: rgba(0,122,255,.12);
+  border-radius: 16px;
+  transition: transform .28s cubic-bezier(.22,.61,.36,1), width .28s;
+  z-index: 1;
+}
+/* Responsive móvil */
+@media (max-width: 640px){
+  .tabbar{ height: 84px; padding: 8px; border-radius: 30px; }
+  .tabbar-item{ height: 64px; }
+  .tabbar-item svg{ width: 26px; height: 26px; }
+  .tabbar-item span{ font-size: 12px; }
+}
+/* === Tab bar iOS 2025 Crystal === */
+:root{
+  --ios-blue: #0A84FF;
+  --glass-alpha: .78;
+  --glass-blur: 24px;
+}
+.tabbar-wrap{
+  position: fixed; left: 0; right: 0;
+  bottom: 0; padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
+  z-index: 80;
+}
+.tabbar{
+  margin: 0 auto; max-width: 920px;
+  display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; gap: 8px;
+  height: 74px; padding: 10px; border-radius: 28px;
+  position: relative; overflow: hidden;
+  background: rgba(255,255,255,var(--glass-alpha));
+  border: 1px solid rgba(255,255,255,.35);
+  backdrop-filter: saturate(180%) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(180%) blur(var(--glass-blur));
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.18),
+    inset 0 0 0 1px rgba(255,255,255,.28);
+}
+/* reflejo suave superior */
+.tabbar.crystal::before{
+  content:""; position: absolute; inset: -20% -20% 60% -20%;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,.9) 0%, rgba(255,255,255,.35) 30%, transparent 60%);
+  mix-blend-mode: screen; pointer-events: none;
+}
+/* ruido sutil para textura cristal */
+.tabbar.crystal::after{
+  content:""; position:absolute; inset:0; pointer-events:none; opacity:.15;
+  background-image: url("data:image/svg+xml,%3Csvg width='140' height='140' viewBox='0 0 140 140' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.15'/%3E%3C/svg%3E");
+  background-size: 300px 300px;
+}
+
+/* items */
+.tabbar-item{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap: 5px; height: 56px; border-radius: 18px; text-decoration:none;
+  color:#0f172a; -webkit-tap-highlight-color: transparent; position:relative; z-index:2;
+  transition: color .18s ease, transform .06s ease;
+}
+.tabbar-item:active{ transform: translateY(1px); }
+.tabbar-item svg{ width: 22px; height: 22px; stroke: currentColor; }
+.tabbar-item span{ font-size: 11px; letter-spacing:.2px; }
+.tabbar-item.active{ color: var(--ios-blue); text-shadow: 0 0 6px rgba(10,132,255,.35); }
+.tabbar-item.active svg{ filter: drop-shadow(0 0 10px rgba(10,132,255,.25)); }
+
+/* indicador “pill” animado con glow */
+.tabbar-indicator{
+  position:absolute; top: 10px; bottom: 10px; left:10px;
+  width: calc(100%/6 - 20px);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(10,132,255,.18), rgba(10,132,255,.10)),
+    linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.2));
+  box-shadow:
+    0 8px 22px rgba(10,132,255,.25),
+    inset 0 0 0 1px rgba(255,255,255,.25);
+  transition: transform .32s cubic-bezier(.22,.61,.36,1), width .32s;
+  z-index:1;
+}
+
+/* móvil */
+@media (max-width: 640px){
+  .tabbar{ height: 92px; padding: 12px; border-radius: 32px; }
+  .tabbar-item{ height: 68px; }
+  .tabbar-item svg{ width: 26px; height: 26px; }
+  .tabbar-item span{ font-size: 12px; }
+}
+
+/* dark mode */
+@media (prefers-color-scheme: dark){
+  body{ background: linear-gradient(180deg,#0b0f14,#0f141b); color: #e5e7eb; }
+  .tabbar{
+    background: rgba(20,22,28,var(--glass-alpha));
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 18px 50px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .tabbar.crystal::before{
+    background: radial-gradient(120% 60% at 50% 0%, rgba(255,255,255,.25) 0%, rgba(255,255,255,.10) 28%, transparent 60%);
+  }
+  .tabbar-item{ color:#cbd5e1; }
+  .tabbar-item.active{ color:#63A4FF; text-shadow: 0 0 10px rgba(99,164,255,.35); }
+  .tabbar-indicator{
+    background:
+      linear-gradient(180deg, rgba(99,164,255,.18), rgba(99,164,255,.10)),
+      linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+    box-shadow: 0 10px 26px rgba(99,164,255,.30), inset 0 0 0 1px rgba(255,255,255,.10);
+  }
+}
+/* --- FIX: indicador centrado iOS 2025 --- */
+.tabbar-indicator{
+  position:absolute;
+  top:0; bottom:0; left:0;            /* anclado al borde del contenedor */
+  margin: 10px;                       /* inset uniforme (equivale a top/bottom/left=10) */
+  width: calc(100%/6 - 20px);         /* valor inicial, luego JS lo reemplaza por el ancho real del ítem */
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(10,132,255,.18), rgba(10,132,255,.10)),
+    linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.2));
+  box-shadow:
+    0 8px 22px rgba(10,132,255,.25),
+    inset 0 0 0 1px rgba(255,255,255,.25);
+  transition: transform .32s cubic-bezier(.22,.61,.36,1), width .32s;
+  z-index:1;
+  will-change: transform, width;
+}
+@media (prefers-color-scheme: dark){
+  .tabbar-indicator{
+    background:
+      linear-gradient(180deg, rgba(99,164,255,.18), rgba(99,164,255,.10)),
+      linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+    box-shadow: 0 10px 26px rgba(99,164,255,.30), inset 0 0 0 1px rgba(255,255,255,.10);
+  }
+}
+/* === OVERRIDE CENTRADO PILL === */
+.tabbar.crystal .tabbar-indicator{
+  position:absolute;
+  top:10px; bottom:10px; left:0;   /* <- anclado al borde interno */
+  margin:0;                        /* <- sin margen que desplace */
+  height:auto;
+  border-radius:18px;
+  transform: translateX(0);        /* JS seteará la X exacta */
+  will-change: transform, width;
+}
+/* ===== Auth Split iOS ===== */
+.auth-split{ position: relative; }
+.auth-line{
+  position: fixed; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(0,0,0,.06), rgba(0,0,0,.02));
+  backdrop-filter: blur(2px);
+  z-index: 0; pointer-events: none;
+}
+.auth-card{
+  width: 100%;
+  max-width: 520px;
+  border-radius: 24px;
+  background: rgba(255,255,255,.72);
+  border: 1px solid rgba(255,255,255,.5);
+  box-shadow:
+    0 18px 50px rgba(0,0,0,.12),
+    inset 0 0 0 1px rgba(255,255,255,.4);
+}
+.ios-label{ display:block; font-size: 12px; color:#64748b; margin-bottom: 6px; }
+.ios-input{
+  width:100%;
+  background: rgba(245,247,250,.9);
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  padding: 12px 14px;
+  outline: none;
+  transition: box-shadow .15s ease, background .15s ease, border-color .15s ease;
+}
+.ios-input:focus{
+  border-color: rgba(10,132,255,.45);
+  box-shadow: 0 0 0 4px rgba(10,132,255,.15);
+  background: #fff;
+}
+.ios-btn-primary{
+  background: #0A84FF; color: #fff;
+  border-radius: 16px; padding: 12px 16px;
+  box-shadow: 0 10px 24px rgba(10,132,255,.3);
+  transition: transform .05s ease, filter .2s ease;
+}
+.ios-btn-primary:active{ transform: translateY(1px); }
+.ios-link{ color:#0A84FF; text-decoration: underline; }
+
+@media (max-width: 1024px){
+  .auth-line{ display:none; }
+  .auth-card{ margin: 0 auto; }
+}
+@media (prefers-color-scheme: dark){
+  .auth-card{
+    background: rgba(22,25,31,.72);
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 20px 60px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .ios-input{
+    background: rgba(28,32,39,.85);
+    color:#e5e7eb;
+    border-color: rgba(255,255,255,.06);
+  }
+  .ios-input::placeholder{ color:#94a3b8; }
+  .ios-label{ color:#94a3b8; }
+  .ios-btn-primary{ box-shadow: 0 12px 32px rgba(10,132,255,.4); }
+}
+/* ==== Auth sin scroll (login/register) ==== */
+.auth-html, .auth-html body { height: 100vh; overflow: hidden; }
+.auth-split { height: 100vh; display: flex; align-items: center; }
+.auth-line { position: fixed; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); z-index: 0; }
+.auth-split .grid { width: 100%; }
+@media (max-width:1024px){ .auth-split{ align-items: center; } }
+/* Inputs un poco más etéreos para fondo sin tarjeta */
+.ios-input{
+  background: rgba(245,247,250,.85);
+}
+@media (prefers-color-scheme: dark){
+  .ios-input{ background: rgba(28,32,39,.82); }
+}
+/* ===== Brand fijo y centrado vertical en auth ===== */
+:root{ --brandH: 60px; }
+
+.auth-brand{
+  position: fixed; top: 0; left: 0; height: var(--brandH);
+  display: flex; align-items: center; padding: 0 18px;
+  font-weight: 600; font-size: 20px; letter-spacing:.2px; z-index: 1000;
+  color:#0f172a;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@media (prefers-color-scheme: dark){
+  .auth-brand{ color:#e5e7eb; }
+}
+
+/* El wrapper de auth ocupa la altura útil (debajo del brand) y centra contenido */
+.auth-center{
+  height: calc(100vh - var(--brandH));
+  margin-top: var(--brandH);
+  display: grid;
+  align-items: center; /* centra vertical */
+}
+
+/* Ya tenías scroll bloqueado en auth-html; mantenemos coherencia */
+.auth-html, .auth-html body { height: 100vh; overflow: hidden; }
+
+/* La línea central mantiene posición con brand fijo */
+.auth-line{ top: 0; bottom: 0; }
+
+/* Ajuste en móviles: si no hay dos columnas, igualmente queda centrado */
+@media (max-width:1024px){
+  .auth-center{ height: calc(100vh - var(--brandH)); margin-top: var(--brandH); }
+}
+/* ===== Centrados Login/Register al píxel ===== */
+.auth-center{
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid;
+  align-items: center;        /* centra verticalmente el grid */
+  transform: translateY(calc(-1 * var(--brandH, 60px) / 2)); /* compensa el brand fijo */
+}
+
+/* Evita que los headings sumen “empuje” extra arriba */
+.auth-center h1:first-child{ margin-top: 0; }
+
+/* En móvil también centrado perfecto */
+@media (max-width:1024px){
+  .auth-center{ transform: translateY(calc(-1 * var(--brandH, 60px) / 2)); }
+}
+/* ==== Toggle dentro del input (iOS) ==== */
+.ios-input-wrap{ position: relative; }
+.ios-pw-toggle{
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  background: transparent; border: 0; color: #0A84FF; font-size: 12px;
+  padding: 6px 8px; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ios-pw-toggle:focus-visible{ outline: 2px solid rgba(10,132,255,.4); outline-offset: 2px; }
+@media (prefers-color-scheme: dark){ .ios-pw-toggle{ color:#63A4FF; } }
+
+/* ==== User badge (solo páginas principales) ==== */
+.user-badge{
+  position: fixed;
+  left: 14px;
+  bottom: calc(120px + env(safe-area-inset-bottom));  /* por encima de la tab bar */
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px 10px 10px;
+  border-radius: 9999px;
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(255,255,255,.35);
+  backdrop-filter: saturate(180%) blur(16px);
+  -webkit-backdrop-filter: saturate(180%) blur(16px);
+  box-shadow: 0 14px 38px rgba(0,0,0,.16), inset 0 0 0 1px rgba(255,255,255,.25);
+  z-index: 85;
+}
+.user-badge .avatar{
+  width: 42px; height: 42px; border-radius: 9999px; overflow: hidden;
+  display: grid; place-items: center; font-weight: 700; color: #0f172a;
+  background: linear-gradient(135deg,#e0e7ff,#fef3c7);
+  border: 1px solid rgba(0,0,0,.06);
+}
+.user-badge .avatar img{ width: 100%; height: 100%; object-fit: cover; display:block; }
+.user-badge .meta{ line-height: 1.15; }
+.user-badge .name{ font-weight: 600; font-size: 14px; color:#0f172a; }
+.user-badge .sub{ font-size: 12px; color:#475569; }
+
+@media (prefers-color-scheme: dark){
+  .user-badge{
+    background: rgba(20,22,28,.78);
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 16px 44px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .user-badge .avatar{ color:#e5e7eb; background: linear-gradient(135deg,#1f2937,#0f172a); border-color: rgba(255,255,255,.06); }
+  .user-badge .name{ color:#e5e7eb; }
+  .user-badge .sub{ color:#94a3b8; }
+}
+
+/* En móvil acercamos un poco al borde inferior */
+@media (max-width: 640px){
+  .user-badge{ bottom: calc(112px + env(safe-area-inset-bottom)); }
+}
+/* === Badge dentro de la tabbar-wrap, alineado verticalmente === */
+.user-badge-inline{
+  position: absolute;                      /* relativo a .tabbar-wrap (fixed bottom) */
+  left: calc(14px + env(safe-area-inset-left));
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 90;                              /* por encima de la barra */
+}
+
+/* Ajuste en pantallas muy chicas: reducir levemente para evitar solapado */
+@media (max-width: 420px){
+  .user-badge-inline{ transform: translateY(-50%) scale(.96); transform-origin: left center; }
+}
+/* === Badge fijo, fuera de la tabbar (no altera el ancho de la barra) === */
+.user-badge-fixed{
+  position: fixed;
+  left: calc(14px + env(safe-area-inset-left));
+  top: 50%;                          /* lo ajustamos por JS al centro de la tabbar */
+  transform: translateY(-50%);
+  z-index: 90;
+}
+
+/* En pantallas muy chicas, un pelín más chico por si queda justo */
+@media (max-width: 420px){
+  .user-badge-fixed{ transform: translateY(-50%) scale(.96); transform-origin: left center; }
+}
+/* === Tamaño de la tab bar (ancho original + altura dinámica) === */
+:root{
+  --tabbar-w: 920px;         /* ancho original */
+  --tabbar-min-h: 74px;      /* mínimo por diseño */
+  --tabbar-h: var(--tabbar-min-h);
+}
+
+/* Mantener el mismo ancho de antes */
+.tabbar{
+  max-width: var(--tabbar-w) !important;
+  width: min(100% - 28px, var(--tabbar-w)) !important; /* respeta padding lateral del wrap */
+  height: var(--tabbar-h) !important;                  /* altura viene de JS, según avatar + 10px */
+}
+
+/* El “pill” interior sigue ajustándose a la altura de la barra sin recortes */
+.tabbar.crystal .tabbar-indicator{
+  top: 10px !important;
+  bottom: 10px !important;
+}
+
+/* Avatar (referencia): si alguna vez lo cambiás, la altura se recalcula sola */
+.user-badge .avatar{ width: 42px; height: 42px; }
+
+/* En móvil seguimos respetando el ancho y la altura dinámica */
+@media (max-width: 640px){
+  :root{ --tabbar-w: 100%; }
+  .tabbar{ width: calc(100% - 28px) !important; }
+}
+/* === Badge de usuario: más ALTO (sin afectar la tab bar) === */
+:root{
+  /* Diámetro del avatar y padding vertical del rectángulo */
+  --badge-avatar: 56px;     /* antes 42px; podés subir/bajar */
+  --badge-pad-v: 14px;      /* espacio arriba/abajo dentro del rectángulo */
+}
+
+.user-badge{
+  padding-top: var(--badge-pad-v) !important;
+  padding-bottom: var(--badge-pad-v) !important;
+  min-height: calc(var(--badge-avatar) + (var(--badge-pad-v) * 2)) !important;
+}
+
+.user-badge .avatar{
+  width: var(--badge-avatar) !important;
+  height: var(--badge-avatar) !important;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+/* Tipografía un pelín más grande para equilibrar la nueva altura */
+.user-badge .name{ font-size: 15px !important; }
+.user-badge .sub { font-size: 12.5px !important; }
+
+/* Móvil: un ajuste leve para que no tape nada */
+@media (max-width: 420px){
+  :root{
+    --badge-avatar: 52px;
+    --badge-pad-v: 12px;
+  }
+}
+/* ===== Fijar ALTURA de la tab bar a la original (no depende del avatar) ===== */
+.tabbar{ height: 74px !important; }
+
+/* ===== Badge del usuario a la MITAD de tamaño ===== */
+/* Avatar y padding vertical 50% de lo anterior (56px→28px, 14px→7px) */
+:root{
+  --badge-avatar: 28px;
+  --badge-pad-v: 7px;
+}
+.user-badge{
+  padding-top: var(--badge-pad-v) !important;
+  padding-bottom: var(--badge-pad-v) !important;
+  min-height: calc(var(--badge-avatar) + (var(--badge-pad-v) * 2)) !important;
+}
+.user-badge .avatar{
+  width: var(--badge-avatar) !important;
+  height: var(--badge-avatar) !important;
+}
+
+/* Tipografía ligeramente menor para acompañar la reducción */
+.user-badge .name{ font-size: 13px !important; line-height: 1.15; }
+.user-badge .sub { font-size: 11px !important; line-height: 1.15; }
+
+/* (Opcional) si lo ves demasiado chico en móviles, subo un pelín */
+@media (max-width: 420px){
+  :root{
+    --badge-avatar: 30px;
+    --badge-pad-v: 8px;
+  }
+}
+/* === Ajustes del badge: +25% tamaño y +15px hacia abajo === */
+:root{
+  --badge-offset-y: 15px;   /* desplazar 15px hacia abajo */
+  --badge-avatar: 35px;     /* antes 28px → +25% */
+  --badge-pad-v: 9px;       /* antes 7px  → +25% (redondeado) */
+}
+
+/* Tamaño del rectángulo (más alto) */
+.user-badge{
+  padding-top: var(--badge-pad-v) !important;
+  padding-bottom: var(--badge-pad-v) !important;
+  min-height: calc(var(--badge-avatar) + (var(--badge-pad-v) * 2)) !important;
+}
+.user-badge .avatar{
+  width: var(--badge-avatar) !important;
+  height: var(--badge-avatar) !important;
+}
+
+/* Tipografías un poco mayores para acompañar el +25% */
+.user-badge .name{ font-size: 16px !important; line-height: 1.15; }
+.user-badge .sub { font-size: 13px !important; line-height: 1.15; }
+
+/* Desplazar 15px por debajo del centro de la tabbar */
+.user-badge-fixed{
+  transform: translateY(calc(-50% + var(--badge-offset-y))) !important;
+}
+
+/* Móvil: mantener el mismo comportamiento y leve escala si ya la tenías */
+@media (max-width: 420px){
+  /* (Opcional) podés ajustar aquí si lo querés un toque más chico en pantallas muy pequeñas */
+  .user-badge-fixed{
+    transform: translateY(calc(-50% + var(--badge-offset-y))) scale(.96) !important;
+    transform-origin: left center;
+  }
+}
+/* === Badge 7px más arriba (mantiene tu tamaño actual) === */
+:root{ --badge-offset-y: -7px; }
+.user-badge-fixed{ transform: translateY(calc(-50% + var(--badge-offset-y))) !important; }
+
+/* === Sheet iOS cristal para cambiar foto === */
+.ps-backdrop{
+  position: fixed; inset: 0; display: none;
+  background: rgba(15,23,42,.35); backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
+  z-index: 130;
+}
+.profile-sheet{
+  position: fixed; left: calc(14px + env(safe-area-inset-left));
+  bottom: calc(120px + env(safe-area-inset-bottom));
+  width: 340px; max-width: 92vw;
+  display: none; z-index: 140;
+  border-radius: 20px;
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(255,255,255,.35);
+  backdrop-filter: saturate(180%) blur(18px); -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: 0 18px 50px rgba(0,0,0,.2), inset 0 0 0 1px rgba(255,255,255,.25);
+  padding: 14px;
+}
+.profile-sheet .sheet-title{ font-weight:600; margin-bottom:8px; }
+.profile-sheet .sheet-row{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.profile-sheet .preview{
+  width:72px; height:72px; border-radius:9999px; overflow:hidden;
+  border:1px solid rgba(0,0,0,.06); background:#f1f5f9; display:grid; place-items:center; font-weight:700;
+}
+.profile-sheet .preview img{ width:100%; height:100%; object-fit:cover; display:block; }
+.profile-sheet input[type="file"]{ width:100%; font-size:13px; }
+.profile-sheet .actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:8px; }
+.profile-sheet .btn{ padding:10px 14px; border-radius:12px; border:1px solid rgba(0,0,0,.08); background:#fff; cursor:pointer; }
+.profile-sheet .btn.primary{ background:#0A84FF; color:#fff; border-color:transparent; box-shadow:0 10px 24px rgba(10,132,255,.25); }
+@media (prefers-color-scheme: dark){
+  .profile-sheet{ background: rgba(20,22,28,.78); border-color: rgba(255,255,255,.08); box-shadow: 0 20px 60px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.06); }
+  .profile-sheet .btn{ background:#141821; color:#e5e7eb; border-color: rgba(255,255,255,.08); }
+  .profile-sheet .btn.primary{ background:#63A4FF; color:#0b1020; }
+}
+/* ===== Ajuste fino del badge: 3.5px hacia ABAJO desde la posición actual ===== */
+:root{ --badge-offset-y: -3.5px; }  /* (antes -7px) */
+
+/* ===== Menú principal “Dock iOS” idéntico a la imagen ===== */
+.tabbar-wrap{ padding: 12px 14px calc(12px + env(safe-area-inset-bottom)); z-index: 80; }
+.tabbar.dock{
+  /* contenedor blanco con esquinas muy redondeadas y sombra suave */
+  margin: 0 auto; max-width: 920px; width: min(100% - 28px, 920px);
+  background: #ffffff;
+  border-radius: 28px;
+  border: 1px solid rgba(0,0,0,.04);
+  box-shadow: 0 16px 36px rgba(0,0,0,.10);
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.dock-item{
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  text-decoration: none; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.dock-item .appicon{
+  --icon: 72px;           /* tamaño de los cuadrados de la imagen */
+  width: var(--icon); height: var(--icon);
+  border-radius: 22px;
+  box-shadow: 0 8px 16px rgba(0,0,0,.10);
+  display: grid; place-items: center;
+  position: relative; overflow: hidden;
+}
+/* brillo suave interior como en iOS */
+.dock-item .appicon::after{
+  content:""; position:absolute; inset:0;
+  background: radial-gradient(150% 100% at 50% 10%, rgba(255,255,255,.55), rgba(255,255,255,0) 50%);
+  pointer-events: none;
+}
+
+/* Texto debajo del icono (similar a tu captura) */
+.dock-item .label{
+  margin-top: 10px;
+  font-size: 16px; line-height: 1.2; color:#111827;
+}
+
+/* Estado activo/hover: leve “lift” */
+.dock-item:hover .appicon,
+.dock-item.active .appicon{ transform: translateY(-2px); box-shadow: 0 12px 22px rgba(0,0,0,.14); }
+
+/* Iconos SVG rellenos, tamaño grande */
+.dock-item svg{ width: 42px; height: 42px; }
+
+/* === Gradientes por cada ítem (colores aproximados a tu imagen) === */
+.appicon.materias{
+  background: radial-gradient(120% 120% at 30% 20%, #9F80FF 0%, #7C5CFF 45%, #6B4DDF 100%);
+}
+.appicon.autoeval{
+  background: radial-gradient(120% 120% at 30% 20%, #D9E7FF 0%, #BFD5FF 45%, #A9C7FF 100%);
+}
+.appicon.juegos{
+  background: radial-gradient(120% 120% at 30% 20%, #99C6FF 0%, #7DB5FF 45%, #6FA8FF 100%);
+}
+.appicon.correl{
+  background: radial-gradient(120% 120% at 30% 20%, #C4B3FF 0%, #A892FF 45%, #8C77F1 100%);
+}
+.appicon.finales{
+  background: radial-gradient(120% 120% at 30% 20%, #CFE3FF 0%, #B6D3FF 45%, #9EC3FF 100%);
+}
+.appicon.profes{
+  background: radial-gradient(120% 120% at 30% 20%, #FFD7E8 0%, #FFC1DA 45%, #FFACCC 100%);
+}
+
+/* Colores internos de cada SVG (aprox. imagen) */
+.ai-clip{ fill: #4F46E5; }           /* tildes / detalles */
+.ai-book{ fill: #5B4AE8; }
+.ai-pad { fill: #6B7280; }
+.ai-dot1{ fill: #6F3BFF; } .ai-dot2{ fill: #6EC1FF; } .ai-dot3{ fill: #FF7EB3; }
+.ai-cal { fill: #5B84FF; } .ai-cal2{ fill: #BFD3FF; }
+.ai-head{ fill: #FF71AA; } .ai-body{ fill: #6EA3FF; }
+
+/* Responsive: iconos levemente más chicos en móvil */
+@media (max-width: 640px){
+  .tabbar.dock{ padding: 14px 16px; gap: 14px; border-radius: 24px; }
+  .dock-item .appicon{ --icon: 60px; border-radius: 20px; }
+  .dock-item svg{ width: 36px; height: 36px; }
+  .dock-item .label{ font-size: 14px; }
+}
+/* =======================
+   DOCK iOS — FIT + ICONOS GRANDES
+   (Ajustes finales para que siempre entren los 6, con SVG grandes)
+   ======================= */
+
+:root{
+  --dock-w: 920px;       /* ancho máx del contenedor (igual que antes) */
+  --dock-gap: 18px;      /* separación entre botones */
+  --icon-min: 44px;      /* tamaño mínimo del cuadrado */
+  --icon-max: 72px;      /* tamaño máximo del cuadrado (desktop) */
+  --label-min: 12px;     /* tipografía mínima etiqueta */
+  --label-max: 16px;     /* tipografía máxima etiqueta */
+}
+
+/* Contenedor blanco del dock */
+.tabbar.dock{
+  max-width: var(--dock-w);
+  width: min(100% - 28px, var(--dock-w));
+  border-radius: 28px;
+  padding: 16px 18px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  align-items: center;
+  gap: var(--dock-gap);
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.04);
+  box-shadow: 0 16px 36px rgba(0,0,0,.10);
+  transform: translateZ(0);
+}
+.tabbar.dock .tabbar-indicator{ display:none !important; } /* por si quedó del estilo anterior */
+
+/* Item del dock */
+.dock-item{
+  min-width: 0; /* permite que la etiqueta haga elipsis */
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start;
+  text-decoration:none; user-select:none; -webkit-tap-highlight-color:transparent;
+}
+
+/* Cuadrado con gradiente (icono apalancado aquí) */
+.dock-item .appicon{
+  --icon: clamp(var(--icon-min), 10.8vw, var(--icon-max));  /* 👈 se adapta a ancho pantalla */
+  width: var(--icon); height: var(--icon);
+  border-radius: 22px;
+  display:grid; place-items:center;
+  overflow:hidden; position:relative;
+  box-shadow: 0 8px 16px rgba(0,0,0,.10);
+  will-change: transform;
+}
+.dock-item .appicon::after{
+  content:""; position:absolute; inset:0;
+  background: radial-gradient(150% 100% at 50% 8%, rgba(255,255,255,.55), rgba(255,255,255,0) 55%);
+  pointer-events:none;
+}
+
+/* SVG GRANDE dentro del cuadrado (siempre ~70% del lado) */
+.dock-item svg{
+  width: 70%; height: 70%;
+  display:block;
+}
+
+/* Etiqueta debajo – se adapta y evita saltos de línea largos */
+.dock-item .label{
+  margin-top: 10px;
+  font-size: clamp(var(--label-min), 2.6vw, var(--label-max));
+  line-height: 1.15;
+  color:#111827;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+  letter-spacing: -0.2px;        /* compensa palabras largas como “Autoevaluaciones” */
+}
+
+/* Hover/activo – leve lift y realce */
+.dock-item:hover .appicon,
+.dock-item.active .appicon{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(0,0,0,.14);
+  outline: 2px solid rgba(10,132,255,.18);
+  outline-offset: 2px;
+}
+
+/* Colores internos ya definidos por clases (ai-*) – mantenemos */
+
+/* ===== Responsive fino ===== */
+@media (max-width: 640px){
+  :root{
+    --dock-gap: 14px;
+    --icon-min: 40px;      /* un poco más chico para asegurar que entren los 6 */
+    --label-min: 11px;
+  }
+  .tabbar.dock{
+    padding: 14px 16px; border-radius: 24px;
+  }
+  .dock-item .appicon{ border-radius: 20px; }
+}
+
+@media (max-width: 380px){
+  :root{
+    --icon-min: 38px;      /* extremo chico (teléfonos compactos) */
+    --label-min: 10.5px;   /* mantiene la palabra completa con elipsis si hace falta */
+  }
+}
+/* ==== DOCK: altura suficiente para que los iconos no se corten ==== */
+:root{
+  --dock-w: 920px;
+  --dock-gap: 18px;
+  --dock-padV: 20px;                /* ↑ padding vertical extra */
+  --icon-min: 44px;
+  --icon-max: 72px;
+  --label-min: 12px;
+  --label-max: 16px;
+}
+
+.tabbar.dock{
+  max-width: var(--dock-w);
+  width: min(100% - 28px, var(--dock-w));
+  border-radius: 28px;
+  padding: var(--dock-padV) 18px;    /* ↑ más altura interna */
+  min-height: calc(var(--dock-padV)*2 + clamp(var(--icon-min), 10.8vw, var(--icon-max)));
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0,1fr));
+  gap: var(--dock-gap);
+  align-items: center;
+  background: #fff;
+  border: 1px solid rgba(0,0,0,.04);
+  box-shadow: 0 16px 36px rgba(0,0,0,.10);
+  overflow: visible;                 /* ← no recortar sombras */
+}
+
+/* Ítem y cuadrado */
+.dock-item{ position: relative; min-width:0; display:flex; flex-direction:column; align-items:center; }
+.dock-item .appicon{
+  --icon: clamp(var(--icon-min), 10.8vw, var(--icon-max));
+  width: var(--icon); height: var(--icon);
+  border-radius: 22px; display:grid; place-items:center; overflow:hidden; position:relative;
+  box-shadow: 0 8px 16px rgba(0,0,0,.10);
+}
+.dock-item .appicon::after{
+  content:""; position:absolute; inset:0;
+  background: radial-gradient(150% 100% at 50% 8%, rgba(255,255,255,.55), rgba(255,255,255,0) 55%);
+  pointer-events:none;
+}
+.dock-item svg{ width:70%; height:70%; display:block; }
+
+/* Quitamos las etiquetas visibles bajo los iconos (si quedara alguna) */
+.dock-item .label{ display:none !important; }
+
+/* Hover “lift” suave */
+.dock-item:hover .appicon,
+.dock-item.active .appicon{
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px rgba(0,0,0,.14);
+}
+
+/* ===== Tooltip iOS (blanco, redondeado) ===== */
+.dock-item::after{
+  content: attr(data-label);
+  position: absolute;
+  left: 50%; bottom: calc(100% + 10px);
+  transform: translateX(-50%) translateY(4px) scale(.98);
+  background: #fff; color:#111827;
+  padding: 8px 10px;
+  font-size: 12px; line-height:1; white-space: nowrap;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12), inset 0 0 0 1px rgba(255,255,255,.6);
+  opacity: 0; pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+  z-index: 5;
+}
+.dock-item::before{
+  content:""; position:absolute; left:50%; bottom: 100%;
+  width:10px; height:10px; transform: translateX(-50%) translateY(5px) rotate(45deg);
+  background: #fff; border-left:1px solid rgba(0,0,0,.06); border-top:1px solid rgba(0,0,0,.06);
+  opacity:0; transition: opacity .16s ease, transform .16s ease; z-index:4;
+}
+.dock-item:hover::after,
+.dock-item:focus-visible::after,
+.dock-item:hover::before,
+.dock-item:focus-visible::before{
+  opacity: 1; transform: translateX(-50%) translateY(0) scale(1);
+}
+
+/* Responsive: un poco menos alto y gap menor en móvil */
+@media (max-width: 640px){
+  :root{
+    --dock-gap: 14px;
+    --dock-padV: 16px;
+    --icon-min: 40px;
+    --label-min: 11px;
+  }
+  .tabbar.dock{ border-radius: 24px; }
+  .dock-item .appicon{ border-radius: 20px; }
+}
+
+/* Caso extremo (teléfonos muy angostos) */
+@media (max-width: 380px){
+  :root{ --icon-min: 38px; --dock-padV: 14px; }
+}
+/* ===========================
+   DOCK iOS — MODO COMPACT (≈50%)
+   =========================== */
+
+/* 1) Variables reducidas a la mitad */
+:root{
+  --dock-padV: 10px !important;     /* antes 20px */
+  --dock-gap: 10px !important;      /* antes 18px */
+  --icon-min: 22px !important;      /* antes 44px */
+  --icon-max: 36px !important;      /* antes 72px */
+}
+
+/* 2) Contenedor del dock más bajo y con menos padding */
+.tabbar-wrap{
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) !important;
+}
+.tabbar.dock{
+  padding: var(--dock-padV) 12px !important;
+  gap: var(--dock-gap) !important;
+  border-radius: 22px !important;
+  min-height: calc(var(--dock-padV)*2 + clamp(var(--icon-min), 10.8vw, var(--icon-max))) !important;
+  overflow: visible !important; /* evita recortes de sombras */
+}
+
+/* 3) Botones cuadrados más chicos + menos margen visual */
+.dock-item .appicon{
+  border-radius: 16px !important;
+  box-shadow: 0 6px 12px rgba(0,0,0,.10) !important;
+}
+.dock-item svg{
+  width: 68% !important;
+  height: 68% !important;
+}
+
+/* 4) Tooltip acorde al tamaño compacto */
+.dock-item::after{
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+  bottom: calc(100% + 8px) !important;
+  border-radius: 8px !important;
+}
+.dock-item::before{
+  width: 8px !important;
+  height: 8px !important;
+  transform: translateX(-50%) translateY(4px) rotate(45deg) !important;
+}
+
+/* 5) Opcional: en teléfonos ultra angostos mantenemos legibilidad mínima */
+@media (max-width: 380px){
+  :root{
+    --icon-min: 24px !important;
+    --dock-padV: 9px !important;
+    --dock-gap: 8px !important;
+  }
+}
+/* ==== Dock estilo Apple: más CORTO en horizontal + botones más GRANDES
+   (sin cambiar la altura del rectángulo) ==== */
+
+/* ancho del dock (acortado). Podés ajustar 640–760 según gusto */
+:root{
+  --dock-w: 700px !important;       /* antes 920px */
+  --dock-gap: 8px !important;       /* menos distancia entre botones */
+  --icon-zoom: 1.28 !important;     /* ↑ agranda el botón sin cambiar la altura del dock */
+}
+
+/* dock más corto centrado */
+.tabbar.dock{
+  width: min(100% - 28px, var(--dock-w)) !important;
+  gap: var(--dock-gap) !important;
+  /* NO tocamos padding ni min-height: así la altura del rectángulo queda igual */
+}
+
+/* Botón cuadrado: lo hacemos visualmente más grande con scale, sin alterar el alto del dock */
+.dock-item .appicon{
+  transform: translateY(var(--lift,0)) scale(var(--icon-zoom)) !important;
+  transform-origin: center bottom !important; /* crece “hacia adentro” y no se corta */
+  will-change: transform;
+}
+
+/* Hover/activo: mismo lift, compatible con el scale */
+.dock-item:hover .appicon,
+.dock-item.active .appicon{
+  --lift: -2px;
+  box-shadow: 0 12px 22px rgba(0,0,0,.14);
+}
+
+/* Tooltips siguen OK; sin cambios */
+
+/* En móvil: un pelín menos de zoom para que no sobresalga demasiado */
+@media (max-width: 640px){
+  :root{ --icon-zoom: 1.18 !important; --dock-w: 92vw !important; }
+}
+/* ===== Dock: rectangulares + labels debajo + menos separación ===== */
+
+/* menos distancia horizontal entre botones */
+:root{ --dock-gap: 6px !important; }
+
+/* contenedor: respetamos alto actual; solo aplicamos gap menor */
+.tabbar.dock{ gap: var(--dock-gap) !important; overflow: visible !important; }
+
+/* BOTÓN RECTANGULAR (antes cuadrado):
+   - mantenemos la ALTURA (var(--icon))
+   - ensanchamos a 1.35x para hacerlo rectangular
+   - bordes menos redondeados */
+.dock-item .appicon{
+  --icon: clamp(var(--icon-min), 10.8vw, var(--icon-max));
+  height: var(--icon) !important;
+  width: calc(var(--icon) * 1.35) !important;   /* ← rectangular */
+  border-radius: 12px !important;               /* ← menos redondeado */
+  transform: none !important;                   /* anulamos escalados previos */
+  transform-origin: center bottom !important;
+}
+
+/* SVG interno más grande SIN cambiar el tamaño del botón */
+.dock-item svg{
+  width: 84% !important;
+  height: 84% !important;
+}
+
+/* hover/activo: mismo “lift” sin escalar el botón */
+.dock-item:hover .appicon,
+.dock-item.active .appicon{
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 22px rgba(0,0,0,.14);
+}
+
+/* mostrar etiquetas debajo del botón */
+.dock-item .label{
+  display: block !important;
+  margin-top: 6px !important;
+  font-size: clamp(12px, 2.2vw, 14px) !important;
+  line-height: 1.15 !important;
+  color:#111827 !important;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* desactivar tooltips por hover (para no duplicar el nombre) */
+.dock-item::after, .dock-item::before{ display:none !important; content:none !important; }
+
+/* móvil: un poco menos ancho para evitar solapes extremos */
+@media (max-width: 640px){
+  .dock-item .appicon{
+    width: calc(var(--icon) * 1.25) !important;
+    border-radius: 10px !important;
+  }
+}
+/* ===== Menú iOS (glass) ===== */
+:root{
+  --violet:#7C3AED; --blue:#2563EB; --sky:#38BDF8; --pink:#EC4899;
+}
+html, body{ height:100%; }
+body{ font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+
+/* Barra fija inferior, centrada */
+.tabbar-wrap{
+  position: fixed; left: 0; right: 0; bottom: 0;
+  display: flex; justify-content: center;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  z-index: 80;
+}
+
+/* Contenedor “glass” */
+.fn-glass{
+  background: rgba(255,255,255,.78);
+  box-shadow: 0 10px 25px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+
+/* Tarjeta botón */
+.fn-tile{ transition: transform .15s ease, box-shadow .15s ease; }
+.fn-tile:hover{ transform: translateY(-2px); box-shadow: 0 8px 18px rgba(31,41,55,.10); }
+
+/* Icono y label */
+.fn-icon svg{ width:36px; height:36px; display:block; }
+.fn-ios-shadow{ filter: drop-shadow(0 4px 6px rgba(31,41,55,.10)); }
+.fn-label{ color:#0f172a; }
+
+/* Lista compacta y que encaje en todos los anchos */
+.fn-menu{ display:flex; align-items:stretch; justify-content:space-between; gap:12px; }
+@media (min-width: 768px){ .fn-menu{ gap:20px; } }
+/* ======== RESTORE BADGE (misma posición y tamaño de antes) ======== */
+:root{
+  --badge-avatar: 35px;    /* como antes (+25% sobre 28) */
+  --badge-pad-v: 9px;      /* como antes */
+  --badge-offset-y: -7px;  /* 7px hacia ARRIBA respecto al centro del menú */
+}
+.user-badge{
+  padding-top: var(--badge-pad-v) !important;
+  padding-bottom: var(--badge-pad-v) !important;
+  min-height: calc(var(--badge-avatar) + (var(--badge-pad-v)*2)) !important;
+}
+.user-badge .avatar{
+  width: var(--badge-avatar) !important;
+  height: var(--badge-avatar) !important;
+}
+.user-badge-fixed{
+  position: fixed !important;
+  left: calc(14px + env(safe-area-inset-left)) !important;
+  transform: translateY(calc(-50% + var(--badge-offset-y))) !important;
+  z-index:  ninety; /* alias para 90 en algunos minificadores, pero dejamos también el num: */
+  z-index: 90 !important;
+}
+/* === Perfil 5px más abajo respecto al centro del menú === */
+:root{ --badge-offset-y: 5px !important; }
+.user-badge-fixed{ transform: translateY(calc(-50% + var(--badge-offset-y))) !important; }
+/* ====== Correlativas: layout iOS ====== */
+/* Bloquear scroll de la página (solo scroll interno del sinóptico) */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow: hidden !important; }
+
+.page-correlativas main{ position: relative; }
+
+/* Viewport fijo centrado para el cuadro sinóptico (solo vertical) */
+.synoptic-viewport{
+  position: fixed; left: 0; right: 0;
+  top: 80px;                      /* se recalibra por JS según header */
+  bottom: 120px;                  /* se recalibra por JS según menú */
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;            /* solo desplazar vertical */
+}
+.synoptic-viewport > *{
+  margin-left: auto; margin-right: auto;  /* centra el gráfico */
+  max-width: 1400px;                      /* ancho tope visual */
+}
+
+/* Panel flotante (frente a todo, sin ocupar espacio) */
+.correl-controls{
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: 74px;                          /* se recalibra por JS */
+  z-index: 130;
+  display: inline-flex; gap: 6px;
+  padding: 8px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 10px 25px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.55);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.seg-btn{
+  border: 1px solid transparent;
+  background: transparent;
+  color:#0f172a; font-size: 13px; font-weight: 500;
+  padding: 8px 12px; border-radius: 12px; cursor: pointer;
+}
+.seg-btn.active{
+  color:#fff;
+  background: linear-gradient(135deg,#7C3AED,#2563EB,#38BDF8,#EC4899);
+  box-shadow: 0 8px 18px rgba(31,41,55,.12);
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark){
+  .correl-controls{
+    background: rgba(20,22,28,.78);
+    border-color: rgba(255,255,255,.08);
+    box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .seg-btn{ color:#e5e7eb; }
+}
+/* ===== Correlativas: panel iOS flotante con slider ===== */
+.correl-controls{
+  position: fixed; left: 50%; transform: translateX(-50%);
+  top: 74px; z-index: 130;
+}
+.correl-seg{
+  position: relative; display: grid; grid-auto-flow: column; gap: 6px;
+  padding: 6px; border-radius: 16px;
+  background: rgba(255,255,255,.78);
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 10px 25px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.55);
+  backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.correl-seg .seg-knob{
+  position: absolute; top: 6px; bottom: 6px; left: 6px; width: 120px;
+  border-radius: 12px; background: #fff;
+  box-shadow: 0 8px 18px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.6);
+  transition: left .22s cubic-bezier(.2,.7,.25,1), width .22s cubic-bezier(.2,.7,.25,1);
+  pointer-events: none;
+}
+.seg-btn{
+  position: relative; z-index: 1;
+  border: 0; background: transparent; cursor: pointer;
+  color:#0f172a; font-weight: 600; font-size: 13px;
+  padding: 8px 14px; border-radius: 10px; user-select: none; -webkit-tap-highlight-color: transparent;
+}
+.seg-btn.active{ color:#111827; }
+
+/* Modo oscuro */
+@media (prefers-color-scheme: dark){
+  .correl-seg{ background: rgba(20,22,28,.78); border-color: rgba(255,255,255,.08);
+               box-shadow: 0 18px 50px rgba(0,0,0,.5), inset 0 0 0 1px rgba(255,255,255,.06); }
+  .correl-seg .seg-knob{ background:#0f1220; box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.04); }
+  .seg-btn{ color:#e5e7eb; }
+}
+
+/* ===== Viewport del cuadro sinóptico (solo él tiene scroll) ===== */
+.synoptic-viewport{
+  position: fixed; left: 0; right: 0;
+  top: 80px; bottom: 120px;
+  overflow-y: auto; overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  display: grid; place-items: center; /* centra el recuadro */
+}
+.synoptic-frame{
+  width: min(1400px, 92vw); height: min(1800px, 82vh);
+  border-radius: 20px; padding: 20px;
+  /* patrón sutil tipo “papel punteado” */
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff);
+  box-shadow: 0 24px 60px rgba(0,0,0,.10), inset 0 1px rgba(255,255,255,.6);
+  position: relative; overflow: auto; /* si el grafo es muy grande */
+}
+
+/* Ocultar cualquier control previo (no ocupa espacio) */
+.page-correlativas [data-filter="filtro"],
+.page-correlativas [data-filter="correlativas"],
+.page-correlativas [data-filter="no-correlativas"],
+.page-correlativas .btn-filtro,
+.page-correlativas .btn-correlativas,
+.page-correlativas .btn-no-correlativas,
+.page-correlativas .correl-legacy,
+.page-correlativas #correlControlsOld{ display:none !important; }
+
+/* Bloquear scroll de página (ya lo tenías, lo reforzamos) */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow: hidden !important; }
+/* ======== CORRELATIVAS — PANTALLA COMPLETA + PANEL iOS ======== */
+
+/* Bloquea scroll de página en esta vista: sólo scroll interno del organigrama */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow: hidden !important; }
+
+/* Contenedor fijo del organigrama: ocupa todo excepto la línea superior y el dock inferior */
+.synoptic-viewport{
+  position: fixed; left: 0; right: 0;
+  top: 64px;    /* se re-calcula por JS con la altura real del header */
+  bottom: 110px;/* se re-calcula por JS con la altura real del menú inferior */
+  overflow: hidden;          /* el scroll real va en .synoptic-frame */
+  display: grid; place-items: center;
+  z-index: 1;                /* queda detrás del panel y el menú */
+}
+
+/* Recuadro centrado con PATRÓN sutil y sólo él scrollea (vertical y horizontal si hace falta) */
+.synoptic-frame{
+  width: 100%;
+  height: 100%;
+  border-radius: 18px;
+  padding: 18px;
+  overflow: auto;                /* scroll interno del organigrama */
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff);
+  box-shadow: inset 0 1px rgba(255,255,255,.6);
+}
+
+/* ===== Panel superior flotante (delante de todo) ===== */
+.correl-topbar{
+  position: fixed; left: 0; right: 0; z-index: 140;
+  display: grid; place-items: center; gap: 10px;
+  pointer-events: none;           /* no tapa el organigrama salvo sus hijos */
+}
+.correl-topbar > *{ pointer-events: auto; }
+
+/* Search pill (como la imagen) */
+.correl-search{
+  width: min(960px, 92vw); height: 44px;
+  display:flex; align-items:center; gap:10px;
+  background: #F2F3F7;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 14px;
+  box-shadow: inset 0 1px rgba(255,255,255,.85);
+  padding: 0 12px;
+}
+.correl-search svg{ width:18px; height:18px; opacity:.55; }
+.correl-search input{
+  flex:1; height:100%;
+  font-size:14px; color:#111827;
+  background:transparent; border:0; outline:none;
+}
+
+/* Segmented iOS con knob deslizante */
+.correl-seg{
+  width: min(820px, 92vw);
+  position: relative; display: grid; grid-auto-flow: column;
+  align-items:center; justify-content: space-between;
+  gap: 0; /* como la imagen */
+  background: #F2F3F7;
+  border: 1px solid rgba(0,0,0,.06);
+  border-radius: 9999px;
+  height: 44px; padding: 4px;
+  box-shadow: inset 0 1px rgba(255,255,255,.85);
+}
+.correl-seg .seg-knob{
+  position:absolute; top:4px; bottom:4px; left:4px; width: 160px;
+  border-radius: 9999px; background:#fff;
+  box-shadow: 0 3px 10px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.8);
+  transition: left .22s cubic-bezier(.2,.7,.25,1), width .22s cubic-bezier(.2,.7,.25,1);
+  pointer-events: none;
+}
+.seg-btn{
+  position:relative; z-index:1; cursor:pointer;
+  height:100%; min-width: 140px;
+  display:flex; align-items:center; justify-content:center;
+  border:0; background:transparent; border-radius:9999px;
+  font-weight:600; font-size:14px; color:#0f172a;
+  user-select:none; -webkit-tap-highlight-color: transparent;
+}
+.seg-btn.active{ color:#111827; }
+
+/* Dark */
+@media (prefers-color-scheme: dark){
+  .correl-search, .correl-seg{ background:#1e2330; border-color:rgba(255,255,255,.08); }
+  .correl-seg .seg-knob{ background:#0f1220; box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.04); }
+  .correl-search input{ color:#E5E7EB; }
+  .seg-btn{ color:#E5E7EB; }
+}
+
+/* ===== Resaltados en el organigrama (fallback genérico) ===== */
+.is-dim{ opacity:.28 !important; filter:saturate(.6) contrast(.9); }
+.is-filtro{ outline:2px solid #7C3AED !important; box-shadow: 0 6px 18px rgba(124,58,237,.25) !important; }
+.is-correl{ outline:2px solid #F59E0B !important; box-shadow: 0 6px 18px rgba(245,158,11,.25) !important; }
+.is-nocorrel{ outline:2px solid #22C55E !important; box-shadow: 0 6px 18px rgba(34,197,94,.25) !important; }
+.is-search-match{ outline:2px solid #0A84FF !important; box-shadow: 0 8px 24px rgba(10,132,255,.28) !important; }
+
+/* Si el organigrama es SVG, afectamos los shapes internos */
+svg .is-dim *{ opacity:.35 !important; }
+svg .is-filtro *{ stroke:#7C3AED !important; stroke-width:2 !important; }
+svg .is-correl *{ stroke:#F59E0B !important; stroke-width:2 !important; }
+svg .is-nocorrel *{ stroke:#22C55E !important; stroke-width:2 !important; }
+svg .is-search-match *{ stroke:#0A84FF !important; stroke-width:2 !important; }
+
+/* Responsive fino */
+@media (max-width: 480px){
+  .correl-search{ height:42px; }
+  .correl-seg{ height:42px; }
+  .seg-btn{ min-width: 118px; font-size:13px; }
+}
+/* ====== CORRELATIVAS — FULLSCREEN (excepto header), SEGMENTED iOS y COLORES ====== */
+
+/* Sin scroll de toda la página aquí; solo en el recuadro del organigrama */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow: hidden !important; }
+
+/* Viewport del organigrama: toma TODA la pantalla menos el header */
+.synoptic-viewport{
+  position: fixed; left: 0; right: 0;
+  top: 64px;   /* se recalcula vía JS con la altura real del header */
+  bottom: 0;   /* ahora llega hasta el borde inferior (el dock queda por delante) */
+  z-index: 1;  /* detrás del panel y del dock */
+  display: grid; place-items: center;
+}
+.synoptic-frame{
+  width: 100%; height: 100%;
+  border-radius: 18px; padding: 18px;
+  overflow: auto;                         /* solo aquí hay scroll */
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff);
+  box-shadow: inset 0 1px rgba(255,255,255,.6);
+}
+
+/* Topbar flotante centrada (search + segmented) */
+.correl-topbar{
+  position: fixed; left: 0; right: 0; z-index: 140;
+  display: grid; place-items: center; gap: 10px;
+  pointer-events: none;
+}
+.correl-topbar > *{ pointer-events: auto; }
+
+/* Search pill (igual a la imagen) */
+.correl-search{
+  width: min(960px, 92vw); height: 44px;
+  display:flex; align-items:center; gap:10px;
+  background: #F2F3F7; border: 1px solid #E9EAF0;
+  border-radius: 14px; box-shadow: inset 0 1px rgba(255,255,255,.85);
+  padding: 0 12px;
+}
+.correl-search svg{ width:18px; height:18px; opacity:.55; }
+.correl-search input{
+  flex:1; height:100%; font-size:14px; color:#111827;
+  background:transparent; border:0; outline:none;
+}
+
+/* Segmented iOS (estética de tu foto) */
+.correl-seg{
+  width: min(820px, 92vw); height: 44px; padding: 4px;
+  position: relative; display: grid; grid-auto-flow: column;
+  align-items:center; justify-content: space-between;
+  background: #F2F3F7; border: 1px solid #E9EAF0;
+  border-radius: 9999px; box-shadow: inset 0 1px rgba(255,255,255,.85);
+}
+.correl-seg .seg-knob{
+  position:absolute; top:4px; bottom:4px; left:4px; width: 160px;
+  border-radius: 9999px; background:#fff;
+  box-shadow: 0 3px 10px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.8);
+  transition: left .22s cubic-bezier(.2,.7,.25,1), width .22s cubic-bezier(.2,.7,.25,1);
+  pointer-events: none;
+}
+.seg-btn{
+  position:relative; z-index:1; cursor:pointer;
+  height:100%; min-width: 160px;
+  display:flex; align-items:center; justify-content:center;
+  border:0; background:transparent; border-radius:9999px;
+  font-weight:600; font-size:14px; color:#0f172a;
+  user-select:none; -webkit-tap-highlight-color: transparent;
+}
+
+/* Resaltados (DOM fallback) */
+.is-dim{ opacity:.28 !important; filter:saturate(.6) contrast(.9); }
+.is-filtro{ outline:2px solid #EF4444 !important; box-shadow: 0 8px 22px rgba(239,68,68,.25) !important; }   /* rojo */
+.is-correl{ outline:2px solid #F59E0B !important; box-shadow: 0 8px 22px rgba(245,158,11,.25) !important; } /* amarillo */
+.is-nocorrel{ outline:2px solid #22C55E !important; box-shadow: 0 8px 22px rgba(34,197,94,.25) !important; }/* verde */
+.is-search-match{ outline:2px solid #0A84FF !important; box-shadow: 0 10px 28px rgba(10,132,255,.28) !important; }
+
+/* Si es SVG, aplicamos al contenido */
+svg .is-dim *{ opacity:.35 !important; }
+svg .is-filtro *{ stroke:#EF4444 !important; stroke-width:2 !important; }
+svg .is-correl *{ stroke:#F59E0B !important; stroke-width:2 !important; }
+svg .is-nocorrel *{ stroke:#22C55E !important; stroke-width:2 !important; }
+svg .is-search-match *{ stroke:#0A84FF !important; stroke-width:2 !important; }
+
+/* Oscuro */
+@media (prefers-color-scheme: dark){
+  .correl-search, .correl-seg{ background:#1e2330; border-color:rgba(255,255,255,.08); }
+  .correl-seg .seg-knob{ background:#0f1220; box-shadow: 0 10px 28px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.04); }
+  .correl-search input{ color:#E5E7EB; } .seg-btn{ color:#E5E7EB; }
+}
+
+/* Responsive */
+@media (max-width: 520px){
+  .seg-btn{ min-width: 135px; font-size:13px; }
+}
+/* ===== CORRELATIVAS — FULLSCREEN & SEGMENTED (FORZADO) ===== */
+
+/* Sólo scrollea el organigrama */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow:hidden !important; }
+
+/* Viewport: ocupa todo excepto la barra superior (Facultad/Salir) */
+.synoptic-viewport{
+  position: fixed !important; left:0; right:0;
+  top: 64px;           /* será recalculado por JS */ 
+  bottom: 0; 
+  z-index: 1;
+  display: grid; place-items: center;
+  pointer-events: none;           /* el frame recibe los eventos */
+}
+.synoptic-viewport > *{ pointer-events:auto; }
+
+.synoptic-frame{
+  width: 100% !important; height: 100% !important;
+  border-radius: 18px; padding: 18px;
+  overflow: auto !important;     /* aquí vive el scroll */
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.6);
+}
+
+/* Topbar (Search + Segmented) centrada y por delante */
+.correl-topbar{
+  position: fixed !important; left:0; right:0; z-index: 140 !important;
+  display: grid; place-items: center; gap:10px; pointer-events:none;
+}
+.correl-topbar > *{ pointer-events:auto; }
+
+/* Search pill (como tu imagen) */
+.correl-search{
+  width: min(960px, 92vw); height: 44px;
+  display:flex; align-items:center; gap:10px;
+  background:#F2F3F7; border:1px solid #E9EAF0;
+  border-radius: 14px; box-shadow: inset 0 1px rgba(255,255,255,.85);
+  padding: 0 12px;
+}
+.correl-search svg{ width:18px; height:18px; opacity:.55; }
+.correl-search input{
+  flex:1; height:100%; font-size:14px; color:#111827;
+  background:transparent; border:0; outline:none;
+}
+
+/* Segmented iOS con knob blanco deslizante */
+.correl-seg{
+  width: min(820px, 92vw); height:44px; padding:4px;
+  position: relative; display:grid; grid-auto-flow:column; align-items:center;
+  background:#F2F3F7; border:1px solid #E9EAF0;
+  border-radius:9999px; box-shadow: inset 0 1px rgba(255,255,255,.85);
+}
+.correl-seg .seg-knob{
+  position:absolute; top:4px; bottom:4px; left:4px; width:160px;
+  border-radius:9999px; background:#fff;
+  box-shadow:0 3px 10px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.8);
+  transition:left .22s cubic-bezier(.2,.7,.25,1), width .22s cubic-bezier(.2,.7,.25,1);
+  pointer-events:none;
+}
+.seg-btn{
+  position:relative; z-index:1; cursor:pointer;
+  height:100%; min-width:160px; display:flex; align-items:center; justify-content:center;
+  border:0; background:transparent; border-radius:9999px;
+  font-weight:600; font-size:14px; color:#0f172a;
+}
+
+/* Colores de resaltado */
+.is-dim{ opacity:.28 !important; filter:saturate(.6) contrast(.9); }
+.is-filtro{ outline:2px solid #EF4444 !important; box-shadow:0 8px 22px rgba(239,68,68,.25) !important; }  /* rojo */
+.is-correl{ outline:2px solid #F59E0B !important; box-shadow:0 8px 22px rgba(245,158,11,.25) !important; }/* amarillo */
+.is-nocorrel{ outline:2px solid #22C55E !important; box-shadow:0 8px 22px rgba(34,197,94,.25) !important; }/* verde */
+.is-search-match{ outline:2px solid #0A84FF !important; box-shadow:0 10px 28px rgba(10,132,255,.28) !important; }
+
+/* Si el organigrama es SVG, empujamos al contenido */
+svg .is-dim *{ opacity:.35 !important; }
+svg .is-filtro *{ stroke:#EF4444 !important; stroke-width:2 !important; }
+svg .is-correl *{ stroke:#F59E0B !important; stroke-width:2 !important; }
+svg .is-nocorrel *{ stroke:#22C55E !important; stroke-width:2 !important; }
+svg .is-search-match *{ stroke:#0A84FF !important; stroke-width:2 !important; }
+
+/* Dark */
+@media (prefers-color-scheme: dark){
+  .correl-search, .correl-seg{ background:#1e2330; border-color:rgba(255,255,255,.08); }
+  .correl-seg .seg-knob{ background:#0f1220; box-shadow:0 10px 28px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.04); }
+  .correl-search input{ color:#E5E7EB; } .seg-btn{ color:#E5E7EB; }
+}
+
+/* Responsive fino */
+@media (max-width:520px){
+  .seg-btn{ min-width:135px; font-size:13px; }
+}
+/* ====== CORRELATIVAS FINAL (FORZADO) ====== */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow:hidden !important; }
+
+/* El organigrama ocupa TODO menos el header (arriba). El dock queda por delante. */
+.synoptic-viewport{
+  position: fixed !important; inset: 0 0 0 0;     /* top/bottom recalculados por JS */
+  top: 64px; bottom: 0;                           /* valor inicial; JS lo ajusta al header real */
+  z-index: 1 !important; display:grid; place-items:center;
+  pointer-events:none;
+}
+.synoptic-viewport > *{ pointer-events:auto; }
+
+/* Recuadro central con PATRÓN y scroll solo aquí */
+.synoptic-frame{
+  width: 100% !important; height: 100% !important;
+  border-radius: 18px; padding: 18px;
+  overflow: auto !important;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.6);
+}
+.synoptic-frame canvas,
+.synoptic-frame svg{ background: transparent !important; }
+
+/* Topbar (segmented + búsqueda) — por delante y centrada debajo del header */
+.correl-topbar{
+  position: fixed !important; left:0; right:0; z-index: 140 !important;
+  display:grid; place-items:center; gap:10px; pointer-events:none;
+}
+.correl-topbar > *{ pointer-events:auto; }
+
+/* Segmented iOS idéntico a la referencia */
+.correl-seg{
+  width: min(820px, 92vw); height:44px; padding:4px;
+  position:relative; display:grid; grid-auto-flow:column; align-items:center;
+  background:#F2F3F7; border:1px solid #E9EAF0;
+  border-radius:9999px; box-shadow: inset 0 1px rgba(255,255,255,.85);
+}
+.correl-seg .seg-knob{
+  position:absolute; top:4px; bottom:4px; left:4px; width:160px;
+  border-radius:9999px; background:#fff;
+  box-shadow: 0 3px 10px rgba(31,41,55,.12), inset 0 1px rgba(255,255,255,.8);
+  transition:left .22s cubic-bezier(.2,.7,.25,1), width .22s cubic-bezier(.2,.7,.25,1);
+  pointer-events:none;
+}
+.seg-btn{
+  height:100%; min-width:160px; border:0; background:transparent; border-radius:9999px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  font-weight:600; font-size:14px; color:#0f172a; user-select:none;
+}
+
+/* Búsqueda (opcional; si no la usás, se ignora) */
+.correl-search{
+  width:min(960px,92vw); height:44px; display:flex; align-items:center; gap:10px;
+  background:#F2F3F7; border:1px solid #E9EAF0; border-radius:14px;
+  box-shadow: inset 0 1px rgba(255,255,255,.85); padding:0 12px;
+}
+.correl-search svg{ width:18px; height:18px; opacity:.55; }
+.correl-search input{ flex:1; height:100%; border:0; background:transparent; outline:none; font-size:14px; color:#111827; }
+
+/* Colores de resaltado */
+.is-dim{ opacity:.28 !important; filter:saturate(.6) contrast(.9); }
+.is-filtro{ outline:2px solid #EF4444 !important; box-shadow:0 8px 22px rgba(239,68,68,.25) !important; }
+.is-correl{ outline:2px solid #F59E0B !important; box-shadow:0 8px 22px rgba(245,158,11,.25) !important; }
+.is-nocorrel{ outline:2px solid #22C55E !important; box-shadow:0 8px 22px rgba(34,197,94,.25) !important; }
+.is-search-match{ outline:2px solid #0A84FF !important; box-shadow:0 10px 28px rgba(10,132,255,.28) !important; }
+
+/* SVG fallback */
+svg .is-dim *{ opacity:.35 !important; }
+svg .is-filtro *{ stroke:#EF4444 !important; stroke-width:2 !important; }
+svg .is-correl *{ stroke:#F59E0B !important; stroke-width:2 !important; }
+svg .is-nocorrel *{ stroke:#22C55E !important; stroke-width:2 !important; }
+svg .is-search-match *{ stroke:#0A84FF !important; stroke-width:2 !important; }
+
+/* Modo oscuro */
+@media (prefers-color-scheme: dark){
+  .correl-search, .correl-seg{ background:#1e2330; border-color:rgba(255,255,255,.08); }
+  .correl-seg .seg-knob{ background:#0f1220; box-shadow:0 10px 28px rgba(0,0,0,.6), inset 0 1px rgba(255,255,255,.04); }
+  .correl-search input{ color:#E5E7EB; } .seg-btn{ color:#E5E7EB; }
+}
+/* ===== Correlativas — limpiar controles y ocupar la pantalla ===== */
+.no-scroll-page, html.no-scroll-page, body.no-scroll-page{ overflow:hidden !important; }
+
+/* El organigrama ocupa todo menos el header (arriba) */
+.synoptic-viewport{
+  position: fixed !important; left:0; right:0; top:64px; bottom:0;  /* JS recalibra el top real */
+  z-index:1 !important; display:grid; place-items:center;
+  pointer-events:none;
+}
+.synoptic-viewport > *{ pointer-events:auto; }
+
+/* Recuadro con PATRÓN y scroll sólo adentro */
+.synoptic-frame{
+  width:100% !important; height:100% !important;
+  border-radius:18px; padding:18px;
+  overflow:auto !important;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(15,23,42,.06) 1px, transparent 1px) 0 0 / 14px 14px,
+    linear-gradient(#f8fafc,#f6f9ff) !important;
+  box-shadow: inset 0 1px rgba(255,255,255,.6);
+}
+.synoptic-frame canvas,
+.synoptic-frame svg{ background:transparent !important; }
+
+/* Quitar/ocultar por completo el panel anterior (cualquier versión) */
+.correl-topbar,
+.page-correlativas [data-filter="filtro"],
+.page-correlativas [data-filter="correlativas"],
+.page-correlativas [data-filter="no-correlativas"],
+.page-correlativas .btn-filtro,
+.page-correlativas .btn-correlativas,
+.page-correlativas .btn-no-correlativas,
+.page-correlativas .correl-legacy,
+.page-correlativas #correlControlsOld{ display:none !important; }
+
+/* ===== Badge de usuario: rectangular, abajo-izquierda, a la altura del dock ===== */
+:root{ --badge-offset-y: 0px !important; }   /* sin desplazamiento extra */
+.user-badge{
+  background:#fff; border:1px solid rgba(0,0,0,.06);
+  border-radius:12px !important;             /* rectangular (menos redondo) */
+  box-shadow: 0 8px 20px rgba(31,41,55,.10), inset 0 1px rgba(255,255,255,.55);
+  padding:10px 12px !important;
+  min-height: 56px !important;               /* alto cómodo para foto+texto */
+}
+.user-badge .avatar{ width:38px !important; height:38px !important; }
+.user-badge-fixed{
+  position:fixed !important;
+  left: calc(14px + env(safe-area-inset-left)) !important;
+  z-index:90 !important;
+  /* nos alineamos verticalmente al centro del dock con JS; aquí no fijamos bottom/top */
+}
+/* ===== Badge: redondeado, altura = avatar + 10px, abajo-izquierda ===== */
+:root{
+  --badge-avatar: 38px !important;   /* tamaño de la foto */
+  --badge-padV: 5px !important;      /* margen arriba/abajo = 5px */
+  --badge-padH: 12px !important;     /* padding lateral */
+}
+
+.user-badge{
+  display:flex; align-items:center; gap:10px;
+  height: calc(var(--badge-avatar) + (var(--badge-padV) * 2)) !important;
+  padding: var(--badge-padV) var(--badge-padH) !important;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:16px !important;                 /* bordes redondeados */
+  box-shadow: 0 8px 20px rgba(31,41,55,.10), inset 0 1px rgba(255,255,255,.55);
+}
+
+.user-badge .avatar{
+  width: var(--badge-avatar) !important;
+  height: var(--badge-avatar) !important;
+  border-radius: 9999px !important;              /* foto circular */
+  object-fit: cover;
+}
+
+/* Posición fija: abajo-izquierda (por encima del dock) */
+.user-badge-fixed{
+  position: fixed !important;
+  left: calc(14px + env(safe-area-inset-left)) !important;
+  bottom: 16px !important;                       /* se recalibra con JS si hay dock */
+  top: auto !important;
+  transform: none !important;
+  z-index: 90 !important;
+}

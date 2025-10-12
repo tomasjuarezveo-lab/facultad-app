@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Materias · CleverWave</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* ===== Tokens ===== */
+    :root{
+      --glass-1: rgba(255,255,255,.78);
+      --glass-2: rgba(255,255,255,.60);
+      --stroke:  rgba(255,255,255,.75);
+      --ink: #0f172a;
+      --muted:#64748b;
+      --shadow: 0 12px 28px rgba(15,23,42,.10);
+      --tile-shadow: 0 12px 22px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.85), inset 0 -10px 24px rgba(15,23,42,.06);
+      --thumb-shadow: 0 14px 26px rgba(15,23,42,.16), inset 0 1px 0 rgba(255,255,255,.95), inset 0 -10px 22px rgba(15,23,42,.06);
+      --radius-xxl: 22px;
+    }
+
+    body{ color:var(--ink); }
+
+    /* ===== Fondo suave iOS ===== */
+    .bg-ios{
+      background:
+        radial-gradient(1200px 900px at 18% 8%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.55) 50%, transparent 70%),
+        radial-gradient(900px 700px at 88% 20%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 55%, transparent 75%),
+        linear-gradient(180deg,#F7FAFE 0%,#EEF5FD 55%,#E9F1FB 100%),
+        repeating-linear-gradient(45deg, rgba(183,201,227,.08) 0 1px, transparent 1px 22px),
+        repeating-linear-gradient(-45deg, rgba(183,201,227,.06) 0 1px, transparent 1px 22px);
+      background-blend-mode: screen,screen,normal,normal,normal;
+      background-attachment: fixed;
+    }
+
+    /* ===== Glass base ===== */
+    .glass{
+      background: var(--glass-1);
+      box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.7);
+      backdrop-filter: blur(14px) saturate(140%);
+      -webkit-backdrop-filter: blur(14px) saturate(140%);
+      border: 1px solid var(--stroke);
+    }
+
+    /* ===== Barra de búsqueda iOS ===== */
+    .search-wrap{ position: relative; }
+    .search-ios{
+      height: 40px; width: 16rem; max-width: 100%;
+      padding-left: 40px; padding-right: 12px;
+      border-radius: 9999px;
+      background: var(--glass-2);
+      border: 1px solid var(--stroke);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 6px 16px rgba(15,23,42,.06);
+      backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+      color: #334155;
+    }
+    .search-ios::placeholder{ color: #8a99ad; }
+    .search-icon{ position:absolute; left: 12px; top: 50%; transform: translateY(-50%); color:#9aa4b2; }
+    .search-ios:focus{ outline: none; box-shadow: 0 0 0 3px rgba(14,165,233,.18), inset 0 1px 0 rgba(255,255,255,.9); }
+
+    /* ===== Segmented control (más compacto, “mitad de largo”) ===== */
+    #segYears{ --pill-pad: 3px; position: relative; }
+      #segYears.glass{
+        border-radius: 9999px; padding: 2px;
+        border-color: var(--accent-25);
+        background: var(--accent-12);
+      }
+      #segThumb{
+        position:absolute; top:50%; transform:translateY(-50%);
+        left: 0; width: 0; height: 26px; border-radius: 9999px;
+        background: linear-gradient(145deg, var(--accent), var(--accent-dark));
+        border: 1px solid var(--accent-25);
+        box-shadow: 0 10px 22px rgba(254, 132, 25, 0), inset 0 1px 0 rgba(255, 255, 255, 0);
+        transition: left .25s cubic-bezier(.2,.8,.2,1), width .25s cubic-bezier(.2,.8,.2,1), height .25s;
+        backdrop-filter: blur(10px) saturate(140%); -webkit-backdrop-filter: blur(10px) saturate(140%);
+      }
+      .seg-btn[data-active="true"]{ color:#fff; }
+      .seg-btn:not([data-active="true"]):hover{ color:#0f172a; }
+      :root{
+        --accent: #F8C160;
+        --accent-dark: #F8C160;
+        --accent-25: rgba(254, 132, 25, 0);
+        --accent-12: rgba(254, 132, 25, 0);
+      }
+    .seg-group{ gap: .15rem; padding: 0 .15rem; }
+    .seg-btn{
+      height: 28px; padding: 0 4px; min-width: 76px;
+      border-radius: 9999px;
+      font-weight: 600; font-size: .78rem;
+      color:#475569; transition: color .15s ease, transform .15s ease;
+      white-space: nowrap; letter-spacing: -.01em;
+    }
+    .seg-btn[data-active="true"]{ color:#ffffff; }
+    .seg-btn:active{ transform: translateY(1px); }
+
+    /* ===== Materias ===== */
+    .card{
+      border-radius: var(--radius-xxl);
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border: 1px solid var(--stroke);
+      box-shadow: var(--tile-shadow);
+      backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .tile:hover{ transform: translateY(-2px); box-shadow: 0 18px 30px rgba(15,23,42,.12); }
+
+    /* ===== Scroll horizontal suave para el segmented en móvil ===== */
+    .no-scrollbar{ -ms-overflow-style: none; scrollbar-width: none; }
+    .no-scrollbar::-webkit-scrollbar{ display: none; }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 1024px){
+      .search-ios{ width: 14rem; }
+    }
+    @media (max-width: 640px){
+      .toolbar{ gap: .75rem; }
+      .toolbar-right{ width: 100%; gap: .5rem; }
+      .seg-wrap{ width: 100%; overflow-x: auto; }
+      .search-ios{ width: 100%; }
+    }
+
+    /* ===== Tutorial Overlay siempre por encima ===== */
+    .tutorial-overlay,
+    #tutorialOverlay,
+    [data-tutorial-overlay="true"],
+    .tour-overlay,
+    .tour-backdrop {
+      z-index: 6000 !important;
+      position: fixed !important;
+    }
+
+    /* Si hay spotlight/rectángulo de foco, que quede por encima también */
+    .tour-spotlight,
+    .tutorial-spotlight,
+    [data-tutorial-spotlight="true"] {
+      z-index: 6001 !important;
+      position: relative !important;
+    }
+
+
+    /* ===== Admin: Panel lateral de códigos ===== */
+    .codes-drawer{
+      position: fixed; inset: 0; z-index: 1600; pointer-events: none;
+    }
+    .codes-dim{
+      position:absolute; inset:0; background: rgba(0,0,0,.35); opacity:0; transition: opacity .2s ease; backdrop-filter: blur(2px);
+    }
+    .codes-panel{
+      position:absolute; top:0; bottom:0; left:0; width:min(680px, 92vw);
+      transform: translateX(-100%);
+      transition: transform .25s cubic-bezier(.2,.8,.2,1);
+      padding: 18px; display:flex; flex-direction:column; gap:12px;
+    }
+    .codes-drawer.is-open{ pointer-events: auto; }
+    .codes-drawer.is-open .codes-dim{ opacity:1; }
+    .codes-drawer.is-open .codes-panel{ transform: translateX(0); }
+    .codes-box{
+      white-space: pre-wrap; word-break: break-word;
+      border-radius: 12px; padding: 12px; background: #fff; border: 1px solid #e2e8f0; min-height: 120px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px; color:#334155;
+    }
+  </style>
+
+  <!-- Injected: Mobile-friendly baseline -->
+<style>
+  /* Baseline mobile improvements (non-breaking) */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:20; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-ios">
+
+<% if (user && (user.isAdmin || user.role === 'admin')) { %>
+  <a class="btn btn-admin-upload" href="/app/preguntas/upload" style="margin-left:12px; display:inline-flex; align-items:center; gap:8px; text-decoration:none; padding:8px 12px; border-radius:10px; background:#111827; color:#fff; max-width:100%; height:auto;">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M5 20h14v-2H5v2zm7-18l-5 5h3v6h4V7h3l-5-5z"/></svg>
+    Cargar Preguntas
+  </a>
+   <button id="btnCreateCareer" type="button" style="margin-left:12px; display:inline-flex; align-items:center; gap:8px; text-decoration:none; padding:8px 12px; border-radius:10px; background:#0ea5e9; color:#fff; max-width:100%; height:auto;">
+    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a1 1 0 011 1v6h6a1 1 0 110 2h-6v6a1 1 0 11-2 0v-6H5a1 1 0 110-2h6V3a1 1 0 011-1z"/></svg>
+    Crear carrera
+  </button>
+
+<% } %>
+
+
+  <div class="max-w-6xl mx-auto px-4 md:px-6 space-y-3">
+
+    <!-- ===== TOOLBAR: Admin (izq) / Segment + Search (derecha) ===== -->
+    <div class="toolbar flex flex-wrap items-center gap-4 sm:gap-1 justify-start pt-3">
+      <div class="flex items-center gap-2">
+        <% if (user && user.role === 'admin' && adminFilters) { %>
+  <form class="glass rounded-full flex items-center gap-2 h-10 px-3"
+        action="/app/materias" method="get">
+    <!-- Carrera -->
+    <select name="career"
+            class="h-8 rounded-full border border-slate-200 px-3 text-sm max-w-[260px] truncate"
+            title="Carrera">
+      <% adminFilters.careers.forEach(c => { %>
+        <option value="<%= c %>" <%= c===adminFilters.selectedCareer ? 'selected' : '' %>><%= c %></option>
+      <% }) %>
+    </select>
+
+    <!-- Plan -->
+    <select name="plan"
+            class="h-8 rounded-full border border-slate-200 px-3 text-sm"
+            title="Plan">
+      <% adminFilters.plans.forEach(p => { %>
+        <option value="<%= p %>" <%= String(p)===String(adminFilters.selectedPlan) ? 'selected' : '' %>>
+          Plan <%= p %>
+        </option>
+      <% }) %>
+    </select>
+
+    <button class="h-8 px-4 rounded-full bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700"
+            type="submit">
+      Cambiar
+    </button>
+
+    <!-- Acceso rápido: limpiar filtros a tu perfil admin actual -->
+    <a class="h-8 px-3 rounded-full bg-slate-100 text-sm flex items-center"
+       href="/app/materias" title="Volver a mi perfil (sin override)">
+      Mi perfil
+    </a>
+  </form>
+<% } %>
+      </div>
+
+      <!-- ===== NUEVO: Controles de verificación (solo admin) ===== -->
+      <% if (user && user.role === 'admin') { %>
+      <div class="flex items-center gap-3 ml-2">
+        <!-- Switch on/off -->
+        <label class="flex items-center gap-2 glass rounded-full px-3 h-10">
+          <span class="text-sm font-medium">Verificación 30s</span>
+          <input id="verifyToggle" type="checkbox" class="sr-only" />
+          <span aria-hidden="true"
+                class="w-11 h-6 rounded-full bg-slate-300 relative transition-colors duration-200"
+                id="toggleTrack">
+            <span id="toggleThumb" class="absolute top-[2px] left-[2px] w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"></span>
+          </span>
+        </label>
+
+        <!-- Botón panel -->
+        <button id="btnCodesPanel"
+                class="h-10 px-3 rounded-full glass text-sm font-semibold hover:bg-white/80">
+          Ver códigos
+        </button>
+
+        <!-- NUEVO: Botón Usuarios (solo admin) -->
+        <button id="btnUsersPanel"
+                class="h-10 px-3 rounded-full glass text-sm font-semibold hover:bg-white/80">
+          Usuarios
+        </button>
+      </div>
+      <% } %>
+
+      <!-- Derecha: segmented MUY compacto + buscador. En móvil: segmented scrollable y buscador debajo -->
+      <div class="toolbar-right flex items-center w-full justify-between gap-4 sm:gap-6 flex-wrap sm:flex-nowrap">
+        <div class="seg-wrap glass rounded-full no-scrollbar px-1 py-1">
+          <div id="segYears" class="relative rounded-full isolate select-none" aria-label="Filtros por año" style="max-width:100%;">
+            <div id="segThumb"></div>
+            <div class="flex seg-group whitespace-nowrap">
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="1" data-active="true" onclick="selectYear(this,1)">1º</button>
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="2" data-active="false" onclick="selectYear(this,2)">2º</button>
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="3" data-active="false" onclick="selectYear(this,3)">3º</button>
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="4" data-active="false" onclick="selectYear(this,4)">4º</button>
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="5" data-active="false" onclick="selectYear(this,5)">5º</button>
+              <button type="button" class="tab seg-btn relative z-[1]" data-value="all" data-active="false" onclick="selectYear(this,'all')">Todas</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="search-wrap ml-auto">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="qMaterias" class="search-ios h-[28px]" placeholder="Buscar materia" />
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA (el backend ya filtra por carrera/plan) -->
+    <div id="list" class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 pt-2">
+      <%
+        const _subs = subjects || [];
+      %>
+      <% if (_subs.length) { %>
+        <% _subs.forEach(function(s){ %>
+          <a class="card p-4 tile block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+             href="/app/materias/<%= s.id %>"
+             data-year="<%= s.year %>"
+             data-name="<%= (s.name || '').toLowerCase() %>"
+             data-career="<%= s.career %>"
+             data-plan="<%= s.plan %>"
+             aria-label="Abrir <%= s.name %>">
+            <div class="flex items-center justify-between">
+              <div class="min-w-0 font-semibold truncate text-slate-900"><%= s.name %></div>
+              <div class="text-xs text-slate-600"><%= s.year %>º</div>
+            </div>
+            <div class="mt-1 text-xs text-slate-500/80 truncate">
+              <%= s.career %> · Plan <%= s.plan %>
+            </div>
+          </a>
+        <% }) %>
+      <% } else { %>
+        <div class="col-span-full text-center text-slate-500 py-12">
+          No hay materias para tu perfil (<%= user?.career %> · Plan <%= user?.plan %>).
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- MODAL: Nueva materia (solo admin) -->
+  <% if (user && user.role === 'admin') { %>
+  <div id="modalNewSubject" class="hidden fixed inset-0 z-[2000] flex items-center justify-center p-4" style="background: rgba(0,0,0,.45); backdrop-filter: blur(6px); max-width:100%; height:auto;">
+    <div class="glass w-full max-w-xl rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Crear materia</h2>
+        <button id="closeModal" class="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center">✕</button>
+      </div>
+
+      <form method="POST" action="/admin/materias" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div class="md:col-span-2">
+          <label class="text-sm font-medium">Nombre</label>
+          <input name="name" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Matemática I">
+        </div>
+
+        <div>
+          <label class="text-sm font-medium">Año</label>
+          <select name="year" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3">
+            <option value="1">1º</option><option value="2">2º</option><option value="3">3º</option>
+            <option value="4">4º</option><option value="5">5º</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium">Carrera</label>
+          <select name="career" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3">
+            <option value="Lic. en Administración de Empresas">Lic. en Administración de Empresas</option>
+            <option value="Lic. en Economía">Lic. en Economía</option>
+            <option value="Contabilidad">Contabilidad</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium">Plan</label>
+          <select name="plan" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3">
+            <option value="7">Plan 7</option>
+            <option value="8">Plan 8</option>
+          </select>
+        </div>
+
+        <div class="md:col-span-2 flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="cancelModal" class="h-10 px-4 rounded-xl border border-slate-200">Cancelar</button>
+          <button class="h-10 px-4 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Crear</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- NUEVO: MODAL Usuarios (solo admin) -->
+  <% if (user && user.role === 'admin') { %>
+  <div id="modalUsers" class="hidden fixed inset-0 z-[2100] flex items-center justify-center p-4"
+       style="background: rgba(0,0,0,.45); backdrop-filter: blur(6px);">
+    <div class="glass w-full max-w-3xl rounded-2xl p-5 relative">
+      <!-- Header con búsqueda -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+        <h3 class="text-lg font-semibold text-slate-800">Usuarios</h3>
+        <div class="sm:ml-auto search-wrap">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="qUsers" class="search-ios" placeholder="Buscar por nombre, email, teléfono, carrera o plan" />
+        </div>
+        <button id="closeUsers"
+                class="sm:ml-2 h-9 px-3 rounded-full bg-slate-800 text-white text-sm font-semibold hover:bg-slate-900">
+          Cerrar
+        </button>
+      </div>
+
+      <!-- Lista tipo "grilla vertical" -->
+      <div id="usersList" class="space-y-3 max-h-[60vh] overflow-auto pr-1"></div>
+
+      <!-- Plantilla (template literal) para un item -->
+      <template id="tplUserItem">
+        <div class="glass rounded-xl p-4 shadow-sm">
+          <!-- 1) Nombre y Apellido -->
+          <label class="block text-xs font-medium text-slate-500 mb-1">Nombre y Apellido</label>
+          <input name="name" class="w-full h-9 rounded-lg border border-slate-200 px-3 mb-2" />
+
+          <!-- 2) Email -->
+          <label class="block text-xs font-medium text-slate-500 mb-1">Email</label>
+          <input name="email" type="email" class="w-full h-9 rounded-lg border border-slate-200 px-3 mb-2" />
+
+          <!-- 3) Contraseña -->
+          <div class="mb-2">
+            <label class="block text-xs font-medium text-slate-500 mb-1">Nueva contraseña (opcional)</label>
+            <input name="password" type="password" placeholder="No es posible ver la actual por seguridad"
+                   class="w-full h-9 rounded-lg border border-slate-200 px-3" />
+            <p class="mt-1 text-[11px] text-slate-500">
+              Por seguridad, la contraseña actual no se puede mostrar (se almacena hasheada). Si completás este campo, se reemplaza.
+            </p>
+          </div>
+
+          <!-- 4) Teléfono -->
+          <label class="block text-xs font-medium text-slate-500 mb-1">Teléfono</label>
+          <input name="phone" type="tel" class="w-full h-9 rounded-lg border border-slate-200 px-3 mb-2" placeholder="+54 9 11 1234-5678" />
+
+          <!-- 5) Carrera -->
+          <label class="block text-xs font-medium text-slate-500 mb-1">Carrera</label>
+          <select name="career" class="w-full h-9 rounded-lg border border-slate-200 px-3 mb-2"></select>
+
+          <!-- 6) Plan -->
+          <label class="block text-xs font-medium text-slate-500 mb-1">Plan</label>
+          <select name="plan" class="w-full h-9 rounded-lg border border-slate-200 px-3 mb-3"></select>
+
+          <!-- 7 y 8) Botones -->
+          <div class="flex items-center gap-2">
+            <button class="btn-edit h-9 px-3 rounded-full bg-sky-600 text-white text-sm font-semibold hover:bg-sky-700">
+              Editar
+            </button>
+            <button class="btn-del h-9 px-3 rounded-full bg-red-600 text-white text-sm font-semibold hover:bg-red-700">
+              Eliminar
+            </button>
+
+            <!-- 9) Fecha de creación -->
+            <span class="ml-auto text-xs text-slate-500"></span>
+          </div>
+        </div>
+      </template>
+    </div>
+  </div>
+  <% } %>
+
+  <!-- ===== NUEVO: Drawer lateral de códigos (solo admin) ===== -->
+  <% if (user && user.role === 'admin') { %>
+  <div id="codesDrawer" class="codes-drawer">
+    <div id="codesDim" class="codes-dim"></div>
+    <div class="codes-panel glass">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-semibold">Códigos de verificación</h3>
+        <button id="codesClose" class="h-8 w-8 rounded-full hover:bg-white flex items-center justify-center">✕</button>
+      </div>
+
+      <div class="grid grid-cols-1 gap-3">
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-sm font-medium">Activos (separados por “|”)</span>
+            <label class="inline-flex items-center gap-2">
+              <input id="codesFile" type="file" accept=".txt" class="hidden">
+              <button id="btnAddCodes" class="h-8 px-2 rounded-md bg-amber-400/90 hover:bg-amber-400 text-slate-800 font-semibold text-sm" type="button">+</button>
+            </label>
+          </div>
+          <div id="activeCodes" class="codes-box"></div>
+        </div>
+
+        <div>
+          <div class="text-sm font-medium mb-1">Usados (separados por “|”)</div>
+          <div id="usedCodes" class="codes-box"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+<script>
+  /* ===== Tabs iOS ultra compactos ===== */
+  const seg      = document.getElementById('segYears');
+  const thumb    = document.getElementById('segThumb');
+  const buttons  = seg ? Array.from(seg.querySelectorAll('.seg-btn')) : [];
+  const pillPad  = seg ? parseInt(getComputedStyle(seg).getPropertyValue('--pill-pad')) || 0 : 0;
+
+  function moveThumbTo(el){
+    if(!seg || !el || !thumb) return;
+    const rectSeg = seg.getBoundingClientRect();
+    const rectBtn = el.getBoundingClientRect();
+    const left  = (rectBtn.left - rectSeg.left) + pillPad;
+    const width = rectBtn.width;
+    thumb.style.left   = left + 'px';
+    thumb.style.width  = width + 'px';
+    thumb.style.height = el.offsetHeight + 'px';
+  }
+  function setActive(el){
+    if (!buttons.length) return;
+    buttons.forEach(b=>{ b.dataset.active='false'; });
+    el.dataset.active='true';
+  }
+  function filterByYear(value){
+    const qEl = document.getElementById('qMaterias');
+    const q = (qEl && qEl.value || '').trim().toLowerCase();
+    document.querySelectorAll('#list [data-year]').forEach(c=>{
+      const okYear = (value==='all') || (String(c.dataset.year)===String(value));
+      const okText = !q || (c.dataset.name || '').includes(q);
+      c.style.display = (okYear && okText) ? '' : 'none';
+    });
+  }
+  function selectYear(btn,value){ setActive(btn); moveThumbTo(btn); filterByYear(value); }
+
+  const qMaterias = document.getElementById('qMaterias');
+  if (qMaterias) {
+    qMaterias.addEventListener('input', ()=>{
+      const active = buttons.find(b=>b.dataset.active==='true') || buttons[0];
+      if (active) filterByYear(active.dataset.value);
+    });
+  }
+
+  window.addEventListener('keydown', e=>{
+    if(!['ArrowLeft','ArrowRight'].includes(e.key) || !buttons.length) return;
+    const idx = buttons.findIndex(b=>b.dataset.active==='true');
+    const ni = e.key==='ArrowRight' ? Math.min(idx+1,buttons.length-1) : Math.max(idx-1,0);
+    const next = buttons[ni]; setActive(next); moveThumbTo(next); filterByYear(next.dataset.value); next.focus();
+  });
+
+  window.addEventListener('DOMContentLoaded', ()=>{
+    if (!buttons.length) return;
+    const current = buttons.find(b=>b.dataset.active==='true') || buttons[0];
+    moveThumbTo(current); setActive(current); filterByYear(current.dataset.value);
+  });
+  window.addEventListener('resize', ()=>{
+    const active = buttons.find(b=>b.dataset.active==='true');
+    if (active) moveThumbTo(active);
+  });
+
+  /* ===== Modal admin (crear materia) ===== */
+  const btnNew = document.getElementById('btnNewSubject');
+  const modal  = document.getElementById('modalNewSubject');
+  const close  = document.getElementById('closeModal');
+  const cancel = document.getElementById('cancelModal');
+  function showModal(){ modal?.classList.remove('hidden'); }
+  function hideModal(){ modal?.classList.add('hidden'); }
+  btnNew?.addEventListener('click', showModal);
+  close?.addEventListener('click', hideModal);
+  cancel?.addEventListener('click', hideModal);
+  modal?.addEventListener('click', (e)=>{ if(e.target===modal) hideModal(); });
+
+  /* ===== NUEVO: Lógica verificación (admin controls) ===== */
+  const isAdmin = "<%= user && user.role === 'admin' ? '1' : '' %>";
+  if (isAdmin) {
+    const verifyToggle = document.getElementById('verifyToggle');
+    const toggleTrack  = document.getElementById('toggleTrack');
+    const toggleThumb  = document.getElementById('toggleThumb');
+    const btnCodesPanel= document.getElementById('btnCodesPanel');
+    const drawer       = document.getElementById('codesDrawer');
+    const dim          = document.getElementById('codesDim');
+    const btnClose     = document.getElementById('codesClose');
+    const activeBox    = document.getElementById('activeCodes');
+    const usedBox      = document.getElementById('usedCodes');
+    const btnAddCodes  = document.getElementById('btnAddCodes');
+    const fileInput    = document.getElementById('codesFile');
+
+    function paintToggle(on){
+      if (!verifyToggle || !toggleTrack || !toggleThumb) return;
+      verifyToggle.checked = !!on;
+      if (on){
+        toggleTrack.classList.remove('bg-slate-300');
+        toggleTrack.classList.add('bg-amber-400');
+        toggleThumb.style.transform = 'translateX(20px)';
+      } else {
+        toggleTrack.classList.add('bg-slate-300');
+        toggleTrack.classList.remove('bg-amber-400');
+        toggleThumb.style.transform = 'translateX(0)';
+      }
+    }
+
+    async function loadCodes(){
+      const r = await fetch('/verify/list', { credentials:'include' });
+      const j = await r.json();
+      paintToggle(!!j.enabled);
+      if (activeBox) activeBox.textContent = j.active || '';
+      if (usedBox)   usedBox.textContent   = j.used   || '';
+    }
+    async function setEnabled(next){
+      await fetch('/verify/toggle', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials:'include',
+        body: JSON.stringify({ enabled: !!next })
+      });
+      paintToggle(!!next);
+    }
+
+    verifyToggle?.addEventListener('change', (e)=> setEnabled(e.target.checked));
+    btnCodesPanel?.addEventListener('click', async ()=>{
+      await loadCodes();
+      drawer?.classList.add('is-open');
+    });
+    btnClose?.addEventListener('click', ()=> drawer?.classList.remove('is-open'));
+    dim?.addEventListener('click', ()=> drawer?.classList.remove('is-open'));
+
+    btnAddCodes?.addEventListener('click', ()=> fileInput?.click());
+    fileInput?.addEventListener('change', async ()=>{
+      if (!fileInput.files || !fileInput.files[0]) return;
+      const fd = new FormData();
+      fd.append('codesFile', fileInput.files[0]);
+      const r = await fetch('/verify/upload', { method:'POST', credentials:'include', body: fd });
+      const j = await r.json();
+      if (j.ok && activeBox){
+        activeBox.textContent = j.active || '';
+      }
+      fileInput.value = '';
+    });
+
+    // Inicializar estado del switch al entrar
+    loadCodes().catch(()=>{});
+  }
+
+  /* ===== NUEVO: opciones para selects de Carrera y Plan ===== */
+  window.ADMIN_CAREERS = <%- JSON.stringify((adminFilters && adminFilters.careers) || ["Lic. en Administración de Empresas","Lic. en Economía","Contabilidad"]) %>;
+  window.ADMIN_PLANS   = <%- JSON.stringify((adminFilters && adminFilters.plans)   || [7,8]) %>;
+
+  /* ===== NUEVO: Usuarios (Admin) ===== */
+  (function(){
+    const btnOpen   = document.getElementById('btnUsersPanel');
+    const modal     = document.getElementById('modalUsers');
+    if (!btnOpen || !modal) return; // no admin
+
+    const closeBtn  = document.getElementById('closeUsers');
+    const qBox      = document.getElementById('qUsers');
+    const listBox   = document.getElementById('usersList');
+    const tpl       = document.getElementById('tplUserItem');
+
+    let timer = null;
+    let lastQ = '';
+
+    function populateSelect(el, options, selected){
+      if (!el) return;
+      el.innerHTML = '';
+      (options || []).forEach(opt => {
+        const o = document.createElement('option');
+        o.value = String(opt);
+        o.textContent = String(opt);
+        if (String(opt) === String(selected)) o.selected = true;
+        el.appendChild(o);
+      });
+    }
+
+    function openModal(){ modal.classList.remove('hidden'); fetchAndPaint(''); qBox.value=''; qBox.focus(); }
+    function closeModal(){ modal.classList.add('hidden'); listBox.innerHTML = ''; }
+
+    async function fetchUsers(q){
+      const r = await fetch('/admin/users?q=' + encodeURIComponent(q||''), { credentials:'include' });
+      const j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'Error listando usuarios');
+      return j.users || [];
+    }
+
+    function paintUsers(rows){
+      listBox.innerHTML = '';
+      rows.forEach(u => {
+        const node = tpl.content.firstElementChild.cloneNode(true);
+
+        // Rellenar valores
+        node.querySelector('input[name="name"]').value    = u.name || '';
+        node.querySelector('input[name="email"]').value   = u.email || '';
+        const phoneInput = node.querySelector('input[name="phone"]');
+        if (phoneInput) phoneInput.value = u.phone || '';
+        node.querySelector('span').textContent            = u.created_at ? ('Creado: ' + u.created_at) : '';
+
+        // Poblar selects
+        const selCareer = node.querySelector('select[name="career"]');
+        const selPlan   = node.querySelector('select[name="plan"]');
+        populateSelect(selCareer, (window.ADMIN_CAREERS || []), u.career || '');
+        populateSelect(selPlan,   (window.ADMIN_PLANS   || []), u.plan   || '');
+
+        // Editar
+        node.querySelector('.btn-edit').addEventListener('click', async () => {
+          const payload = {
+            name:     node.querySelector('input[name="name"]').value.trim(),
+            email:    node.querySelector('input[name="email"]').value.trim(),
+            password: node.querySelector('input[name="password"]').value, // vacío = no cambia
+            phone:    (node.querySelector('input[name="phone"]')?.value || '').trim(),
+            career:   selCareer ? selCareer.value : '',
+            plan:     selPlan   ? parseInt(selPlan.value, 10) || 0 : 0
+          };
+          const r = await fetch('/admin/users/' + u.id, {
+            method: 'PUT',
+            headers: { 'Content-Type':'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+          });
+          const j = await r.json();
+          if (!j.ok) return alert(j.error || 'No se pudo actualizar');
+          // Limpiar campo password del UI tras éxito
+          node.querySelector('input[name="password"]').value = '';
+          // Refresco visual rápido (opcional)
+          node.classList.add('ring-2','ring-sky-500');
+          setTimeout(()=>node.classList.remove('ring-2','ring-sky-500'), 800);
+        });
+
+        // Eliminar (deshabilitar si es admin)
+        const delBtn = node.querySelector('.btn-del');
+        if (String(u.role) === 'admin') {
+          delBtn.disabled = true;
+          delBtn.classList.add('opacity-40','cursor-not-allowed');
+          delBtn.title = 'No se puede eliminar un administrador';
+        } else {
+          delBtn.addEventListener('click', async () => {
+            if (!confirm('¿Eliminar este usuario?')) return;
+            const r = await fetch('/admin/users/' + u.id, { method:'DELETE', credentials:'include' });
+            const j = await r.json();
+            if (!j.ok) return alert(j.error || 'No se pudo eliminar');
+            node.remove();
+          });
+        }
+
+        listBox.appendChild(node);
+      });
+
+      if (!rows.length){
+        listBox.innerHTML = `
+          <div class="text-center text-slate-500 py-10">
+            No se encontraron usuarios para ese filtro.
+          </div>`;
+      }
+    }
+
+    async function fetchAndPaint(q){
+      try {
+        const rows = await fetchUsers(q);
+        paintUsers(rows);
+      } catch(e) {
+        console.error(e);
+        alert('Error cargando usuarios');
+      }
+    }
+
+    // Eventos
+    btnOpen.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', (ev)=>{ if (ev.target === modal) closeModal(); });
+
+    qBox.addEventListener('input', () => {
+      const q = qBox.value.trim();
+      if (q === lastQ) return;
+      lastQ = q;
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => fetchAndPaint(q), 220);
+    });
+  })();
+</script>
+
+<% if (user && user.role === 'admin') { %>
+<!-- Modal: Crear carrera (admin) -->
+<div id="modalCreateCareer" class="fixed inset-0 z-[3000] hidden" style="background: rgba(0,0,0,.45); backdrop-filter: blur(6px);">
+  <div class="w-full max-w-2xl mx-auto my-8 px-4">
+    <div class="glass rounded-2xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Crear carrera</h2>
+        <button id="closeCreateCareer" class="h-8 w-8 rounded-full hover:bg-slate-100 flex items-center justify-center">✕</button>
+      </div>
+
+      <form id="formCreateCareer" action="/admin/careers/create" method="post" enctype="multipart/form-data" class="grid grid-cols-1 gap-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div class="md:col-span-2">
+            <label class="text-sm font-medium">Nombre de la carrera</label>
+            <input name="career_name" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: Lic. en Economía">
+          </div>
+
+          <div>
+            <label class="text-sm font-medium">Plan</label>
+            <input name="plan" type="number" min="1" step="1" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3" placeholder="Ej: 8">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm font-medium">Materias (.txt)</label>
+          <input name="subjectsFile" type="file" accept=".txt" required class="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 bg-white file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-slate-100 file:text-slate-700">
+          <p class="text-xs text-slate-500 mt-1">Formato por línea: <code>Materia X - Año Y</code>. Ej: <em>Matemática I - Año 1</em></p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button type="button" id="cancelCreateCareer" class="h-10 px-4 rounded-xl border border-slate-200">Cancelar</button>
+          <button class="h-10 px-4 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700">Crear</button>
+        </div>
+      </form>
+              <!-- ====== Grilla de carreras/planes (solo admin) ====== -->
+        <div class="mt-6">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-base font-semibold">Carreras y planes existentes</h3>
+            <button id="refreshCareers" type="button" class="h-9 px-3 rounded-lg border border-slate-200 text-sm hover:bg-slate-50">Actualizar</button>
+          </div>
+
+          <!-- Cabecera -->
+          <div class="hidden md:grid grid-cols-12 gap-2 text-xs font-semibold text-slate-600 mb-1">
+            <div class="col-span-6">Carrera</div>
+            <div class="col-span-2">Plan</div>
+            <div class="col-span-2">Materias</div>
+            <div class="col-span-2 text-right">Acciones</div>
+          </div>
+
+          <!-- Contenedor de filas -->
+          <div id="careersGrid" class="space-y-2">
+            <!-- se llena por JS -->
+          </div>
+        </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const openBtn  = document.getElementById('btnCreateCareer');
+    const modal    = document.getElementById('modalCreateCareer');
+    const closeBtn = document.getElementById('closeCreateCareer');
+    const cancel   = document.getElementById('cancelCreateCareer');
+    const grid     = document.getElementById('careersGrid');
+    const refresh  = document.getElementById('refreshCareers');
+
+    function show(){ modal?.classList.remove('hidden'); loadCareers(); }
+    function hide(){ modal?.classList.add('hidden'); }
+
+    openBtn?.addEventListener('click', show);
+    closeBtn?.addEventListener('click', hide);
+    cancel?.addEventListener('click', hide);
+    modal?.addEventListener('click', (e)=>{ if(e.target===modal) hide(); });
+    refresh?.addEventListener('click', loadCareers);
+
+    async function loadCareers(){
+      if (!grid) return;
+      grid.innerHTML = `<div class="text-sm text-slate-500">Cargando...</div>`;
+      try{
+        const r = await fetch('/admin/careers/list', { credentials:'include' });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'No se pudo listar');
+        if (!Array.isArray(j.items) || j.items.length===0){
+          grid.innerHTML = `<div class="text-sm text-slate-500">No hay carreras creadas todavía.</div>`;
+          return;
+        }
+        grid.innerHTML = '';
+        j.items.forEach(it => {
+          const row = document.createElement('div');
+          row.className = 'grid grid-cols-12 gap-2 items-center glass rounded-xl p-3 border border-slate-200/70';
+          row.innerHTML = `
+            <div class="col-span-12 md:col-span-6">
+              <div class="font-medium text-slate-900 truncate">${escapeHtml(it.career || '')}</div>
+            </div>
+            <div class="col-span-6 md:col-span-2">
+              <span class="inline-flex h-7 px-3 rounded-full bg-slate-100 text-slate-700 text-sm items-center">Plan ${Number(it.plan)}</span>
+            </div>
+            <div class="col-span-6 md:col-span-2 text-slate-600 text-sm">
+              ${Number(it.subjects)} materias
+            </div>
+            <div class="col-span-12 md:col-span-2 md:text-right mt-2 md:mt-0">
+              <button class="btnDelCareer h-9 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm"
+                      data-career="${encodeURIComponent(it.career || '')}"
+                      data-plan="${Number(it.plan)}">
+                Borrar
+              </button>
+            </div>
+          `;
+          grid.appendChild(row);
+        });
+
+        // Bind de borrado
+        grid.querySelectorAll('.btnDelCareer').forEach(btn=>{
+          btn.addEventListener('click', async (e)=>{
+            e.preventDefault();
+            const career = decodeURIComponent(btn.dataset.career || '');
+            const plan   = Number(btn.dataset.plan || '0');
+            if (!career || !plan) return;
+
+            const ok = confirm(`¿Seguro querés borrar "${career}" plan ${plan}? Esto eliminará todas sus materias, documentos y correlativas.`);
+            if (!ok) return;
+
+            try{
+              const r = await fetch('/admin/careers', {
+                method:'DELETE',
+                headers:{ 'Content-Type':'application/json' },
+                credentials:'include',
+                body: JSON.stringify({ career, plan })
+              });
+              const j = await r.json();
+              if (!j.ok) throw new Error(j.error || 'No se pudo borrar');
+
+              // refrescar grilla
+              await loadCareers();
+
+              // opcional: avisar
+              toast(`Se borró ${career} plan ${plan} (${j.deletedSubjects||0} materias, ${j.deletedDocs||0} docs).`);
+            }catch(err){
+              alert('Error: ' + (err.message || err));
+            }
+          });
+        });
+
+      }catch(err){
+        grid.innerHTML = `<div class="text-sm text-rose-600">Error: ${(err && err.message) || err}</div>`;
+      }
+    }
+
+    function escapeHtml(s){
+      return String(s||'').replace(/[&<>"']/g, m => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      })[m]);
+    }
+
+    function toast(msg){
+      // mini toast simple
+      const t = document.createElement('div');
+      t.textContent = msg;
+      t.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg text-sm shadow-lg';
+      document.body.appendChild(t);
+      setTimeout(()=>{ t.remove(); }, 2500);
+    }
+  })();
+</script>
+<% } %>
+
+<!-- Tours / tutoriales (si los usás en esta pantalla) -->
+<script type="module" src="/public/js/materias-tour.js"></script>
+<script type="module" src="/public/js/tutorial-overlay.js"></script>
+
+
+</body>
+</html>

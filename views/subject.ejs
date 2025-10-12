@@ -1,0 +1,1079 @@
+﻿<!-- ====== ESTILOS ====== -->
+<style>
+  :root{
+    --glass-1: rgba(255,255,255,.65);
+    --glass-2: rgba(255,255,255,.40);
+    --stroke:  rgba(255,255,255,.60);
+    --shadow-strong: 0 26px 46px rgba(15,23,42,.18);
+    --tile-shadow: 0 12px 22px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.85), inset 0 -10px 24px rgba(15,23,42,.06);
+  }
+
+  /* ====== PESTAÑAS ====== */
+  .top-tabs{
+    position: fixed;
+    left: 50%; top: 10px; transform: translateX(-50%);
+    z-index: 70;
+    display: flex; gap: 8px; align-items: center;
+    padding: 10px 12px; border-radius: 22px;
+    background: var(--glass-2);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,.75);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .tab{
+    display: inline-flex; align-items: center; justify-content: center;
+    height: 34px; padding: 0 14px; border-radius: 9999px;
+    font-weight: 600; font-size: .9rem; letter-spacing: -.01em;
+    text-decoration: none; transition: transform .15s ease, box-shadow .15s ease;
+    outline: none;
+  }
+  .tab.bg-white{
+    background: linear-gradient(145deg, rgb(255, 255, 255), rgba(255, 255, 255, 0.774));
+    border: 1px solid var(--stroke);
+    box-shadow: var(--tile-shadow);
+    color: #2a210f;
+  }
+  .tab.bg-white:hover{ transform: translateY(-2px); }
+  .tab.bg-black{ background: #F8C160; color: #fff; }
+
+  /* ====== CONTADOR DE PÁGINA ====== */
+  .page-counter{
+    position: fixed;
+    left: 50%; top: 69px; transform: translateX(-50%);
+    z-index: 71;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 4px 10px; border-radius: 14px;
+    background: rgba(255, 255, 255, 0.836);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,.75);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    font-weight: 800; font-size: 0.8rem; letter-spacing: .02em; color: #0f172a;
+    min-width: 72px; text-align: center;
+    transition: top .2s ease;
+  }
+  /* En fullscreen sube bien arriba */
+  .pdf-overlay .page-counter{ top: 7px; }
+
+  /* ====== CONTROLES EN COLUMNA DENTRO DE RECTÁNGULO ====== */
+  .controls-stack{
+    position: fixed;
+    left: 15px; top: 50%; transform: translateY(-50%);
+    z-index: 96;
+    display: flex; flex-direction: column; gap: 10px;
+    padding: 12px;
+    background: var(--glass-2);
+    border: 1px solid var(--stroke);
+    border-radius: 18px;
+    box-shadow: var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,.75);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+  .ctl{
+    display: grid; place-items: center;
+    width: 42px; height: 42px;
+    border-radius: 12px;
+    background: rgba(255,255,255,.9);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--tile-shadow);
+    cursor: pointer; user-select: none;
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .ctl:hover{ transform: translateY(-2px); }
+  .ctl svg{ width: 18px; height: 18px; }
+
+  .zoom-trio{
+    display: grid; gap: 8px; margin-top: 2px;
+  }
+  .zoom-btn{
+    width: 42px; height: 42px; border-radius: 12px;
+    background: rgba(255,255,255,.9);
+    border: 1px solid var(--stroke); box-shadow: var(--tile-shadow);
+    font-weight: 800; cursor: pointer;
+    display: grid; place-items: center;
+  }
+
+  /* ====== BOTÓN BANDEJA IZQUIERDA (Miniaturas) ====== */
+  .btn-float{
+    position: fixed; z-index: 95;
+    height: 42px; padding: 0 12px; border-radius: 12px;
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255, 255, 255, 0.829);
+    border: 1px solid var(--stroke);
+    border-radius: 19px;
+    box-shadow: var(--tile-shadow);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    cursor: pointer; user-select: none; font-weight: 700;
+  }
+  #btn-left{ top: 12px; left: 12px; }
+  .icon{ width:20px; height:20px; display:inline-block; }
+
+  /* ====== PANEL IZQUIERDO MINIATURAS ====== */
+  .left-panel{
+    position: fixed; top: 0; bottom: 0; left: 0;
+    width: 320px; max-width: 86vw;
+    background: var(--glass-1);
+    border-right: 1px solid var(--stroke);
+    box-shadow: 12px 0 28px rgba(15,23,42,.10);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    transform: translateX(-100%);
+    transition: transform .22s ease;
+    z-index: 85;
+    overflow: hidden; display: flex; flex-direction: column;
+    padding-top: 66px;
+  }
+  .left-panel header{
+    position: absolute; left: 0; right: 0; top: 0;
+    padding: 12px; border-bottom: 1px solid var(--stroke);
+    font-weight: 800; background: rgba(255,255,255,.7);
+    backdrop-filter: blur(10px);
+  }
+  .left-panel.open{ transform: translateX(0); }
+  .thumbs{ padding: 12px; overflow: auto; flex: 1; display: block; }
+  .thumb-item{
+    display: block; margin-bottom: 12px; border-radius: 10px; background: #fff;
+    border: 1px solid var(--stroke); box-shadow: var(--tile-shadow); overflow: hidden; cursor: pointer;
+    transition: transform .15s ease;
+  }
+  .thumb-item:hover{ transform: translateY(-1px); }
+  .thumb-item canvas{ display: block; width: 100%; height: auto; }
+  .thumb-item .label{ padding: 6px 10px; font-size: 12px; font-weight: 700; color:#0f172a;
+    border-top: 1px solid var(--stroke); background: rgba(255,255,255,.7); }
+
+  .left-backdrop{
+    position: fixed; inset: 0; background: rgba(0,0,0,.18);
+    opacity: 0; pointer-events: none; transition: opacity .2s ease;
+    z-index: 80;
+  }
+  .left-backdrop.show{ opacity: 1; pointer-events: auto; }
+
+  /* ====== VISOR PRINCIPAL ====== */
+  .viewer-shell{
+    position: fixed; left: 0; right: 0; bottom: 0; top: 0;
+    width: 100vw; height: 100vh; background: #282828; z-index: 10;
+    overflow: auto; -webkit-overflow-scrolling: touch;
+  }
+  #viewer{
+    position: relative; width: min(1100px, 100vw); margin: 0 auto;
+    padding: 96px 0 40px;
+  }
+  .page{
+    position: relative; margin: 0 auto 14px; background: #0000;
+    width: fit-content; height: auto;
+    display: flex; align-items: center; justify-content: center; /* centra el contenido rotado */
+  }
+  .page-inner{
+    transform-origin: center center; will-change: transform;
+  }
+  .page-canvas{ display:block; }
+  .text-layer{
+    position:absolute; left:0; top:0; pointer-events:none;
+    width:100%; height:100%;
+  }
+  .text-item{
+    position:absolute; white-space:pre; transform-origin: left bottom;
+    line-height:1; color: transparent;
+    text-shadow: 0 0 0 transparent;
+  }
+  .text-item mark.hl{
+    background: rgba(255,140,0,.45);
+    padding: 0 .5px; border-radius: 2px;
+  }
+  .search-blink{ box-shadow: 0 0 0 3px rgba(59,130,246,.6); border-radius: 8px; transition: box-shadow .6s ease; }
+
+  /* ====== MODO FULLSCREEN (overlay) ====== */
+  .pdf-overlay .sidebar-floating,
+  .pdf-overlay .summary-rail,
+  .pdf-overlay .top-tabs,
+  .pdf-overlay .top-right-controls,
+  .pdf-overlay #left-backdrop{
+    display: none !important;
+  }
+  /* Ocultar menú inferior del layout + badges en fullscreen */
+  .pdf-overlay .ios-dock-wrap,
+  .pdf-overlay .user-badge-fixed,
+  .pdf-overlay .help-badge-fixed{
+    display: none !important;
+  }
+
+  /* ====== LATERAL DERECHO (lista de documentos) ====== */
+  .sidebar-floating{
+    position: fixed; right: 60px; top: 50%; transform: translateY(-50%); z-index: 65;
+    width: 68px; padding: 10px; max-height: calc(100vh - 160px); overflow-y: auto;
+    background: var(--glass-1); border: 1px solid var(--stroke); border-radius: 18px;
+    box-shadow: 0 12px 28px rgba(15,23,42,.10); backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .doc-list{ display: grid; gap: 10px; }
+  .doc-item{ position: relative; }
+  .doc-item-icon{
+    display:grid; place-items:center; width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(145deg, rgb(255, 255, 255), rgba(255, 255, 255, 0.747));
+    border: 1px solid var(--stroke); color:#27364a;
+    box-shadow: var(--tile-shadow); text-decoration:none; transition: transform .15s ease;
+  }
+  .doc-item-icon:hover{ transform: translateY(-2px); }
+  .doc-item-icon svg{ width: 24px; height: 24px; }
+  .doc-item-icon::after{ content: none !important; }
+
+  /* ====== Tooltip global ====== */
+  #doc-flyover{
+    position: fixed; left: 0; top: 0; transform: translate(-9999px, -9999px);
+    background: #ffffff; color: #0f172a; border: 1px solid #e2e8f0;
+    padding: 6px 10px; border-radius: 12px; font-size: 12px; font-weight: 700;
+    white-space: nowrap; box-shadow: 0 14px 28px rgba(15,23,42,.18); z-index: 999999;
+    pointer-events: none; opacity: 0; transition: opacity .12s ease; max-width: 60vw; overflow: hidden; text-overflow: ellipsis;
+  }
+  #doc-flyover.show{ opacity: 1; }
+
+  /* ====== Slider RESÚMENES (barra a la derecha de los controles) ====== */
+  .summary-rail {
+    position: fixed; left: 92px; top: 50%; transform: translateY(-50%); z-index: 64;
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+    background: transparent; border: 0; box-shadow: none; padding: 0;
+  }
+  .rail-row{ display: flex; align-items: center; gap: 10px; }
+  .rail-wrap{
+    width: 32px; padding: 10px; background: rgba(255,255,255,.65); border: 1px solid rgba(255,255,255,.6);
+    border-radius: 18px; box-shadow: 0 12px 28px rgba(15,23,42,.10); backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%); display: flex; align-items: center; justify-content: center;
+  }
+  .rail{
+    position: relative; width: 3px; height: 220px; border-radius: 9999px;
+    background: linear-gradient(180deg, #eef2f7, #e5eaf1); box-shadow: inset 0 1px 1px rgba(0,0,0,.06);
+  }
+  .thumb{ position: absolute; left: 50%; transform: translate(-50%, -50%); width: 22px; height: 22px; border-radius: 9999px;
+    background: linear-gradient(180deg,#ffffff,#f6f7fb); border: 1px solid rgba(0,0,0,.08);
+    box-shadow: 0 10px 18px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.9); cursor: pointer; outline: none; }
+  .thumb:focus-visible{ box-shadow: 0 0 0 3px rgba(59,130,246,.35), 0 10px 18px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.9); }
+  .rail-labels{
+    position: relative; width: 64px; height: 220px;
+    font-size: 12px; font-weight: 700; color:#fff; text-shadow: 0 1px 2px rgba(0,0,0,.35);
+    opacity: 0; transition: opacity .15s ease; pointer-events: none;
+  }
+  .summary-rail:hover .rail-labels{ opacity: 1; }
+  .rail-label{ position: absolute; left: 0; transform: translateY(-50%); white-space: nowrap; text-align: left; }
+  .rail-label[data-pos="top"]{ top: 8px; }
+  .rail-label[data-pos="mid"]{ top: 50%; }
+  .rail-label[data-pos="bot"]{ top: calc(100% - 8px); transform: translateY(-100%); }
+
+  /* ====== Findbar ====== */
+  .findbar{
+    position: fixed; right: 12px; top: 70px; z-index: 97;
+    display: none; align-items: center; gap: 6px;
+    padding: 8px 10px; border-radius: 12px;
+    background: rgba(255,255,255,.95);
+    border: 1px solid var(--stroke);
+    box-shadow: var(--tile-shadow);
+    backdrop-filter: blur(10px);
+  }
+  .findbar.show{ display: inline-flex; }
+  .findbar input{
+    height: 32px; width: 220px; border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 0 10px; font-size: 14px; outline: none;
+  }
+  .findbar button{
+    height: 32px; min-width: 32px; padding: 0 8px; border-radius: 8px;
+    border: 1px solid #e5e7eb; background: #fff; cursor: pointer;
+  }
+
+  @media (max-width: 640px){
+    .top-tabs{ top: 68px; gap: 6px; padding: 8px 10px; }
+    .tab{ height: 32px; padding: 0 12px; font-size: .85rem; }
+    .page-counter{ top: 121px; }
+    .sidebar-floating{ width: 64px; right: 8px; top: 132px; }
+    #btn-left{ top: 68px; }
+    .left-panel{ padding-top: 100px; }
+    .controls-stack{ left: 10px; }
+    .summary-rail{ left: 88px; }
+  }
+</style>
+
+<!-- ====== PESTAÑAS ====== -->
+<!-- ====== PESTAÑAS ====== -->
+<style>
+  /* Espacio mínimo entre icono y texto dentro de cada pestaña (sin tocar IDs) */
+  .top-tabs .tab svg { width: 18px; height: 18px; margin-right: 8px; flex: 0 0 auto; }
+</style>
+
+<div class="top-tabs">
+  <% const cats = ['finales','parciales','trabajos','bibliografia','resumenes','clases']; %>
+  <% cats.forEach(c => { %>
+    <a class="tab <%= c===category ? 'bg-black text-white' : 'bg-white' %>"
+       href="/app/materias/<%= subject.id %>?category=<%= c %><% if (c==='resumenes' && (typeof currentLevel!=='undefined' && currentLevel)) { %>&level=<%= encodeURIComponent(currentLevel) %><% } %>">
+      <% if (c === 'finales') { %>
+        <!-- Ícono FINALES -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+          <g id="SVGRepo_iconCarrier">
+            <path opacity="0.5" d="M3 10C3 6.22876 3 4.34315 4.17157 3.17157C5.34315 2 7.22876 2 11 2H13C16.7712 2 18.6569 2 19.8284 3.17157C21 4.34315 21 6.22876 21 10V14C21 17.7712 21 19.6569 19.8284 20.8284C18.6569 22 16.7712 22 13 22H11C7.22876 22 5.34315 22 4.17157 20.8284C3 19.6569 3 17.7712 3 14V10Z" fill="#1C274C"></path>
+            <path d="M16.5189 16.5013C16.6939 16.3648 16.8526 16.2061 17.1701 15.8886L21.1275 11.9312C21.2231 11.8356 21.1793 11.6708 21.0515 11.6264C20.5844 11.4644 19.9767 11.1601 19.4083 10.5917C18.8399 10.0233 18.5356 9.41561 18.3736 8.94849C18.3292 8.82066 18.1644 8.77687 18.0688 8.87254L14.1114 12.8299C13.7939 13.1474 13.6352 13.3061 13.4987 13.4811C13.3377 13.6876 13.1996 13.9109 13.087 14.1473C12.9915 14.3476 12.9205 14.5606 12.7786 14.9865L12.5951 15.5368L12.3034 16.4118L12.0299 17.2323C11.9601 17.4419 12.0146 17.6729 12.1708 17.8292C12.3271 17.9854 12.5581 18.0399 12.7677 17.9701L13.5882 17.6966L14.4632 17.4049L15.0135 17.2214L15.0136 17.2214C15.4394 17.0795 15.6524 17.0085 15.8527 16.913C16.0891 16.8004 16.3124 16.6623 16.5189 16.5013Z" fill="#1C274C"></path>
+            <path d="M22.3665 10.6922C23.2112 9.84754 23.2112 8.47812 22.3665 7.63348C21.5219 6.78884 20.1525 6.78884 19.3078 7.63348L19.1806 7.76071C19.0578 7.88348 19.0022 8.05496 19.0329 8.22586C19.0522 8.33336 19.0879 8.49053 19.153 8.67807C19.2831 9.05314 19.5288 9.54549 19.9917 10.0083C20.4545 10.4712 20.9469 10.7169 21.3219 10.847C21.5095 10.9121 21.6666 10.9478 21.7741 10.9671C21.945 10.9978 22.1165 10.9422 22.2393 10.8194L22.3665 10.6922Z" fill="#1C274C"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M7.25 9C7.25 8.58579 7.58579 8.25 8 8.25H14.5C14.9142 8.25 15.25 8.58579 15.25 9C15.25 9.41421 14.9142 9.75 14.5 9.75H8C7.58579 9.75 7.25 9.41421 7.25 9ZM7.25 13C7.25 12.5858 7.58579 12.25 8 12.25H11C11.4142 12.25 11.75 12.5858 11.75 13C11.75 13.4142 11.4142 13.75 11 13.75H8C7.58579 13.75 7.25 13.4142 7.25 13ZM7.25 17C7.25 16.5858 7.58579 16.25 8 16.25H9.5C9.91421 16.25 10.25 16.5858 10.25 17C10.25 17.4142 9.91421 17.75 9.5 17.75H8C7.58579 17.75 7.25 17.4142 7.25 17Z" fill="#1C274C"></path>
+          </g>
+        </svg>
+      <% } else if (c === 'parciales') { %>
+        <!-- Ícono PARCIALES -->
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M6.5 1.75C6.5 1.33579 6.16421 1 5.75 1C5.33579 1 5 1.33579 5 1.75V21.75C5 22.1642 5.33579 22.5 5.75 22.5C6.16421 22.5 6.5 22.1642 6.5 21.75V13.6V3.6V1.75Z" fill="#1C274C"></path> <path d="M13.5582 3.87333L13.1449 3.70801C11.5821 3.08288 9.8712 2.9258 8.22067 3.25591L6.5 3.60004V13.6L8.22067 13.2559C9.8712 12.9258 11.5821 13.0829 13.1449 13.708C14.8385 14.3854 16.7024 14.5119 18.472 14.0695L18.5721 14.0445C19.1582 13.898 19.4361 13.2269 19.1253 12.7089L17.5647 10.1078C17.2232 9.53867 17.0524 9.25409 17.0119 8.94455C16.9951 8.81543 16.9951 8.68466 17.0119 8.55553C17.0524 8.24599 17.2232 7.96141 17.5647 7.39225L18.8432 5.26136C19.1778 4.70364 18.6711 4.01976 18.0401 4.17751C16.5513 4.54971 14.9831 4.44328 13.5582 3.87333Z" fill="#1C274C"></path> </g></svg>
+          <% } else if (c === 'trabajos') { %>
+        <!-- Ícono TRABAJOS -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g id="SVGRepo_tracerCarrier" stoke-linecap="round" stroke-linejoin="round"></g>
+          <g id="SVGRepo_iconCarrier">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M6.71947 10.5997L8.15874 11.7991C9.99537 13.3296 10.9137 14.0949 11.9998 14.0949C13.086 14.0949 14.0043 13.3296 15.8409 11.7991L17.2802 10.5997C17.6341 10.3048 17.811 10.1574 17.9054 9.95578C17.9998 9.75421 17.9998 9.52389 17.9998 9.06325V7C17.9998 6.67937 17.9998 6.38054 17.998 6.10169C17.9863 4.3306 17.9002 3.36486 17.2676 2.73223C16.5354 2 15.3569 2 12.9998 2H10.9998C8.64282 2 7.46431 2 6.73207 2.73223C6.09945 3.36486 6.01155 4.3306 5.99984 6.10169C5.998 6.38054 5.99984 6.67937 5.99984 7V9.06325C5.99984 9.52389 5.99984 9.75421 6.09425 9.95578C6.18866 10.1574 6.3656 10.3048 6.71947 10.5997ZM9.24976 6C9.24976 5.58579 9.58554 5.25 9.99976 5.25H13.9998C14.414 5.25 14.7498 5.58579 14.7498 6C14.7498 6.41421 14.414 6.75 13.9998 6.75H9.99976C9.58554 6.75 9.24976 6.41421 9.24976 6ZM10.2498 9C10.2498 8.58579 10.5855 8.25 10.9998 8.25H12.9998C13.414 8.25 13.7498 8.58579 13.7498 9C13.7498 9.41421 13.414 9.75 12.9998 9.75H10.9998C10.5855 9.75 10.2498 9.41421 10.2498 9Z" fill="#1C274C"></path>
+            <path opacity="0.5" d="M8.15874 11.7993L6.71947 10.6C6.3656 10.3051 6.18866 10.1576 6.09425 9.95605C5.99984 9.75448 5.99984 9.52416 5.99984 9.06352V7.00027C5.99984 6.89095 5.99963 6.78417 5.99942 6.67986C5.99901 6.4782 5.99863 6.28574 5.99984 6.10195C4.69982 6.22984 3.82473 6.51868 3.17157 7.17184C2 8.34341 2 10.2299 2 14.0011C2 17.7723 2 19.658 3.17157 20.8295C4.34314 22.0011 6.22876 22.0011 9.99998 22.0011H14C17.7712 22.0011 19.6569 22.0011 20.8284 20.8295C22 19.658 22 17.7723 22 14.0011C22 10.2299 22 8.34341 20.8284 7.17184C20.1749 6.51832 19.2992 6.22934 17.998 6.10156C17.9998 6.38042 17.9998 6.67963 17.9998 7.00027V9.06352C17.9998 9.52416 17.9998 9.75448 17.9054 9.95605C17.811 10.1576 17.6341 10.3051 17.2802 10.6L15.8409 11.7993C14.0043 13.3299 13.086 14.0951 11.9998 14.0951C10.9137 14.0951 9.99537 13.3299 8.15874 11.7993Z" fill="#1C274C"></path>
+          </g>
+        </svg>
+      <% } else if (c === 'bibliografia') { %>
+        <!-- Ícono BIBLIOGRAFÍA -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+          <g id="SVGRepo_iconCarrier">
+            <path opacity="0.5" d="M2 6.94975C2 6.06722 2 5.62595 2.06935 5.25839C2.37464 3.64031 3.64031 2.37464 5.25839 2.06935C5.62595 2 6.06722 2 6.94975 2C7.33642 2 7.52976 2 7.71557 2.01738C8.51665 2.09229 9.27652 2.40704 9.89594 2.92051C10.0396 3.03961 10.1763 3.17633 10.4497 3.44975L11 4C11.8158 4.81578 12.2237 5.22367 12.7121 5.49543C12.9804 5.64471 13.2651 5.7626 13.5604 5.84678C14.0979 6 14.6747 6 15.8284 6H16.2021C18.8345 6 20.1506 6 21.0062 6.76946C21.0849 6.84024 21.1598 6.91514 21.2305 6.99383C22 7.84935 22 9.16554 22 11.7979V14C22 17.7712 22 19.6569 20.8284 20.8284C19.6569 22 17.7712 22 14 22H10C6.22876 22 4.34315 22 3.17157 20.8284C2 19.6569 2 17.7712 2 14V6.94975Z" fill="#1C274C"></path>
+            <path d="M20 6.23751C19.9992 5.94016 19.9949 5.76263 19.9746 5.60842C19.7974 4.26222 18.7381 3.2029 17.3919 3.02567C17.1969 3 16.9647 3 16.5003 3H9.98828C10.1042 3.10392 10.2347 3.23445 10.45 3.44975L11.0003 4C11.8161 4.81578 12.2239 5.22367 12.7124 5.49543C12.9807 5.64471 13.2653 5.7626 13.5606 5.84678C14.0982 6 14.675 6 15.8287 6H16.2024C17.9814 6 19.1593 6 20 6.23751Z" fill="#1C274C"></path>
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12.25 10C12.25 9.58579 12.5858 9.25 13 9.25H18C18.4142 9.25 18.75 9.58579 18.75 10C18.75 10.4142 18.4142 10.75 18 10.75H13C12.5858 10.75 12.25 10.4142 12.25 10Z" fill="#1C274C"></path>
+          </g>
+        </svg>
+                </svg>
+      <% } else if (c === 'resumenes') { %>
+        <!-- Ícono RESÚMENES (NUEVO) -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M7.42598 18H20C19.9965 18.9296 19.9784 19.6228 19.8866 20.1706C19.7773 20.8228 19.5774 21.1682 19.2709 21.4142C18.9643 21.6602 18.5339 21.8206 17.7211 21.9083C16.8844 21.9986 15.7754 22 14.1854 22H9.75461C8.1646 22 7.05566 21.9986 6.21896 21.9083C5.40616 21.8206 4.97573 21.6602 4.66916 21.4142C4.36259 21.1682 4.16271 20.8228 4.05343 20.1706C4.04522 20.1216 4.03761 20.0714 4.03053 20.02C3.99045 19.7288 3.97041 19.5831 4.09696 19.2397C4.22351 18.8964 4.27837 18.8425 4.38811 18.7347C4.71351 18.4151 5.15982 18.1785 5.67321 18.0681C5.96352 18.0057 6.34236 18 7.42598 18Z" fill="#1C274D"></path> <path opacity="0.5" d="M4.72718 2.73332C5.03258 2.42535 5.46135 2.22456 6.27103 2.11478C7.10452 2.00177 8.2092 2 9.7931 2H14.2069C15.7908 2 16.8955 2.00177 17.729 2.11478C18.5387 2.22456 18.9674 2.42535 19.2728 2.73332C19.5782 3.0413 19.7773 3.47368 19.8862 4.2902C19.9982 5.13073 20 6.24474 20 7.84202L20 18H7.42598C6.34236 18 5.96352 18.0057 5.67321 18.0681C5.15982 18.1785 4.71351 18.4151 4.38811 18.7347C4.27837 18.8425 4.22351 18.8964 4.09696 19.2397C4.02435 19.4367 4 19.5687 4 19.7003V7.84202C4 6.24474 4.00176 5.13073 4.11382 4.2902C4.22268 3.47368 4.42179 3.0413 4.72718 2.73332Z" fill="#1C274D"></path> <path d="M7.25 7C7.25 6.58579 7.58579 6.25 8 6.25H16C16.4142 6.25 16.75 6.58579 16.75 7C16.75 7.41421 16.4142 7.75 16 7.75H8C7.58579 7.75 7.25 7.41421 7.25 7Z" fill="#1C274D"></path> <path d="M8 9.75C7.58579 9.75 7.25 10.0858 7.25 10.5C7.25 10.9142 7.58579 11.25 8 11.25H13C13.4142 11.25 13.75 10.9142 13.75 10.5C13.75 10.0858 13.4142 9.75 13 9.75H8Z" fill="#1C274D"></path> </g></svg>
+      <% } else if (c === 'clases') { %>
+        <!-- Ícono CLASES -->
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+          <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+          <g id="SVGRepo_iconCarrier">
+            <path d="M12.75 21C16.3552 20.9994 18.183 20.9738 19.3284 19.8284C20.5 18.6569 20.5 16.7713 20.5 13V6.99805C20.3548 7.00008 20.1509 7.00005 20 7.00002H4C3.84905 7.00005 3.6452 7.00008 3.5 6.99805V13C3.5 16.7713 3.5 18.6569 4.67157 19.8284C5.81697 20.9738 7.64485 20.9994 11.25 21L11.25 13.9545L9.55748 15.8351C9.28038 16.1429 8.80617 16.1679 8.49828 15.8908C8.1904 15.6137 8.16544 15.1395 8.44254 14.8316L11.4425 11.4983C11.5848 11.3402 11.7874 11.25 12 11.25C12.2126 11.25 12.4152 11.3402 12.5575 11.4983L15.5575 14.8316C15.8346 15.1395 15.8096 15.6137 15.5017 15.8908C15.1938 16.1679 14.7196 16.1429 14.4425 15.8351L12.75 13.9545L12.75 21Z" fill="#1C274C"></path>
+            <g opacity="0.5">
+              <path d="M2 5C2 4.05719 2 3.58579 2.29289 3.29289C2.58579 3 3.05719 3 4 3H20C20.9428 3 21.4142 3 21.7071 3.29289C22 3.58579 22 4.05719 22 5C22 5.94281 22 6.41421 21.7071 6.70711C21.4142 7 20.9428 7 20 7H4C3.05719 7 2.58579 7 2.29289 6.70711C2 6.41421 2 5.94281 2 5Z" fill="#1C274C"></path>
+            </g>
+          </g>
+        </svg>
+      <% } %>
+
+      <%= c.charAt(0).toUpperCase() + c.slice(1) %>
+    </a>
+  <% }) %>
+</div>
+
+
+<!-- ====== CONTADOR DE PÁGINA ====== -->
+<div id="page-counter" class="page-counter" aria-live="polite" aria-atomic="true">– / –</div>
+
+<!-- ====== BOTÓN BANDEJA IZQUIERDA ====== -->
+<button id="btn-left" class="btn-float" aria-label="Mostrar miniaturas" title="Miniaturas (tecla M)">
+  <svg class="icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M17 17C19.7614 17 22 14.7614 22 12C22 9.23858 19.7614 7 17 7C14.2386 7 12 9.23858 12 12C12 14.7614 14.2386 17 17 17ZM17.75 10C17.75 9.58579 17.4142 9.25 17 9.25C16.5858 9.25 16.25 9.58579 16.25 10V11.8462C16.25 12.0266 16.3151 12.201 16.4332 12.3374L17.4332 13.4912C17.7045 13.8042 18.1782 13.838 18.4912 13.5668C18.8042 13.2955 18.838 12.8218 18.5668 12.5088L17.75 11.5664V10Z" fill="#1C274C"></path> <g opacity="0.5"> <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 7C1.25 6.58579 1.58579 6.25 2 6.25H10C10.4142 6.25 10.75 6.58579 10.75 7C10.75 7.41421 10.4142 7.75 10 7.75H2C1.58579 7.75 1.25 7.41421 1.25 7ZM1.25 12C1.25 11.5858 1.58579 11.25 2 11.25H8C8.41421 11.25 8.75 11.5858 8.75 12C8.75 12.4142 8.41421 12.75 8 12.75H2C1.58579 12.75 1.25 12.4142 1.25 12ZM1.25 17C1.25 16.5858 1.58579 16.25 2 16.25H10C10.4142 16.25 10.75 16.5858 10.75 17C10.75 17.4142 10.4142 17.75 10 17.75H2C1.58579 17.75 1.25 17.4142 1.25 17Z" fill="#1C274C"></path> </g> </g></svg>
+  <span class="hidden sm:inline">Páginas</span>
+</button>
+
+<!-- ====== CONTROLES EN COLUMNA DENTRO DE RECTÁNGULO ====== -->
+<div class="controls-stack" aria-label="Controles del visor">
+  <!-- Buscar -->
+  <button id="fab-search" class="ctl" title="Buscar (Ctrl/Cmd+F)" aria-label="Buscar">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="7" stroke="#0f172a" stroke-width="2"></circle>
+      <line x1="16.65" y1="16.65" x2="21" y2="21" stroke="#0f172a" stroke-width="2" stroke-linecap="round"></line>
+    </svg>
+  </button>
+
+  <!-- Rotar -->
+  <button id="fab-rotate" class="ctl" title="Rotar 90°" aria-label="Rotar">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M12.0789 2.25C7.2854 2.25 3.34478 5.913 2.96055 10.5833H2.00002C1.69614 10.5833 1.42229 10.7667 1.30655 11.0477C1.19081 11.3287 1.25606 11.6517 1.47178 11.8657L3.15159 13.5324C3.444 13.8225 3.91567 13.8225 4.20808 13.5324L5.88789 11.8657C6.10361 11.6517 6.16886 11.3287 6.05312 11.0477C5.93738 10.7667 5.66353 10.5833 5.35965 10.5833H4.4668C4.84652 6.75167 8.10479 3.75 12.0789 3.75C14.8484 3.75 17.2727 5.20845 18.6156 7.39279C18.8325 7.74565 19.2944 7.85585 19.6473 7.63892C20.0002 7.42199 20.1104 6.96007 19.8934 6.60721C18.2871 3.99427 15.3873 2.25 12.0789 2.25Z" fill="#1C274C"></path> <path opacity="0.5" d="M20.8412 10.4666C20.5491 10.1778 20.0789 10.1778 19.7868 10.4666L18.1005 12.1333C17.8842 12.3471 17.8185 12.6703 17.934 12.9517C18.0496 13.233 18.3236 13.4167 18.6278 13.4167H19.5269C19.1456 17.2462 15.876 20.25 11.8828 20.25C9.10034 20.25 6.66595 18.7903 5.31804 16.6061C5.10051 16.2536 4.63841 16.1442 4.28591 16.3618C3.93342 16.5793 3.82401 17.0414 4.04154 17.3939C5.65416 20.007 8.56414 21.75 11.8828 21.75C16.6907 21.75 20.6476 18.0892 21.0332 13.4167H22.0002C22.3044 13.4167 22.5784 13.233 22.694 12.9517C22.8096 12.6703 22.7438 12.3471 22.5275 12.1333L20.8412 10.4666Z" fill="#1C274C"></path> </g></svg>
+  </button>
+
+  <!-- Descargar -->
+  <a id="fab-download" class="ctl" title="Descargar" aria-label="Descargar" download>
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M17.1211 2.87868C16.2424 2 14.8282 2 11.9998 2C9.17134 2 7.75712 2 6.87844 2.87868C6.38608 3.37105 6.16961 4.03157 6.07444 5.01484C6.63368 4.99996 7.25183 4.99998 7.92943 5H16.0706C16.748 4.99998 17.366 4.99996 17.9251 5.01483C17.8299 4.03156 17.6135 3.37105 17.1211 2.87868Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M18 14.5C18 17.3284 18 20.2426 17.1213 21.1213C16.2426 22 14.8284 22 12 22C9.17158 22 7.75736 22 6.87868 21.1213C6 20.2426 6 17.3284 6 14.5H18ZM15.75 16.75C15.75 17.1642 15.4142 17.5 15 17.5H9C8.58579 17.5 8.25 17.1642 8.25 16.75C8.25 16.3358 8.58579 16 9 16H15C15.4142 16 15.75 16.3358 15.75 16.75ZM13.75 19.75C13.75 20.1642 13.4142 20.5 13 20.5H9C8.58579 20.5 8.25 20.1642 8.25 19.75C8.25 19.3358 8.58579 19 9 19H13C13.4142 19 13.75 19.3358 13.75 19.75Z" fill="#1C274C"></path> <g opacity="0.5"> <path d="M15 17.5C15.4142 17.5 15.75 17.1642 15.75 16.75C15.75 16.3358 15.4142 16 15 16H9C8.58579 16 8.25 16.3358 8.25 16.75C8.25 17.1642 8.58579 17.5 9 17.5H15Z" fill="#1C274C"></path> <path d="M13 20.5C13.4142 20.5 13.75 20.1642 13.75 19.75C13.75 19.3358 13.4142 19 13 19H9C8.58579 19 8.25 19.3358 8.25 19.75C8.25 20.1642 8.58579 20.5 9 20.5H13Z" fill="#1C274C"></path> </g> <path opacity="0.5" d="M16 6H8C5.17157 6 3.75736 6 2.87868 6.87868C2 7.75736 2 9.17157 2 12C2 14.8284 2 16.2426 2.87868 17.1213C3.37323 17.6159 4.03743 17.8321 5.02795 17.9266C4.99998 17.2038 4.99999 15.3522 5 14.5C4.72386 14.5 4.5 14.2761 4.5 14C4.5 13.7239 4.72386 13.5 5 13.5H19C19.2761 13.5 19.5 13.7239 19.5 14C19.5 14.2761 19.2761 14.5003 19 14.5003C19 15.3525 19 17.2039 18.9721 17.9266C19.9626 17.8321 20.6268 17.6159 21.1213 17.1213C22 16.2426 22 14.8284 22 12C22 9.17157 22 7.75736 21.1213 6.87868C20.2426 6 18.8284 6 16 6Z" fill="#1C274C"></path> <path d="M9 10.75C9.41421 10.75 9.75 10.4142 9.75 10C9.75 9.58579 9.41421 9.25 9 9.25H6C5.58579 9.25 5.25 9.58579 5.25 10C5.25 10.4142 5.58579 10.75 6 10.75H9Z" fill="#1C274C"></path> <path d="M18 10C18 10.5523 17.5523 11 17 11C16.4477 11 16 10.5523 16 10C16 9.44772 16.4477 9 17 9C17.5523 9 18 9.44772 18 10Z" fill="#1C274C"></path> </g></svg>
+  </a>
+
+  <!-- Fullscreen -->
+  <button id="fab-fullscreen" class="ctl" title="Pantalla completa del PDF" aria-label="Pantalla completa">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" stroke="#0f172a" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <!-- Zoom (abajo) -->
+  <div class="zoom-trio" role="group" aria-label="Controles de zoom">
+    <button id="zoom-out"   class="zoom-btn" title="Alejar (Ctrl/Cmd -)" aria-label="Alejar">−</button>
+    <button id="zoom-reset" class="zoom-btn" title="Tamaño real (Ctrl/Cmd 0)" aria-label="Tamaño real">100%</button>
+    <button id="zoom-in"    class="zoom-btn" title="Acercar (Ctrl/Cmd +)" aria-label="Acercar">+</button>
+  </div>
+</div>
+
+<!-- ====== BARRA DE BÚSQUEDA ====== -->
+<div id="findbar" class="findbar" role="search" aria-label="Buscar en PDF">
+  <input id="find-input" type="text" placeholder="Buscar en el documento…" />
+  <button id="find-prev" title="Anterior">↑</button>
+  <button id="find-next" title="Siguiente">↓</button>
+  <button id="find-close" title="Cerrar">✕</button>
+</div>
+
+<!-- ====== SLIDER RESÚMENES (sin título; etiquetas a la derecha) ====== -->
+<% if (category === 'resumenes') { %>
+  <div class="summary-rail" aria-label="Nivel de resumen">
+    <div class="rail-row">
+      <div class="rail-wrap" title="Elegí el nivel (Fácil / Mediano / Completo)">
+        <div class="rail" id="rail">
+          <div class="thumb" id="thumb" tabindex="0" role="slider" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0" aria-label="Nivel"></div>
+        </div>
+      </div>
+      <div class="rail-labels" aria-hidden="true">
+        <div class="rail-label" data-pos="top">Completo</div>
+        <div class="rail-label" data-pos="mid">Mediano</div>
+        <div class="rail-label" data-pos="bot">Fácil</div>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<!-- ====== ADMIN SUBIR ====== -->
+<% if (user && user.role==='admin') { %>
+<div class="top-right-controls glass card p-2" style="position:fixed; right:16px; top:76px; z-index:75; max-width:100%; height:auto;">
+  <details>
+    <summary class="btn cursor-pointer select-none">＋ Subir</summary>
+    <div class="mt-2 p-3 bg-white rounded shadow space-y-2">
+      <% if (category === 'resumenes') { %>
+        <form method="POST" action="/upload" enctype="multipart/form-data" class="space-y-2">
+          <input type="hidden" name="subject_id" value="<%= subject.id %>" />
+          <input type="hidden" name="category"   value="resumenes" />
+          <label class="text-sm font-medium block">Completo</label>
+          <input type="file" name="file_completo" accept=".pdf" class="block w-72 max-w-full text-sm" />
+          <label class="text-sm font-medium block mt-2">Mediano</label>
+          <input type="file" name="file_mediano"  accept=".pdf" class="block w-72 max-w-full text-sm" />
+          <label class="text-sm font-medium block mt-2">Fácil</label>
+          <input type="file" name="file_facil"    accept=".pdf" class="block w-72 max-w-full text-sm" />
+          <button class="btn w-full bg-black text-white rounded h-9 mt-2">Subir resúmenes</button>
+        </form>
+      <% } else { %>
+        <form method="POST" action="/upload" enctype="multipart/form-data" class="space-y-2">
+          <input type="hidden" name="subject_id" value="<%= subject.id %>" />
+          <input type="hidden" name="category"   value="<%= category %>" />
+          <label class="text-sm font-medium block">Archivos</label>
+          <input type="file" name="files" multiple accept=".pdf,.doc,.docx,.ppt,.pptx,.png,.jpg,.jpeg" class="block w-72 max-w-full text-sm" />
+          <button class="btn w-full bg-black text-white rounded h-9">Subir a <%= category %></button>
+        </form>
+      <% } %>
+    </div>
+  </details>
+</div>
+<% } %>
+
+<!-- ====== BANDEJA IZQUIERDA MINIATURAS ====== -->
+<div id="left-panel" class="left-panel" aria-hidden="true" aria-label="Miniaturas del documento">
+  <header>Miniaturas</header>
+  <div class="thumbs" id="thumbs">
+    <% if (!(typeof activeDoc !== 'undefined' && activeDoc)) { %>
+      <div style="padding: 8px; font-weight:600; color:#334155; max-width:100%; height:auto;">
+        No hay documento activo.
+      </div>
+    <% } %>
+  </div>
+</div>
+<div id="left-backdrop" class="left-backdrop" aria-hidden="true"></div>
+
+<!-- ====== LATERAL DERECHO (documentos) ====== -->
+<aside class="sidebar-floating" aria-label="Lista de documentos">
+  <div class="doc-list">
+    <% if (category === 'resumenes') { %>
+      <% (groups || []).forEach((g, i) => { %>
+        <div class="doc-item">
+          <a class="doc-item-icon"
+             href="/app/materias/<%= subject.id %>?category=resumenes&level=<%= encodeURIComponent(currentLevel || 'completo') %>&gid=<%= encodeURIComponent(g.group_uid) %>"
+             data-title="<%= g.title || ('Resumen ' + (i+1)) %>">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M5.87868 2.87868C5 3.75736 5 5.17157 5 8V16C5 18.8284 5 20.2426 5.87868 21.1213C6.75736 22 8.17157 22 11 22H13C15.8284 22 17.2426 22 18.1213 21.1213C19 20.2426 19 18.8284 19 16V8C19 5.17157 19 3.75736 18.1213 2.87868C17.2426 2 15.8284 2 13 2H11C8.17157 2 6.75736 2 5.87868 2.87868ZM8.25 17C8.25 16.5858 8.58579 16.25 9 16.25H12C12.4142 16.25 12.75 16.5858 12.75 17C12.75 17.4142 12.4142 17.75 12 17.75H9C8.58579 17.75 8.25 17.4142 8.25 17ZM9 12.25C8.58579 12.25 8.25 12.5858 8.25 13C8.25 13.4142 8.58579 13.75 9 13.75H15C15.4142 13.75 15.75 13.4142 15.75 13C15.75 12.5858 15.4142 12.25 15 12.25H9ZM8.25 9C8.25 8.58579 8.58579 8.25 9 8.25H15C15.4142 8.25 15.75 8.58579 15.75 9C15.75 9.41421 15.4142 9.75 15 9.75H9C8.58579 9.75 8.25 9.41421 8.25 9Z" fill="#1C274C"></path> <path opacity="0.5" d="M5.23525 4.05811C5 4.94139 5 6.17689 5 7.99985V15.9999C5 17.8229 5 19.0584 5.23527 19.9417L5 19.9238C4.02491 19.8279 3.36857 19.6111 2.87868 19.1212C2 18.2425 2 16.8283 2 13.9999V9.99991C2 7.17148 2 5.75726 2.87868 4.87859C3.36857 4.3887 4.02491 4.17194 5 4.07602L5.23525 4.05811Z" fill="#1C274C"></path> <path opacity="0.5" d="M18.7646 19.9417C18.9999 19.0584 18.9999 17.8229 18.9999 15.9999V7.99985C18.9999 6.17689 18.9999 4.94139 18.7647 4.05811L18.9999 4.07602C19.975 4.17194 20.6314 4.3887 21.1212 4.87859C21.9999 5.75726 21.9999 7.17148 21.9999 9.99991V13.9999C21.9999 16.8283 21.9999 18.2425 21.1212 19.1212C20.6314 19.6111 19.975 19.8279 18.9999 19.9238L18.7646 19.9417Z" fill="#1C274C"></path> </g></svg>
+          </a>
+          <% if (user && user.role==='admin') { %>
+            <button
+              class="absolute -top-2 -right-2 text-xs bg-white rounded-full px-2 py-1 shadow"
+              onclick="renameDocGroup('<%= g.group_uid %>', '<%- (g.title||'') %>')"
+              aria-label="Renombrar"
+              title="Renombrar"
+            >
+              <!-- Lápiz -->
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M20.8487 8.71306C22.3844 7.17735 22.3844 4.68748 20.8487 3.15178C19.313 1.61607 16.8231 1.61607 15.2874 3.15178L14.4004 4.03882C14.4125 4.0755 14.4251 4.11268 14.4382 4.15035C14.7633 5.0875 15.3768 6.31601 16.5308 7.47002C17.6848 8.62403 18.9133 9.23749 19.8505 9.56262C19.888 9.57563 19.925 9.58817 19.9615 9.60026L20.8487 8.71306Z" fill="#1C274C"></path> <path d="M14.4386 4L14.4004 4.03819C14.4125 4.07487 14.4251 4.11206 14.4382 4.14973C14.7633 5.08687 15.3768 6.31538 16.5308 7.4694C17.6848 8.62341 18.9133 9.23686 19.8505 9.56199C19.8876 9.57489 19.9243 9.58733 19.9606 9.59933L11.4001 18.1598C10.823 18.7369 10.5343 19.0255 10.2162 19.2737C9.84082 19.5665 9.43469 19.8175 9.00498 20.0223C8.6407 20.1959 8.25351 20.3249 7.47918 20.583L3.39584 21.9442C3.01478 22.0712 2.59466 21.972 2.31063 21.688C2.0266 21.4039 1.92743 20.9838 2.05445 20.6028L3.41556 16.5194C3.67368 15.7451 3.80273 15.3579 3.97634 14.9936C4.18114 14.5639 4.43213 14.1578 4.7249 13.7824C4.97307 13.4643 5.26165 13.1757 5.83874 12.5986L14.4386 4Z" fill="#1C274C"></path>
+              </g></svg>
+            </button>
+
+            <button
+              class="absolute -top-2 right-8 text-xs bg-white rounded-full px-2 py-1 shadow"
+              onclick="deleteGroup('<%= g.group_uid %>')"
+              aria-label="Eliminar"
+              title="Eliminar"
+            >
+              <!-- Tacho -->
+              <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path d="M18.8,16l5.5-5.5c0.8-0.8,0.8-2,0-2.8l0,0C24,7.3,23.5,7,23,7c-0.5,0-1,0.2-1.4,0.6L16,13.2l-5.5-5.5
+                           c-0.8-0.8-2.1-0.8-2.8,0C7.3,8,7,8.5,7,9.1s0.2,1,0.6,1.4l5.5,5.5l-5.5,5.5C7.3,21.9,7,22.4,7,23c0,0.5,0.2,1,0.6,1.4
+                           C8,24.8,8.5,25,9,25c0.5,0,1-0.2,1.4-0.6l5.5-5.5l5.5,5.5c0.8,0.8,2.1,0.8,2.8,0c0.8-0.8,0.8-2.1,0-2.8L18.8,16z"></path>
+                </g>
+              </svg>
+            </button>
+          <% } %>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <% docs.forEach((d, i) => { %>
+        <div class="doc-item">
+          <a class="doc-item-icon"
+             href="/app/materias/<%= subject.id %>?category=<%= category %>&doc=<%= d.id %>"
+             data-title="<%= d.title || ('Doc ' + (i+1)) %>">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M5.87868 2.87868C5 3.75736 5 5.17157 5 8V16C5 18.8284 5 20.2426 5.87868 21.1213C6.75736 22 8.17157 22 11 22H13C15.8284 22 17.2426 22 18.1213 21.1213C19 20.2426 19 18.8284 19 16V8C19 5.17157 19 3.75736 18.1213 2.87868C17.2426 2 15.8284 2 13 2H11C8.17157 2 6.75736 2 5.87868 2.87868ZM8.25 17C8.25 16.5858 8.58579 16.25 9 16.25H12C12.4142 16.25 12.75 16.5858 12.75 17C12.75 17.4142 12.4142 17.75 12 17.75H9C8.58579 17.75 8.25 17.4142 8.25 17ZM9 12.25C8.58579 12.25 8.25 12.5858 8.25 13C8.25 13.4142 8.58579 13.75 9 13.75H15C15.4142 13.75 15.75 13.4142 15.75 13C15.75 12.5858 15.4142 12.25 15 12.25H9ZM8.25 9C8.25 8.58579 8.58579 8.25 9 8.25H15C15.4142 8.25 15.75 8.58579 15.75 9C15.75 9.41421 15.4142 9.75 15 9.75H9C8.58579 9.75 8.25 9.41421 8.25 9Z" fill="#1C274C"></path> <path opacity="0.5" d="M5.23525 4.05811C5 4.94139 5 6.17689 5 7.99985V15.9999C5 17.8229 5 19.0584 5.23527 19.9417L5 19.9238C4.02491 19.8279 3.36857 19.6111 2.87868 19.1212C2 18.2425 2 16.8283 2 13.9999V9.99991C2 7.17148 2 5.75726 2.87868 4.87859C3.36857 4.3887 4.02491 4.17194 5 4.07602L5.23525 4.05811Z" fill="#1C274C"></path> <path opacity="0.5" d="M18.7646 19.9417C18.9999 19.0584 18.9999 17.8229 18.9999 15.9999V7.99985C18.9999 6.17689 18.9999 4.94139 18.7647 4.05811L18.9999 4.07602C19.975 4.17194 20.6314 4.3887 21.1212 4.87859C21.9999 5.75726 21.9999 7.17148 21.9999 9.99991V13.9999C21.9999 16.8283 21.9999 18.2425 21.1212 19.1212C20.6314 19.6111 19.975 19.8279 18.9999 19.9238L18.7646 19.9417Z" fill="#1C274C"></path> </g></svg>
+          </a>
+          <% if (user && user.role==='admin') { %>
+            <button
+              class="absolute -top-2 -right-2 text-xs bg-white rounded-full px-2 py-1 shadow"
+              onclick="renameDoc(<%= d.id %>, '<%- (d.title||'') %>')"
+              aria-label="Renombrar"
+              title="Renombrar"
+            >
+              <!-- Lápiz -->
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+              <g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M20.8487 8.71306C22.3844 7.17735 22.3844 4.68748 20.8487 3.15178C19.313 1.61607 16.8231 1.61607 15.2874 3.15178L14.4004 4.03882C14.4125 4.0755 14.4251 4.11268 14.4382 4.15035C14.7633 5.0875 15.3768 6.31601 16.5308 7.47002C17.6848 8.62403 18.9133 9.23749 19.8505 9.56262C19.888 9.57563 19.925 9.58817 19.9615 9.60026L20.8487 8.71306Z" fill="#1C274C"></path> <path d="M14.4386 4L14.4004 4.03819C14.4125 4.07487 14.4251 4.11206 14.4382 4.14973C14.7633 5.08687 15.3768 6.31538 16.5308 7.4694C17.6848 8.62341 18.9133 9.23686 19.8505 9.56199C19.8876 9.57489 19.9243 9.58733 19.9606 9.59933L11.4001 18.1598C10.823 18.7369 10.5343 19.0255 10.2162 19.2737C9.84082 19.5665 9.43469 19.8175 9.00498 20.0223C8.6407 20.1959 8.25351 20.3249 7.47918 20.583L3.39584 21.9442C3.01478 22.0712 2.59466 21.972 2.31063 21.688C2.0266 21.4039 1.92743 20.9838 2.05445 20.6028L3.41556 16.5194C3.67368 15.7451 3.80273 15.3579 3.97634 14.9936C4.18114 14.5639 4.43213 14.1578 4.7249 13.7824C4.97307 13.4643 5.26165 13.1757 5.83874 12.5986L14.4386 4Z" fill="#1C274C"></path>
+              </g></svg>
+            </button>
+            <button
+              class="absolute -top-2 right-8 text-xs bg-white rounded-full px-2 py-1 shadow"
+              onclick="deleteDoc(<%= d.id %>)"
+              aria-label="Eliminar"
+              title="Eliminar"
+            >
+              <!-- Tacho -->
+              <svg fill="#000000" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+                <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+                <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+                <g id="SVGRepo_iconCarrier">
+                  <path d="M18.8,16l5.5-5.5c0.8-0.8,0.8-2,0-2.8l0,0C24,7.3,23.5,7,23,7c-0.5,0-1,0.2-1.4,0.6L16,13.2l-5.5-5.5
+                           c-0.8-0.8-2.1-0.8-2.8,0C7.3,8,7,8.5,7,9.1s0.2,1,0.6,1.4l5.5,5.5l-5.5,5.5C7.3,21.9,7,22.4,7,23c0,0.5,0.2,1,0.6,1.4
+                           C8,24.8,8.5,25,9,25c0.5,0,1-0.2,1.4-0.6l5.5-5.5l5.5,5.5c0.8,0.8,2.1,0.8,2.8,0c0.8-0.8,0.8-2.1,0-2.8L18.8,16z"></path>
+                </g>
+              </svg>
+            </button>
+          <% } %>
+        </div>
+      <% }) %>
+    <% } %>
+  </div>
+</aside>
+
+<!-- ====== VISOR (PDF.js) ====== -->
+<% if (activeDoc) { %>
+  <div id="viewer-shell" class="viewer-shell" role="region" aria-label="Visor de documento">
+    <div id="viewer"></div>
+  </div>
+<% } else { %>
+  <div class="viewer-shell" style="display:flex;align-items:center;justify-content:center;color:#64748b;font-weight:600; max-width:100%; height:auto;">No hay documentos en esta sección.</div>
+<% } %>
+
+<!-- Tooltip global -->
+<div id="doc-flyover" role="tooltip" aria-hidden="true"></div>
+
+<!-- ====== PDF.js ====== -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  if (window.pdfjsLib) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>
+
+<!-- ====== SCRIPTS ====== -->
+<script>
+  // Admin helpers
+  async function renameDocGroup(group_uid, currentTitle){
+    const title = prompt('Nuevo título para el grupo:', currentTitle || '');
+    if (title == null) return;
+    await fetch('/admin/rename-group', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ group_uid, title })
+    });
+    location.reload();
+  }
+  async function renameDoc(id, currentTitle){
+    const title = prompt('Nuevo nombre para el documento:', currentTitle || '');
+    if (title === null) return;
+    const res = await fetch(`/admin/docs/${id}/rename`, {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ title })
+    });
+    if(!res.ok){ alert('No se pudo renombrar.'); return; }
+    location.reload();
+  }
+
+  // Tooltip docs
+  (function setupDocFlyover(){
+    const fly = document.getElementById('doc-flyover');
+    const GAP = 10;
+    const icons = document.querySelectorAll('.doc-item-icon');
+    const sidebar = document.querySelector('.sidebar-floating');
+    let hideTO = null;
+    function hideFly(){ fly.classList.remove('show'); fly.setAttribute('aria-hidden','true'); fly.style.transform = 'translate(-9999px, -9999px)'; }
+    function positionFly(el){
+      const rect = el.getBoundingClientRect();
+      fly.style.left = '0px'; fly.style.top = '0px'; fly.style.transform = 'none';
+      fly.textContent = el.getAttribute('data-title') || '';
+      fly.setAttribute('aria-hidden','false');
+      const flyW = fly.offsetWidth, flyH = fly.offsetHeight;
+      const top = rect.top + (rect.height / 2) - (flyH / 2);
+      let left = rect.left - GAP - flyW; const minLeft = 8; if (left < minLeft) left = minLeft;
+      fly.style.left = left + 'px'; fly.style.top = top + 'px'; fly.classList.add('show');
+    }
+    function onEnter(e){ if (hideTO){ clearTimeout(hideTO); hideTO=null; } positionFly(e.currentTarget); }
+    function onLeave(){ hideTO = setTimeout(hideFly, 80); }
+    icons.forEach(icon=>{
+      icon.addEventListener('mouseenter', onEnter);
+      icon.addEventListener('focus', onEnter);
+      icon.addEventListener('mouseleave', onLeave);
+      icon.addEventListener('blur', onLeave);
+    });
+    window.addEventListener('scroll', hideFly, true);
+    if (sidebar) sidebar.addEventListener('scroll', hideFly, { passive:true });
+    window.addEventListener('resize', hideFly);
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideFly(); });
+  })();
+</script>
+
+<script>
+(function pdfViewerApp(){
+  const leftPanel   = document.getElementById('left-panel');
+  const backdrop    = document.getElementById('left-backdrop');
+  const btnLeft     = document.getElementById('btn-left');
+
+  const zoomInBtn   = document.getElementById('zoom-in');
+  const zoomOutBtn  = document.getElementById('zoom-out');
+  const zoomResetBtn= document.getElementById('zoom-reset');
+
+  const fabRotate   = document.getElementById('fab-rotate');
+  const fabSearch   = document.getElementById('fab-search');
+  const fabDownload = document.getElementById('fab-download');
+  const fabFs       = document.getElementById('fab-fullscreen');
+
+  // Findbar
+  const findbar     = document.getElementById('findbar');
+  const findInput   = document.getElementById('find-input');
+  const findPrev    = document.getElementById('find-prev');
+  const findNext    = document.getElementById('find-next');
+  const findClose   = document.getElementById('find-close');
+
+  const viewerShell = document.getElementById('viewer-shell');
+  const viewer      = document.getElementById('viewer');
+  const pageCounter = document.getElementById('page-counter');
+
+  // Archivo activo / descarga (robusto si no hay activeDoc)
+  const FILE_ORIGINAL = "<%- (activeDoc && activeDoc.filename ? activeDoc.filename.replace(/\"/g, '\\\"') : '') %>";
+  (function setDownloadHref(){
+    if (FILE_ORIGINAL && fabDownload) {
+      fabDownload.setAttribute('href', FILE_ORIGINAL.split('#')[0]);
+    }
+  })();
+
+  // Estado
+  let panelOpen = false;
+  let userScale = 1;
+  const steps   = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+  let rotation  = 0; // grados CSS
+  let currentPage = 1;
+  let totalPages  = 0;
+
+  let pdfDoc = null;
+  const DPR = Math.max(1, Math.min(2, Math.ceil(window.devicePixelRatio || 1)));
+  let pageMeta = []; // { widthCSS, heightCSS, canvas, wrapper, inner, textLayer }
+
+  const searchState = { term:'', hits:[], idx:-1, perPageText:[], perPageItems:[] };
+
+  function updateCounter(){ pageCounter.textContent = `${currentPage || '–'} / ${totalPages || '–'}`; }
+
+  // Panel miniaturas
+  function setPanel(open){
+    panelOpen = !!open;
+    leftPanel.classList.toggle('open', panelOpen);
+    backdrop.classList.toggle('show', panelOpen);
+    leftPanel.setAttribute('aria-hidden', String(!panelOpen));
+  }
+  function togglePanel(){ setPanel(!panelOpen); }
+  btnLeft   ?.addEventListener('click', togglePanel);
+  backdrop  ?.addEventListener('click', ()=> setPanel(false));
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && panelOpen) setPanel(false);
+    if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey) togglePanel();
+  });
+
+  // Mantener centrado al hacer zoom
+  function keepCenterAroundCurrentPage(){
+    const el = document.getElementById('page-'+currentPage);
+    if (!el) return;
+    const targetCenter = el.offsetTop + el.offsetHeight/2;
+    const viewportCenterOffset = viewerShell.clientHeight/2;
+    viewerShell.scrollTo({ top: Math.max(0, targetCenter - viewportCenterOffset), behavior: 'auto' });
+  }
+
+  function nextScale(current, dir){
+    const idx = steps.reduce((acc, s, i)=> (Math.abs(s-current) < Math.abs(steps[acc]-current)? i:acc), 0);
+    let ni = Math.max(0, Math.min(steps.length-1, idx + (dir>0?1:-1)));
+    return steps[ni];
+  }
+
+  function applyTransform(pm){
+    // combinación estable: rotación (no reflow) + escala (centrada)
+    pm.inner.style.transform = `rotate(${rotation}deg) scale(${userScale})`;
+  }
+
+  function applyZoom(){
+    pageMeta.forEach(pm=>{
+      if (!pm) return;
+      applyTransform(pm);
+      // NO cambiamos width/height del wrapper al rotar: evita reordenar/dispersar
+      pm.wrapper.style.width  = pm.widthCSS + 'px';
+      pm.wrapper.style.height = pm.heightCSS + 'px';
+    });
+    zoomResetBtn.textContent = Math.round(userScale*100)+'%';
+  }
+  function setZoom(s){
+    userScale = Math.max(0.5, Math.min(2, s));
+    const prevTop = viewerShell.scrollTop;
+    applyZoom();
+    keepCenterAroundCurrentPage(); // garantiza centrado
+  }
+  zoomInBtn  ?.addEventListener('click', ()=> setZoom(nextScale(userScale, +1)));
+  zoomOutBtn ?.addEventListener('click', ()=> setZoom(nextScale(userScale, -1)));
+  zoomResetBtn?.addEventListener('click', ()=> setZoom(1));
+  document.addEventListener('keydown', (e)=>{
+    if (!(e.ctrlKey||e.metaKey)) return;
+    if (e.key==='+'||e.key==='='){ e.preventDefault(); setZoom(nextScale(userScale,+1)); }
+    if (e.key==='-'){ e.preventDefault(); setZoom(nextScale(userScale,-1)); }
+    if (e.key==='0'){ e.preventDefault(); setZoom(1); }
+  });
+
+  // Rotar SIN desordenar: no re-render, solo CSS en cada página + mantener página centrada
+  function rotate(){
+    rotation = (rotation + 90) % 360;
+    const target = currentPage || 1;
+    pageMeta.forEach(pm=> pm && applyTransform(pm));
+    // miniaturas opcionalmente rotan visualmente:
+    document.querySelectorAll('.thumb-item canvas').forEach(c => c.style.transform = `rotate(${rotation}deg)`);
+    goToPage(target, false);
+    keepCenterAroundCurrentPage();
+  }
+  fabRotate?.addEventListener('click', rotate);
+
+  // Fullscreen (overlay)
+  function toggleOverlay(){
+    const on = document.body.classList.toggle('pdf-overlay');
+    fabFs.title = on ? 'Salir de pantalla completa' : 'Pantalla completa del PDF';
+  }
+  fabFs?.addEventListener('click', toggleOverlay);
+  document.addEventListener('keydown', (e)=>{ if (e.key==='Escape' && document.body.classList.contains('pdf-overlay')) toggleOverlay(); });
+
+  // Búsqueda + resaltado naranja
+  function openFindbar(){ findbar.classList.add('show'); setTimeout(()=> findInput.focus(), 0); }
+  function closeFindbar(){ findbar.classList.remove('show'); findInput.value=''; clearHighlights(); searchState.term=''; searchState.hits=[]; searchState.idx=-1; }
+  function openOrToggleFindbar(){ (findbar.classList.contains('show')? closeFindbar() : openFindbar()); }
+  fabSearch?.addEventListener('click', openOrToggleFindbar);
+  document.addEventListener('keydown', (e)=> {
+    if ((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==='f' && !findbar.classList.contains('show')){ e.preventDefault(); openFindbar(); }
+    if (e.key==='Escape' && findbar.classList.contains('show')) closeFindbar();
+  });
+  findClose.addEventListener('click', closeFindbar);
+
+  function computeHits(term){
+    const t = term.toLowerCase();
+    searchState.hits = [];
+    searchState.perPageText.forEach((txt, i)=>{
+      if (!txt) return;
+      const low = txt.toLowerCase(); let idx=0, pos;
+      while((pos = low.indexOf(t, idx)) !== -1){ searchState.hits.push({ page:i+1, pos }); idx = pos + t.length; }
+    });
+    searchState.idx = -1;
+    applyHighlights(t);
+  }
+
+  function clearHighlights(){
+    pageMeta.forEach((pm)=>{
+      const tl = pm && pm.textLayer; if (!tl) return;
+      tl.querySelectorAll('mark.hl').forEach(m=>{
+        const parent = m.parentNode; while(m.firstChild) parent.insertBefore(m.firstChild, m); parent.removeChild(m);
+      });
+    });
+  }
+
+  function applyHighlights(term){
+    clearHighlights();
+    if (!term) return;
+    const termLen = term.length;
+    pageMeta.forEach((pm, pIdx)=>{
+      if (!pm || !searchState.perPageItems[pIdx]) return;
+      const tl = pm.textLayer; if (!tl) return;
+      const spans = tl.querySelectorAll('.text-item');
+      spans.forEach((sp)=>{
+        const raw = sp.getAttribute('data-str') || '';
+        const low = raw.toLowerCase();
+        if (!low.includes(term)) return;
+        let out = ''; let idx=0; let pos;
+        while((pos = low.indexOf(term, idx)) !== -1){
+          out += escapeHtml(raw.slice(idx, pos)) + '<mark class="hl">' + escapeHtml(raw.slice(pos, pos+termLen)) + '</mark>';
+          idx = pos + termLen;
+        }
+        out += escapeHtml(raw.slice(idx));
+        sp.innerHTML = out;
+        sp.style.color = 'transparent';
+      });
+    });
+  }
+
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+
+  function flashPage(pn){
+    const el = document.getElementById('page-'+pn);
+    if (!el) return;
+    el.classList.add('search-blink'); setTimeout(()=> el.classList.remove('search-blink'), 700);
+  }
+  function goHit(step){
+    const t=(findInput.value||'').trim(); if(!t) return;
+    if(t!==searchState.term){searchState.term=t; computeHits(t);}
+    if (!searchState.hits.length){ alert('Sin coincidencias'); return; }
+    if (step===-1 && searchState.idx===-1) searchState.idx = 0;
+    searchState.idx = (searchState.idx + step + searchState.hits.length) % searchState.hits.length;
+    const hit = searchState.hits[searchState.idx];
+    goToPage(hit.page, true); flashPage(hit.page);
+  }
+  findNext.addEventListener('click', ()=> goHit(+1));
+  findPrev.addEventListener('click', ()=> goHit(-1));
+  findInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); goHit(e.shiftKey?-1:+1); } });
+
+  // Navegar a página
+  function goToPage(p, smooth){
+    if (!viewer) return;
+    p = Math.max(1, Math.min(totalPages||1, p|0));
+    const pageEl = document.getElementById('page-'+p);
+    if (!pageEl) return;
+    currentPage = p; updateCounter();
+    pageEl.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block:'start' });
+  }
+
+  // Detectar página visible: centro del viewport
+  function updateCurrentPageFromScroll(){
+    if (!totalPages) return;
+    const mid = viewerShell.scrollTop + viewerShell.clientHeight / 2;
+    let best = 1;
+    let minDelta = Infinity;
+    for (let p=1; p<=totalPages; p++){
+      const el = pageMeta[p]?.wrapper;
+      if (!el) continue;
+      const center = el.offsetTop + el.offsetHeight/2;
+      const d = Math.abs(center - mid);
+      if (d < minDelta){ minDelta = d; best = p; }
+    }
+    if (best !== currentPage){
+      currentPage = best; updateCounter();
+    }
+  }
+  viewerShell.addEventListener('scroll', ()=> { requestAnimationFrame(updateCurrentPageFromScroll); }, { passive:true });
+
+  // Cargar PDF (solo si existe y tiene filename)
+  <% if (activeDoc && activeDoc.filename) { %>
+  const pdfUrl = ("<%- activeDoc.filename.replace(/\"/g, '\\\"') %>").split('#')[0];
+  if (window['pdfjsLib'] && pdfUrl){
+    pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise.then(async (pdf) => {
+      pdfDoc = pdf;
+      totalPages = pdf.numPages; updateCounter();
+      searchState.perPageText  = new Array(totalPages).fill('');
+      searchState.perPageItems = new Array(totalPages).fill(null);
+      await renderAllPages();
+      await renderThumbs();
+      try{ const m = /(?:^|#|&)page=(\d+)/.exec(location.hash); if (m){ goToPage(parseInt(m[1],10)||1); } }catch(_){}
+    }).catch(err=>{
+      console.error(err);
+      viewer.innerHTML = '<div style="color:#e11d48;font-weight:800;padding:24px; max-width:100%; height:auto;">No se pudo cargar el PDF.</div>';
+    });
+  }
+  <% } %>
+
+  async function renderAllPages(){
+    if (!pdfDoc) return;
+    viewer.innerHTML = '';
+    pageMeta = new Array(pdfDoc.numPages+1);
+    for (let p = 1; p <= pdfDoc.numPages; p++){ await renderPage(p); }
+    applyZoom();
+    updateCurrentPageFromScroll(); // inicial
+    if (searchState.term) applyHighlights(searchState.term.toLowerCase());
+  }
+
+  async function renderPage(p){
+    const page = await pdfDoc.getPage(p);
+    // viewport base SIN rotación (para fijar layout estable)
+    const baseViewport = page.getViewport({ scale: 1, rotation: 0 });
+    const targetWidth = Math.min(1100, viewerShell.clientWidth) - 24;
+    const renderScale = targetWidth / baseViewport.width;
+    const vp = page.getViewport({ scale: renderScale * DPR, rotation: 0 });
+
+    const wrap  = document.createElement('div'); wrap.className='page'; wrap.id='page-'+p; wrap.setAttribute('data-page', String(p));
+    const inner = document.createElement('div'); inner.className='page-inner';
+    const canvas= document.createElement('canvas'); canvas.className='page-canvas';
+    const ctx   = canvas.getContext('2d', { alpha:false });
+
+    canvas.width  = Math.floor(vp.width);  canvas.height = Math.floor(vp.height);
+    canvas.style.width  = (vp.width / DPR) + 'px'; canvas.style.height = (vp.height/ DPR) + 'px';
+
+    const textLayer = document.createElement('div');
+    textLayer.className = 'text-layer';
+    textLayer.style.width  = (vp.width / DPR) + 'px';
+    textLayer.style.height = (vp.height/ DPR) + 'px';
+
+    inner.appendChild(canvas);
+    inner.appendChild(textLayer);
+    wrap.appendChild(inner); viewer.appendChild(wrap);
+
+    const widthCSS  = vp.width / DPR, heightCSS = vp.height / DPR;
+    pageMeta[p] = { widthCSS, heightCSS, canvas, wrapper: wrap, inner, textLayer };
+
+    // Render SIEMPRE sin rotación; la rotación se aplica por CSS a .page-inner (no cambia layout)
+    await page.render({ canvasContext: ctx, viewport: vp, intent: 'display' }).promise;
+
+    try{
+      const tc = await page.getTextContent({ normalizeWhitespace: true });
+      searchState.perPageText[p-1]  = tc.items.map(it=>it.str).join(' ');
+      searchState.perPageItems[p-1] = tc.items;
+      buildTextLayer(textLayer, tc.items, vp);
+    }catch(_){}
+
+    // aplicar transformación inicial (por si ya hay zoom/rotación)
+    applyTransform(pageMeta[p]);
+  }
+
+  function buildTextLayer(layerEl, items, viewport){
+    layerEl.innerHTML = '';
+    const m = viewport.transform;
+    const scaleCss = 1 / DPR;
+    items.forEach(it=>{
+      const t = pdfjsLib.Util.transform(m, it.transform);
+      const x = t[4] * scaleCss;
+      const y = t[5] * scaleCss;
+      const fontHeight = Math.hypot(t[2], t[3]) * scaleCss;
+      const width = it.width * scaleCss;
+
+      const span = document.createElement('span');
+      span.className = 'text-item';
+      span.style.left = x + 'px';
+      span.style.top  = (y - fontHeight) + 'px';
+      span.style.fontSize = fontHeight + 'px';
+      span.style.width = width + 'px';
+      span.setAttribute('data-str', it.str || '');
+      span.textContent = it.str || '';
+      layerEl.appendChild(span);
+    });
+  }
+
+  // Miniaturas
+  async function renderThumbs(){
+    if (!pdfDoc) return;
+    const thumbsEl = document.getElementById('thumbs');
+    thumbsEl.innerHTML = '';
+    const maxPages = Math.min(pdfDoc.numPages, 300);
+    for (let p = 1; p <= maxPages; p++){
+      const page = await pdfDoc.getPage(p);
+      const desiredWidth = 280;
+      const viewport = page.getViewport({ scale: 1, rotation: 0 }); // base sin rotación
+      const scale = desiredWidth / viewport.width;
+      const vp = page.getViewport({ scale, rotation: 0 });
+
+      const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d', { alpha:false });
+      canvas.width = Math.floor(vp.width); canvas.height = Math.floor(vp.height);
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
+
+      const item = document.createElement('div'); item.className='thumb-item'; item.title='Ir a página '+p;
+      item.appendChild(canvas);
+      const label = document.createElement('div'); label.className='label'; label.textContent='Pág. '+p; item.appendChild(label);
+      item.addEventListener('click', ()=>{ goToPage(p, true); setPanel(false); });
+      thumbsEl.appendChild(item);
+    }
+    // aplicar misma rotación visual de las páginas (solo estética, no afecta layout)
+    document.querySelectorAll('.thumb-item canvas').forEach(c => c.style.transform = `rotate(${rotation}deg)`);
+  }
+
+  // Inicializar contador
+  updateCounter();
+})();
+</script>
+
+<% if (category === 'resumenes') { %>
+<script>
+  (function summarySlider(){
+    const rail   = document.getElementById('rail');
+    const thumb  = document.getElementById('thumb');
+    const levels = ['completo','mediano','facil'];
+    const current = '<%= (currentLevel || "completo") %>';
+    if (!rail || !thumb) return;
+    let idx = Math.max(0, Math.min(2, levels.indexOf(current)));
+
+    function currentY(){
+      const rect = rail.getBoundingClientRect();
+      const h = rect.height;
+      return [8, h/2, h-8][idx];
+    }
+    function placeThumb(){
+      const y = currentY();
+      thumb.style.top = `${y}px`;
+      thumb.setAttribute('aria-valuenow', idx);
+      thumb.setAttribute('title', 'Nivel: ' + levels[idx].charAt(0).toUpperCase() + levels[idx].slice(1));
+    }
+    function commit(){
+      const sel = levels[idx];
+      const qs = new URLSearchParams(location.search);
+      qs.set('category','resumenes'); qs.set('level', sel);
+      location.search = qs.toString();
+    }
+    function closestIndexByY(clientY){
+      const rect = rail.getBoundingClientRect();
+      const pts = [rect.top+8, rect.top+rect.height/2, rect.bottom-8];
+      let bestI = 0, bestD = Infinity;
+      pts.forEach((p,i) => { const d = Math.abs(clientY - p); if (d < bestD){ bestD = d; bestI = i; } });
+      return bestI;
+    }
+    placeThumb();
+    let dragging = false;
+    thumb.addEventListener('mousedown', e => { dragging = true; e.preventDefault(); });
+    window.addEventListener('mousemove', e => { if (!dragging) return; idx = closestIndexByY(e.clientY); placeThumb(); });
+    window.addEventListener('mouseup', e => { if (!dragging) return; dragging = false; placeThumb(); commit(); });
+    rail.addEventListener('click', e => { idx = closestIndexByY(e.clientY); placeThumb(); commit(); });
+    thumb.addEventListener('keydown', e => {
+      if (e.key === 'ArrowUp')   { idx = Math.max(0, idx-1); placeThumb(); e.preventDefault(); }
+      if (e.key === 'ArrowDown') { idx = Math.min(2, idx+1); placeThumb(); e.preventDefault(); }
+      if (e.key === 'Enter' || e.key === ' ') { commit(); e.preventDefault(); }
+    });
+    window.addEventListener('resize', placeThumb);
+  })();
+</script>
+<% } %>
+
+<script>
+  async function deleteDoc(id){
+    if (!confirm('¿Eliminar este documento? Esta acción no se puede deshacer.')) return;
+    const res = await fetch('/admin/delete-doc', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ id })
+    });
+    if (!res.ok) { alert('Error eliminando'); return; }
+    location.reload();
+  }
+  async function deleteGroup(group_uid){
+    if (!confirm('¿Eliminar TODO el paquete de resúmenes (las 3 versiones)?')) return;
+    const res = await fetch('/admin/delete-group', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify({ group_uid })
+    });
+    if (!res.ok) { alert('Error eliminando'); return; }
+    location.reload();
+  }
+</script>
+
+<!-- hecho con amor 💛 -->

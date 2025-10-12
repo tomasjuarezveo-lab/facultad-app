@@ -1,0 +1,154 @@
+﻿<!DOCTYPE html>
+<html lang="es" class="<%= hideTabbar ? 'auth-html' : '' %>">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= title || "Facultad" %></title>
+  <link rel="stylesheet" href="/public/css/app.css" />
+  <script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet"></head>
+<body class="bg-white min-h-screen <%= bodyClass || '' %>"> <!-- fondo marfil suave como en la captura -->
+  <% if (hideTabbar) { %><div class="auth-brand">Facultad</div><% } %>
+
+  <div class="max-w-6xl mx-auto px-4 <%= hideTabbar ? 'pb-0' : 'pb-40' %>">
+    <% if (!hideTabbar) { %>
+    <header class="flex items-center justify-between py-4">
+      <div class="text-xl font-semibold">Facultad</div>
+      <% if (user) { %>
+      <form method="POST" action="/logout">
+        <button class="text-sm text-gray-600 hover:underline">Salir</button>
+      </form>
+      <% } %>
+    </header>
+    <% } %>
+
+    <main>
+      <%- body %>
+    </main>
+  </div>
+
+  <% if (user && !hideTabbar) { %>
+          <% if (user && !hideTabbar) { %>
+  <nav aria-label="Menú principal" class="tabbar-wrap">
+    <div class="fn-glass rounded-3xl px-6 py-4 w-full max-w-5xl">
+      <ul class="fn-menu">
+        <li class="flex-1">
+          <a href="/app/materias" data-route="/app/materias" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Materias">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="url(#fnGrad)" d="M6 3.5h9a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5Z"/>
+                <rect x="5.2" y="6.5" width="2.6" height="11" rx="1.3" fill="rgba(255,255,255,.55)"/>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Materias</span>
+          </a>
+        </li>
+
+        <li class="flex-1">
+          <a href="/app/autoevaluaciones" data-route="/app/autoevaluaciones" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Autoevaluaciones">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="url(#fnGrad)" d="M7.5 4.5h9A2.5 2.5 0 0 1 19 7v10a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 17V7A2.5 2.5 0 0 1 7.5 4.5Z"/>
+                <rect x="9" y="3.2" width="6" height="2.6" rx="1.3" fill="rgba(255,255,255,.85)"/>
+                <path d="M8.6 12.3l2.1 2.1 4.2-4.2" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Autoevaluaciones</span>
+          </a>
+        </li>
+
+        <li class="flex-1">
+          <a href="/app/juegos" data-route="/app/juegos" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Juegos">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="url(#fnGrad)" d="M6 10h12a4 4 0 0 1 4 4 3 3 0 0 1-3 3h-2.2a2 2 0 0 1-1.6-.8l-.8-1a2 2 0 0 0-1.6-.8h-2a2 2 0 0 0-1.6.8l-.8 1a2 2 0 0 1-1.6.8H5A3 3 0 0 1 2 14a4 4 0 0 1 4-4Z"/>
+                <rect x="6.6" y="12.2" width="3.2" height="1.6" rx="0.8" fill="white"/>
+                <circle cx="16.6" cy="12.9" r=".9" fill="white"/>
+                <circle cx="18.8" cy="14.2" r=".9" fill="white"/>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Juegos</span>
+          </a>
+        </li>
+
+        <li class="flex-1">
+          <a href="/app/correlativas" data-route="/app/correlativas" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Correlativas">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 15.2c1.2 0 2.2-1 2.2-2.2S10.2 10.8 9 10.8 6.8 11.8 6.8 13 7.8 15.2 9 15.2Z" fill="url(#fnGrad)"/>
+                <circle cx="17.5" cy="7" r="2.2" fill="url(#fnGrad)"/>
+                <circle cx="17.5" cy="17" r="2.2" fill="url(#fnGrad)"/>
+                <path d="M10.2 12.3l5-4.1M10.2 13.7l5 4.1" stroke="url(#fnGrad)" stroke-linecap="round" stroke-width="1.8"/>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Correlativas</span>
+          </a>
+        </li>
+
+        <li class="flex-1">
+          <a href="/app/finales" data-route="/app/finales" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Finales">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="3" fill="url(#fnGrad)"/>
+                <rect x="6.5" y="3" width="2.6" height="4.2" rx="1.3" fill="white"/>
+                <rect x="14.9" y="3" width="2.6" height="4.2" rx="1.3" fill="white"/>
+                <path d="M4 10.2h16" stroke="white" stroke-width="2"/>
+                <g fill="white" opacity=".9">
+                  <rect x="6.7" y="12.2" width="3" height="2.4" rx=".6"/>
+                  <rect x="10.7" y="12.2" width="3" height="2.4" rx=".6"/>
+                  <rect x="14.7" y="12.2" width="3" height="2.4" rx=".6"/>
+                  <rect x="6.7" y="15.4" width="3" height="2.4" rx=".6"/>
+                  <rect x="10.7" y="15.4" width="3" height="2.4" rx=".6"/>
+                </g>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Finales</span>
+          </a>
+        </li>
+
+        <li class="flex-1">
+          <a href="/app/profesores" data-route="/app/profesores" class="fn-tile group flex flex-col items-center gap-2 rounded-2xl px-3 py-2 md:px-4 md:py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400" aria-label="Profesores">
+            <span class="fn-icon fn-ios-shadow">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="8.2" r="3.3" fill="url(#fnGrad)"/>
+                <path d="M5 19.6a7 7 0 0 1 14 0" fill="url(#fnGrad)"/>
+              </svg>
+            </span>
+            <span class="fn-label text-sm md:text-base">Profesores</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <% } %>
+
+  <% /* Badge fijo (ya existente) */ if (isMainPage) { 
+       const initials = (user.name || 'U').split(' ').slice(0,2).map(s=>s && s[0]).join('').toUpperCase();
+  %>
+    <div class="user-badge user-badge-fixed" id="userBadge">
+      <div class="avatar">
+        <% if (user.avatarUrl) { %><img src="<%= user.avatarUrl %>" alt="Avatar" /><% } else { %><span><%= initials %></span><% } %>
+      </div>
+      <div class="meta">
+        <div class="name"><%= user.name || 'Usuario' %></div>
+        <div class="sub">
+          <% if (user.career && user.plan) { %>
+            <%= (user.career.includes('Admin') ? 'Lic. en Admin.' : (user.career.includes('Econom') ? 'Lic. en Economía' : (user.career || ''))) %>
+            <%= user.plan ? (' · Plan ' + user.plan) : '' %>
+          <% } %>
+        </div>
+      </div>
+    </div>
+  <% } %>
+  <% } %>
+
+  <script src="/public/js/app.js"></script>
+</body>
+</html>
+
+
+
+
+
+
+

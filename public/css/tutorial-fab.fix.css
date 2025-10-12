@@ -1,0 +1,7 @@
+/* public/css/tutorial-fab.fix.css */
+#helpFab, .help-fab, [data-help-fab] { color: #111827; }
+#helpFab svg, .help-fab svg, [data-help-fab] svg {
+  width:22px; height:22px;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+  filter: none !important; mix-blend-mode: normal !important;
+}

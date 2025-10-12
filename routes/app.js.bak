@@ -1,0 +1,147 @@
+const express = require('express');
+const { all, get, run } = require('../models/db');
+
+module.exports = ({ ensureAdmin }) => {
+  const router = express.Router();
+
+  // Materias (home)
+  
+router.get('/materias', async (req, res) => {
+  let { career, plan } = req.user;
+  if (req.user.role === 'admin') {
+    if (req.query.career) career = req.query.career;
+    if (req.query.plan) plan = parseInt(req.query.plan, 10);
+  }
+  const subjects = await all(`SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY year, name`, [career, plan]);
+  // Para admin: necesitamos todas para los selects de correlativas
+  const allSubjects = req.user.role==='admin' ? await all(`SELECT * FROM subjects ORDER BY career, plan, year, name`) : [];
+  res.render('materias', { title: 'Materias', subjects, adminView: { career, plan }, allSubjects });
+});
+
+
+  // Crear materia (solo admin)
+  
+router.post('/materias', ensureAdmin, async (req, res) => {
+  const { name, year, career, plan } = req.body;
+  const r = await run(`INSERT INTO subjects (name, year, career, plan) VALUES (?,?,?,?)`, [name, parseInt(year,10), career, parseInt(plan,10)]);
+  const subjectId = r.lastID;
+
+  const toArr = (v) => Array.isArray(v) ? v : (v ? [v] : []);
+  const cursada = toArr(req.body['prereq_cursada[]'] || req.body.prereq_cursada);
+  const finalReq = toArr(req.body['prereq_final[]'] || req.body.prereq_final);
+
+  for (const depId of cursada) {
+    await run(`INSERT INTO correlatives (subject_id, depends_on_id, req_type) VALUES (?,?,?)`, [subjectId, parseInt(depId,10), 'cursada']);
+  }
+  for (const depId of finalReq) {
+    await run(`INSERT INTO correlatives (subject_id, depends_on_id, req_type) VALUES (?,?,?)`, [subjectId, parseInt(depId,10), 'final']);
+  }
+
+  res.redirect('/app/materias');
+});
+
+
+  // Renombrar materia (solo admin)
+  router.post('/materias/:id/rename', ensureAdmin, async (req, res) => {
+    await run(`UPDATE subjects SET name=? WHERE id=?`, [req.body.name, req.params.id]);
+    res.redirect('/app/materias');
+  });
+
+  // Eliminar materia (solo admin)
+  router.post('/materias/:id/delete', ensureAdmin, async (req, res) => {
+    await run(`DELETE FROM subjects WHERE id=?`, [req.params.id]);
+    res.redirect('/app/materias');
+  });
+
+  // Vista de materia + categoría + doc seleccionado
+  router.get('/materias/:id', async (req, res) => {
+    const id = parseInt(req.params.id,10);
+    const { career, plan } = req.user;
+    const subject = await get(`SELECT * FROM subjects WHERE id=? AND career=? AND plan=?`, [id, career, plan]);
+    if (!subject) return res.status(404).send('Materia no encontrada');
+
+    const category = (req.query.category || 'examenes');
+    const docs = await all(`SELECT * FROM documents WHERE subject_id=? AND category=? ORDER BY created_at DESC`, [id, category]);
+    const activeDocId = req.query.doc ? parseInt(req.query.doc,10) : (docs[0]?.id || null);
+    const activeDoc = activeDocId ? docs.find(d => d.id === activeDocId) : null;
+
+    res.render('subject', { title: subject.name, subject, category, docs, activeDoc });
+  });
+
+  // Autoevaluaciones
+  router.get('/autoevaluaciones', async (req, res) => {
+    const { career, plan } = req.user;
+    const subjects = await all(`SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY year, name`, [career, plan]);
+    res.render('autoevaluaciones', { title: 'Autoevaluaciones', subjects });
+  });
+  router.post('/autoevaluaciones/iniciar', async (req, res) => {
+    const { subject_id } = req.body;
+    const questions = await all(`SELECT * FROM quiz_questions WHERE subject_id=? ORDER BY RANDOM() LIMIT 5`, [subject_id]);
+    res.json({ questions: questions.map(q => ({ id:q.id, q:q.q, a:q.a, b:q.b, c:q.c, d:q.d })) });
+  });
+  router.post('/autoevaluaciones/responder', async (req, res) => {
+    const { subject_id, answers } = req.body; // [{id, choice}]
+    let correctCount = 0;
+    for (const ans of answers) {
+      const row = await get(`SELECT correct FROM quiz_questions WHERE id=?`, [ans.id]);
+      if (row && row.correct === ans.choice) correctCount++;
+    }
+    const score = correctCount * 2; // 5 preguntas => 10 puntos
+    await run(`INSERT INTO quiz_attempts (user_id, subject_id, score, total, answers_json) VALUES (?,?,?,?,?)`, [
+      req.user.id, subject_id, score, 10, JSON.stringify(answers)
+    ]);
+    res.json({ score, total: 10 });
+  });
+
+  // Juegos
+  router.get('/juegos', async (req, res) => {
+    const { career, plan } = req.user;
+    const subjects = await all(`SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY year, name`, [career, plan]);
+    res.render('juegos', { title: 'Juegos', subjects });
+  });
+
+  // Correlativas
+  router.get('/correlativas', async (req, res) => {
+    const { career, plan } = req.user;
+    const subjects = await all(`SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY year, name`, [career, plan]);
+    const edges = await all(`SELECT * FROM correlatives WHERE subject_id IN (SELECT id FROM subjects WHERE career=? AND plan=?)`, [career, plan]);
+    res.render('correlativas', { title: 'Correlativas', subjects, edges });
+  });
+
+  // Finales
+  router.get('/finales', async (req, res) => {
+    const { career, plan } = req.user;
+    const rows = await all(`SELECT finals.*, subjects.name as subject_name FROM finals JOIN subjects ON subjects.id=finals.subject_id WHERE subjects.career=? AND subjects.plan=? ORDER BY subjects.name`, [career, plan]);
+    const subjects = await all(`SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY name`, [career, plan]);
+    res.render('finales', { title: 'Finales', rows, subjects });
+  });
+  router.post('/finales', ensureAdmin, async (req, res) => {
+    const { subject_id, year, exam_type, modalidad, rendible } = req.body;
+    await run(`INSERT INTO finals (subject_id, year, exam_type, modalidad, rendible) VALUES (?,?,?,?,?)`, [subject_id, year || null, exam_type, modalidad, rendible ? 1 : 0]);
+    res.redirect('/app/finales');
+  });
+
+  // Profesores
+  router.get('/profesores', async (req, res) => {
+    const { career, plan } = req.user;
+    const profs = await all(`SELECT p.*, COALESCE(ROUND(AVG(r.rating),1),0) as avg_rating, COUNT(r.id) as reviews_count
+      FROM professors p LEFT JOIN reviews r ON r.professor_id=p.id
+      WHERE p.career=? AND p.plan=?
+      GROUP BY p.id ORDER BY avg_rating DESC, p.name`, [career, plan]);
+    res.render('profesores', { title: 'Profesores', profs });
+  });
+  router.post('/profesores', ensureAdmin, async (req, res) => {
+    const { name, photo_url, career, plan } = req.body;
+    await run(`INSERT INTO professors (name, photo_url, career, plan) VALUES (?,?,?,?)`, [name, photo_url || '', career, parseInt(plan,10)]);
+    res.redirect('/app/profesores');
+  });
+  router.post('/profesores/:id/review', async (req, res) => {
+    const { rating, comment } = req.body;
+    await run(`INSERT INTO reviews (professor_id, user_id, rating, comment) VALUES (?,?,?,?)`, [
+      req.params.id, req.user.id, parseInt(rating,10), comment || null
+    ]);
+    res.redirect('/app/profesores');
+  });
+
+  return router;
+};

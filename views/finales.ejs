@@ -1,0 +1,1432 @@
+<% /* =======================
+   =        FINALES        =
+   =  MISMA ESTÉTICA UI    =
+   ======================= */ %>
+
+<% if (user && user.role==='admin') { %>
+<div class="glass card p-4 mb-4">
+  <!-- Cambiado: Materia, Año, Modalidad, Info. Libre, Info. Regular, Carrera -->
+  <form id="finalesForm" method="POST" action="/admin/finales" class="grid md:grid-cols-6 gap-3">
+    <!-- Materia (select con subjects) -->
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium text-slate-700 mb-1">Materia</label>
+      <select name="subject_id" class="w-full h-10 rounded-xl border border-slate-200 px-3 bg-white" required>
+        <option value="">Elegir materia…</option>
+        <% (subjects||[]).forEach(s => { %>
+          <option value="<%= s.id %>"><%= s.name %> <%= s.year ? `- ${s.year}º` : '' %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Año -->
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Año</label>
+      <input type="number" name="year" placeholder="Ej: 3" class="w-full h-10 rounded-xl border border-slate-200 px-3" />
+    </div>
+
+    <!-- Modalidad -->
+    <div>
+      <label class="block text-sm font-medium text-slate-700 mb-1">Modalidad</label>
+      <select class="w-full h-10 rounded-xl border border-slate-200 px-3 bg-white" name="modalidad" required>
+        <option value="libre">Libre</option>
+        <option value="regular">Regular</option>
+        <option value="libre y regular">Libre y Regular</option>
+      </select>
+    </div>
+
+    <!-- Carrera (texto, por si querés forzar una carrera distinta a la de la materia) -->
+    <div class="md:col-span-2">
+      <label class="block text-sm font-medium text-slate-700 mb-1">Carrera</label>
+      <input type="text" name="career" placeholder="Ej: Lic. en Economía"
+             value="<%= (user && user.career) ? user.career : '' %>"
+             class="w-full h-10 rounded-xl border border-slate-200 px-3" />
+    </div>
+
+    <!-- Info. Libre -->
+    <div class="md:col-span-3">
+      <label class="block text-sm font-medium text-slate-700 mb-1">Info. Libre</label>
+      <textarea name="libre" rows="3" placeholder="Escribí aquí la info de LIBRE"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2"></textarea>
+    </div>
+
+    <!-- Info. Regular -->
+    <!-- Info. Regular -->
+    <div class="md:col-span-3">
+      <label class="block text-sm font-medium text-slate-700 mb-1">Info. Regular</label>
+      <textarea name="regular" rows="3" placeholder="Escribí aquí la info de REGULAR"
+                class="w-full rounded-xl border border-slate-200 px-3 py-2"></textarea>
+    </div>
+
+    <!-- DEFAULT para satisfacer NOT NULL en finals.exam_type -->
+    <input type="hidden" name="exam_type" value="escrito y oral">
+
+    <div class="md:col-span-6 flex items-center justify-end">
+      <button class="h-10 px-4 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700" type="submit">
+        Agregar fila
+      </button>
+    </div>
+  </form>
+</div>
+<% } %>
+
+<% if (user && user.role === 'admin') { %>
+  <div class="flex items-center justify-end gap-2 mb-3">
+    <button id="btnBulkDeleteFinals"
+            class="h-9 px-3 rounded-lg bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Eliminar finales seleccionados"
+            disabled>
+      <!-- SVG basurero -->
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" style="display:inline-block;vertical-align:middle;margin-right:6px;">
+        <path d="M9 3v1H4v2h16V4h-5V3H9zm-2 6h2v9H7V9zm4 0h2v9h-2V9zm4 0h2v9h-2V9z"></path>
+      </svg>
+      Eliminar seleccionados
+    </button>
+  </div>
+<% } %>
+
+<!-- data-user-career: enviá desde server el nombre de la carrera del usuario -->
+<div id="finalesMain" class="card bg-white p-0 overflow-x-auto"
+     data-user-career="<%= (user && (user.carrera || user.career || user.degree || '')) %>">
+
+  <!-- Barra de búsqueda arriba a la derecha -->
+  <div class="flex justify-end p-2">
+    <div id="finalesSearchWrap" class="p-3 mb-4 flex items-center gap-2 max-w-md">
+      <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true" focusable="false">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+      </svg>
+      <input 
+        type="text" 
+        id="searchInput" 
+        placeholder="Buscar materia..." 
+        class="bg-transparent outline-none w-full text-sm">
+    </div>
+  </div>
+
+  <!-- Tabla -->
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-50">
+      <tr>
+        <th class="text-left p-3">Materia</th>
+        <th class="text-left p-3">Año</th>
+        <th class="text-left p-3">Modalidad</th>
+        <th class="text-left p-3">Info. Libre</th>
+        <th class="text-left p-3">Info. Regular</th>
+        <th class="text-left p-3">Carrera</th>
+        <% if (user && user.role === 'admin') { %>
+          <th class="text-right p-3">Seleccionar</th>
+        <% } %>
+      </tr>
+    </thead>
+    <tbody id="cwFinalesBody"><!-- Render dinámico --></tbody>
+  </table>
+</div>
+
+<!-- Modal de información -->
+<div id="cwFinalesModal" class="fixed inset-0 z-[100000] hidden items-center justify-center">
+  <div class="absolute inset-0 bg-black/40 backdrop-blur-sm" data-close="1"></div>
+  <div class="relative w-[min(92vw,760px)] bg-white rounded-2xl border border-slate-200 shadow-2xl p-5 animate-[cwPop_.18s_ease-out]">
+    <button class="absolute top-2 right-2 w-8 h-8 rounded-full border border-slate-200 bg-white shadow-inner" type="button" aria-label="Cerrar" title="Cerrar" data-close="1">×</button>
+    <h3 id="cwFmTitle" class="font-black text-base tracking-[-.01em] mb-1">Información</h3>
+    <p id="cwFmMeta" class="text-[13px] text-slate-600 mb-3"></p>
+    <div id="cwFmBody" class="text-[14px] leading-6 text-slate-900 whitespace-pre-line"></div>
+  </div>
+</div>
+
+<style>
+@keyframes cwPop{0%{opacity:0;transform:scale(.98) translateY(8px)}100%{opacity:1;transform:scale(1) translateY(0)}}
+</style>
+
+<!-- Opción de inyección desde servidor: -->
+<script id="finalsDataJson" type="application/json">
+[
+  {
+    "carrera": "Contador Público",
+    "materia": "ACTUACION JUDICIAL",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito y oral",
+    "libre": "Escrito (Teorico práctico) y Oral:  Modalidad de evaluación podrá ser presencial y/o virtual (sincrónica y/o asincrónica) La instancia oral acceden los alumnos que aprobaron la instancia escrita, previo sorteo de dos bolillas del programa mosaico."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ACTUACION LABORAL",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Alumnos Regulares con mas de 6\na) Comenzarán el examen oral con la exposición de un tema de su elección.\nb) El tema deberá estar contenido en alguna de las bolillas que componen el programa de la materia.\nc) Deberán informar claramente el tema elegido y la bolilla a la que corresponde antes de comenzar con la exposición.\nd) Durante la exposición del tema elegido, los docentes evaluadores podrán realizar preguntas sobre el mismo o pasar a otro tema del programa, cuando lo consideren conveniente.\ne) Una vez agotado el tema elegido, los docentes realizarán preguntas sobre cualquiera de los puntos del programa de la materia a fin de definir la instancia oral de la evaluación.\nf) Una vez concluida la examinación oral, se le informará al alumno de los resultados del examen oral y la nota correspondiente en caso de haber aprobado, o la decisión de desaprobar el examen final.\n\nOpcion 2 - Regulares con nota 5 o menos\nPrevio al examen oral deberán rendir un examen de múltiples opciones de 20 preguntas, de las cuales deberán tener al menos 14 aciertos para pasar al examen oral, de igual forma que el párrafo anterior. Respecto al examen de múltiples opciones, el mismo tendrá el siguiente formato:\na) Este es un examen de múltiple choice con un total de 20 preguntas.\nb) Cada pregunta tiene una o dos respuestas correctas.\nc) La pregunta que se responde incorrectamente o no se responde no descuenta puntos, y considerándose medio error por cada respuesta errónea si hay dos válidas.\nd) Disponen de 30 minutos para dar respuesta al múltiple choice.\ne) Pueden consultar los textos de todas las normas legales incluidas en el programa de estudio de la Cátedra.",
+    "libre": "Opcion 1 - Alumnos PLAN VI con nota de 4 o 5:\n\na) Comenzarán el examen oral con la exposición de un tema de su elección.\nb) El tema deberá estar contenido en alguna de las bolillas que componen el programa de la materia.\nc) Deberán informar claramente el tema elegido y la bolilla a la que corresponde antes de comenzar con la exposición.\nd) Durante la exposición del tema elegido, los docentes evaluadores podrán realizar preguntas sobre el mismo o pasar a otro tema del programa, cuando lo consideren conveniente.\ne) Una vez agotado el tema elegido, los docentes realizarán preguntas sobre cualquiera de los puntos del programa de la materia a fin de definir la instancia oral de la evaluación.\nf) Una vez concluida la examinación oral, se le informará al alumno de los resultados del examen oral y la nota correspondiente en caso de haber aprobado, o la decisión de desaprobar el examen final.\n\n\nOpcion 2 - LIBRES PLAN VII Y PLAN VI:\nExamen que consta de tres etapas:\n1. Un examen de múltiples opciones con un total de 20 preguntas, debiendo tener dieciséis (16) aciertos o más, para pasar a la próxima instancia, siendo este examen de un formato igual al apartado anterior.\n2. Se les informará de inmediato, quienes aprobaron y pasan a la siguiente etapa de examen práctico, quedando los desaprobados para recibir las explicaciones que requieran.\na) El Examen Final Práctico tendrá una duración máxima de una hora y media (01 hs y 30’).\nb) El examen constará de ejercicios prácticos a ser desarrollados por los alumnos y entregando al docente evaluador, no solo los resultados, sino los cálculos auxiliares efectuados para llegar al resultado propuesto.\nc) La resolución por parte del alumno, deberá ser realizada en lapicera de tinta, de puño y letra totalmente legible. Todos aquellos cálculos que no se puedan observar de manera clara, serán considerados nulos.\nd) Se tolerarán como máximo un 40% del examen con respuestas erróneas.\ne) Finalizado el examen práctico, y en el caso de que el alumno lo haya aprobado, pasará a la instancia de evaluación oral de la parte teórica, y en el caso de que haya desaprobado recibirá las explicaciones que requiera.\n3. A los alumnos que hayan aprobado el examen práctico presencial, se les tomará el examen teórico oral presencial con la misma modalidad que la señalada en (*)\n4. En caso de desaprobar en cualquiera de las instancias, en la mesa posterior deberá iniciar desde el punto 1."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ADMINISTRACION II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Oral: A cada estudiante se le sortearán 2 unidades del programa que deberá desarrollar y sobre las que se centrarán las preguntas iniciales. Luego, si el/la docente lo estima necesario, se le realizarán preguntas referidas a otras unidades del programa, haciendo énfasis en la relación entre temas.  (Esta modalidad se aplicará dependiendo de la cantidad de estudiantes y docentes disponibles)\nOpción 2 - Escrito: Se realizarán preguntas abiertas a desarrollar en forma teórica sobre diferentes unidades del programa, así como también se plantearán consignas que impliquen la relación entre diferentes temáticas. (Esta modalidad se aplicará dependiendo de la cantidad de estudiantes y docentes disponibles)",
+    "libre": "En primer lugar, el día de la mesa de examen final, los/las estudiantes deberán efectuar un examen escrito que contará con consignas que deberán responder en forma teórico práctica sobre un caso de estudio propuesto ad hoc. En los plazos establecidos por el Régimen Académico y de Enseñanza Integral, se les informará vía correo electrónico SIU Guaraní o Au24, si dicho examen resultó “aprobado” o “desaprobado”. En caso de que resulte aprobado, el/la estudiante accederá a una instancia oral, que se desarrollará en una fecha acordada con el/la docente, en los mismos términos que los detallados para los estudiantes regulares."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: El alumno deberá preparar un tema a su elección para iniciar el examen. Luego, se le realizarán preguntas referidas a todas las unidades del programa, haciendo énfasis en la relación entre  temas",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: con programa y sin bolillero",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: Preparación de un tema a elección del estudiante + preguntas del\ndocente obre otros temas de la materia. \n\nOpcion 2 - Escrito: con preguntas a desarrollar",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "AUDITORIA",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Comenzará con la exposición de un tema especial y luego deberá responder preguntas de diversos puntos del programa; seleccionados a criterio del evaluador",
+    "libre": "Mixta: Deberá primero responder un cuestionario con actividades prácticas, en caso de aprobar el mismo pasará a desarrollar en forma oral el tema especial seleccionado para luego responder sobre otras temáticas del programa, a elección del evaluador."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "COMERCIALIZACION",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Preguntas abiertas y/o multiple choice.",
+    "libre": "Escrito sobre un caso de negocio y preguntas abiertas(oral o escritas) sobre teoria de las diferentes unidades del plan de estudios."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD DEL SECTOR PUBLICO",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral",
+    "libre": "Mixta"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD I CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: La evaluación constará de dos etapas complementarias: una evaluación escrita mediante un cuestionario de opción múltiple, con consignas que abarcarán todas las unidades del programa y aquellos alumnos que aprueben el cuestionario escrito deberán rendir una evaluación oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD I CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Inicio con un examen de tipo múltiple choice de 16 preguntas que admite hasta 4 errores sobre todo el contenido general de la asignatura. Aprobado el mismo,  pasan a una instancia oral. Para los casos de alumnos que rinden la asignatura por quinta vez, independientemente del resultado obtenido en la prueba múltiple choice, pasan a una instancia oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD I CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Alumnos con cursada aprobada: rinden un preevaluativo escrito con preguntas de opciones múltiples, si lo aprueban pasan al final oral, que estará a cargo del profesor adjunto y del ayudante con quien han cursado la materia. El alumno para comenzar el examen puede elegir un tema del programa y luego el profesor pregunta sobre el contenido de la asignatura",
+    "libre": "-"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD II (AJUSTE Y VALUACIÓN)",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Deberán preparar y exponer un tema especial correspondiente a un punto contenido dentro de una unidad del programa de la materia y en forma posterior responder las preguntas que el profesor efectue sobre contenidos de la materia.",
+    "libre": "Deberán rendir un examen practico escrito. En caso de que dicha evaluación resulte aprobada deberán rendir un examen oral en los mismos terminos que los estudiantes regulares."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD III",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "El alumno regular rendirá un examen escrito con preguntas de desarrollo teórico y consignas de aplicación práctica.",
+    "libre": "El alumno libre, además de rendir la misma prueba que el alumno regular una vez aprobada\nla instancia mencionada, se lo citará para que rinda un examen escrito con casos de aplicación práctica a desarrollar y justificar."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD IX \n(Sistema de Información Contable para la Toma de Decisiones)",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Inicio con Tema\nespecial elegido por el estudiante",
+    "libre": "Inicio con evaluación escrita (ejercitación práctica), aprobada esta instancia continúa\ncon evaluación oral con igual metodología de evaluación del Estudiante Regular"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "CONTABILIDAD VII (ANALISIS E INTERPRETACION DE LOS ESTADOS CONTABLES)",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Escrito.\n\nOpción 2 - Solo para alumnos que así lo soliciten en tanto hayan rendido al menos tres veces escrito y desaprobado",
+    "libre": "No hay especificaciones"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "COSTOS PARA LA GESTION",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "El alumno/a debe preparar un tema especial sobre algún punto o capítulo del programa, luego el docente le hará preguntas sobre puntos del programa.",
+    "libre": "El alumno/a debe rendir primero la evaluación sobre ejercicios prácticos de forma escrita, si aprueba la evaluación práctica será evaluado/a en forma oral sobre temas teóricos, pudiendo comenzar la evaluación con un tema elegido por el alumno/a."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "DERECHO CONSTITUCIONAL",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: En las mesas de examen final los estudiantes pueden rendir a su eleccion con un tema especial, luego seran evaluados con programa abierto, donde el docente podra hacer preguntas sobre todos los temas. Asi mismo, se puede usar Bolillero para sortear dos temas al azar para que el alumno sea evaluado sobre dichos contenidos. El estudiante contara con 10 minutos para revisar el programa y el texto de la constitucion nacional para formular una guia a efectos de la exposicion oral",
+    "libre": "No hay especificaciones"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "DERECHO PRIVADO",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Oral: El alumno elige tema especial o saca bolilla. En ambos casos luego se le pregunta a programa abierto"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ESTADISTICA APLICADA",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Examen teórico práctico.",
+    "libre": "Examen teórico práctico con un\nejercicio adicional"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ESTRUCTURA ECONOMICA SOCIETARIA",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "PLAN VI: Oral, deberá preparar un tema especial. Adicionalmente el docente evaluara otros temas del Programa de la asignatura, en la medida que la exposición del tema elegido por el alumno haya sido satisfactoria.\n\nPLAN VII: El/la estudiante deberá preparar un tema especial. Adicionalmente el docente evaluara otros temas del Programa de la asignatura.",
+    "libre": "PLAN VI: Oral, deberá preparar un tema especial. Adicionalmente el docente evaluara otros temas del Programa de la asignatura, en la medida que la exposición del tema elegido por el alumno haya sido satisfactoria.\n\nPLAN VII: Deberán rendir y aprobar una evaluación practica escrita, si aprueba dicho examen avanza al examen oral (misma metodología que alumno regular)."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "FINANZAS DE EMPRESAS",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Escrito: Se evaluara a través de preguntas, pudiendo ser cerradas, abiertas, de verdadero y falso, etc.\n\nOpcion 2 - Oral: Únicamente para alumnos que rindan por quinta vez la materia y expresen su voluntad de rendir de esa manera. En estos exámenes no se exigirá la preparación de un tema especial.",
+    "libre": "Opcion 1 - Escrita: Los estudiantes interesados deberán contactarse con una antelación de 10 dias con el Profesor Quiroga a la casilla de correo que se puso a disposición en el aula virtual (o en su defecto con el profesor Giannini) para coordinar una fecha para que se le tome el examen práctico, que deberá ser rendido con antelación a la mesa de examen de los alumnos regulares."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "FINANZAS PUBLICAS",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Preguntas de opción múltiple y preguntas a desarrollar."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "HISTORIA ECONÓMICA Y SOCIAL I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "Opción 1- Tema especial: El estudiante puede iniciar el examen exponiendo un tema de su elección dentro de los contenidos en el Programa vigente para Alumnos Regulares, con una presentación de 10 a 15 minutos. Si el estudiante elige comenzar con un tema especial, además sacará una bolilla al azar que remitirá a uno de los temas del programa de examen, de la que podrá elegir dejar componentes de lado.\n\nSi no hay tema especial, el estudiante deberá extraer igualmente una bolilla, pero en este caso deberá abordar el contenido completo del tema sorteado. Sobre las características del programa de examen final, ver el item siguiente.\n\nOpción 2 - Programa examen: El programa de examen final reconfigura los contenidos de las unidades del programa de la materia, agrupándolos en siete bloques temáticos que estructuran la evaluación. Cada tema del programa de examen se compone de una combinación flexible de contenidos provenientes de distintas unidades del programa general. Esta reconfiguración no sigue el esquema tradicional de evaluación unidad por unidad, sino que permite evaluar la capacidad del estudiante para relacionar procesos históricos, analizar continuidades y rupturas, y establecer conexiones entre diversas dimensiones del desarrollo economico, politico y social. De este modo, se evita una evaluación fragmentada y se favorece una comprensión más profunda de las dinámicas históricas.",
+    "libre": ""
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "INTRO A LA CIENCIAS SOCIALES",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Oral: El o la estudiante podrá optar por comenzar a desarrollar un tema\npor él o ella elegido o por responder las preguntas que le formule el/la docente.\n\nOpcion 2 - Escrito: En caso de que los/las estudiantes concurran en un número elevado, se tomará prueba escrita con preguntas a desarrollar.",
+    "libre": "No hay especificaciones"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Entre los meses de Agosto a Diciembre, cada profesor adjunto evaluara a los estudiantes que hayan aprobado en su comision. Aquellos estudiantes que hayan aprobado en años anteriores y durante los meses de Febrero a Julio, se tomara un examen unico para todos",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Escrito: Para los alumnos regulares que hayan cursado la materia la modalidad de examen final es escrita. El examen cubre todos los temas del programa.\n\nOpcion 2 - Oral: Para alumnos que deban rendir equivalencias. Los temas a evaluar serán seleccionados por el profesor a cargo de la mesa examinadora en el momento del examen. No se sortearán temas.",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "MACROECONOMÍA I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Oral: Se recomienda a los alumnos la elección de un tema del programa a desarrollar para iniciar el examen.\n\nOpción 2 - Escrita: Se incluyen una serie de preguntas para respuesta seleccionando entre opciones multiples y para desarrollo",
+    "libre": "Los alumnos libres deben hacer una parte práctica escrita y luego de aprobarla se procede con las metodologias 1 ó 2 según cantidad de alumnos y docente encargado."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "MATEMATICA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Presencial con consignas teoricas y resoluciones de trabajos practicos. Las preguntas podran ser abiertas y cerradas",
+    "libre": "No hay especificaciones"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "MATEMATICA II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "La evaluación será teórico-práctica y se ponderará el uso de la teoría en las argumentaciones que se presentan para resolver los ejercicios propuestos, así como el correcto manejo de las herramientas de la asignatura para la resolución que se presenta. Se contará con 2 horas y media.",
+    "libre": ""
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "MATEMATICA PARA DECISIONES EMPRESARIAS",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "PLAN VII: El estudiante prepara y expone un tema especial elegido por él mismo, y luego de aprobarlo, es interrogado con preguntas abiertas, sobre conceptos fundamentales de la materia, básicos para dar aprobada la asignatura.\n\nPLAN VI: Oral, sin preparación de tema espe",
+    "libre": "PLAN VII: El estudiante realiza una primera evaluación escrita sobre la parte práctica de la materia, consistente en ejercicios prácticos (similares a los contenidos en la guía de trabaos prácticos, desarrollada durante la cursada); no estructurada, abierta. Una vez aprobada, pasa a una segunda instancia oral, donde expone un tema a su elección. Luego de aprobado es interrogado con preguntas abiertas, sobre otros conceptos fundamentales básicos para considerar que adquirió el conocimiento necesario para aprobar la materia.\n\nPLAN VI: Se tomará una prueba oral de contenidos teóricos y en caso de aprobarse, un ejercicio práctico integrador."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "MICROECONOMIA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: evaluacion sobre tema teoricos de la materia",
+    "libre": "Deberan rendir en primer instancia, una evluacion escrita sobre los contenidos practicos (relacionada a la guia de trabajos practicos y las evaluaciones de seguimiento que se realizan durante la cursada). En caso de aprobar la parte practica, debera rendir seguidamente el examen teorico (el mismo que rinden los regulares)"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "ORGANIZACION Y PRACTICA PROFESIONAL",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral con tema especial",
+    "libre": "Un escrito de la parte práctica y un oral de teoria"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "PRODUCCION",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Teórico Escrito y Oral individual basado en el programa de la materia",
+    "libre": "Escrito de la Práctica y teórico Escrito y Oral individual basado en el programa de la materia"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "SISTEMA DE INFORMACION CONTABLE DE APOYO A LAS OPERACIONES",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: En cada instancia de examen final el alumno inicia el mismo con un tema especial elegido por ellos. Posteriormente el profesor continúa la evaluación con preguntas que considere pertinentes de cualquier tema del programa de estudio.",
+    "libre": "El examen final se inicia con una evaluación escrita. La misma consta de 2 (dos) ejercicios de práctica, se les asigna aproximadamente 2 (dos) horas para la resolución. Si el docente que evalúa los mismos considera que es pertinente su acreditación, el alumno accede a la instancia de examen oral"
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "TEORIA Y TECNICA IMPOSITIVA I",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - El alumno regular rendirá oral previo sorteo de unidades con bolillero provisto por la facultad.\n\nOpción 2 - Podrá desarrollarse esta metodología en función de la cantidad de alumnos presentes conforme la decisión del/los docente/s a cargo de la mesa. El alumno regular rendirá examen escrito de opciones múltiples, ejercicios de aplicación y/o consignas de desarrollo técnico.",
+    "libre": "Opcion 1 - El alumno libre será evaluado, inicialmente, en forma escrita sobre aspectos de aplicación práctica. En caso de aprobar esa instancia, será evaluado con la metodología descripta para el alumno regular.\n\nOpcion 2 - El alumno libre, además será evaluado con un examen escrito de ejercicios integrales de aplicación práctica."
+  },
+  {
+    "carrera": "Contador Público",
+    "materia": "TEORIA Y TECNICA IMPOSITIVA II",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1: Se evaluará con preguntas al azar guiadas por el\ndocente.\n\nOpción 2: Se evaluará con preguntas al azar guiadas por el\ndocente.",
+    "libre": "La evaluación teórica (oral o escrita) se le adicionarán\nejercicios prácticos abarcando temas de la materia de manera escrita."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTACION III",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Examen escrito sobre temas teóricos de una hora de duración que consta de 10 peguntas a responder en 5/10 renglones cada una sobre diversos temas del programa.",
+    "libre": "Esta evaluación se tomara en dos instancias:\n1) Un examen sobre aspectos teóricos: Ídem alumnos regulares.\n2) Un examen de práctica: escrito de dos horas de duración con ejercicios de aplicación sobre diversos temas de la guía de TP. Esta instancia se realizará dentro de los 5 días hábiles posteriores a la evaluación de los temas teóricos."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACION DE LA PRODUCCIÓN",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "regular",
+    "regular": "Instancia previa escrita con desarrollo de temas con eventual acceso a oral de acuerdo con la corrección efectuada a los efectos de despejar dudas. La etapa de corrección y la etapa oral siempre es en presencia de un profesor y un docente adicional.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACION II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Oral: A cada estudiante se le sortearán 2 unidades del programa que deberá desarrollar y sobre las que se centrarán las preguntas iniciales. Luego, si el/la docente lo estima necesario, se le realizarán preguntas referidas a otras unidades del programa, haciendo énfasis en la relación entre temas.  (Esta modalidad se aplicará dependiendo de la cantidad de estudiantes y docentes disponibles).\n\nOpción 2 - Escrito: Se realizarán preguntas abiertas a desarrollar en forma teórica sobre diferentes unidades del programa, así como también se plantearán consignas que impliquen la relación entre diferentes temáticas. (Esta modalidad se aplicará dependiendo de la cantidad de estudiantes y docentes disponibles)",
+    "libre": "En primer lugar, el día de la mesa de examen final, los/las estudiantes deberán efectuar un examen escrito que contará con consignas que deberán responder en forma teórico práctica sobre un caso de estudio propuesto ad hoc. En los plazos establecidos por el Régimen Académico y de Enseñanza Integral, se les informará vía correo electrónico SIU Guaraní o Au24, si dicho examen resultó “aprobado” o “desaprobado”. En caso de que resulte aprobado, el/la estudiante accederá a una instancia oral, que se desarrollará en una fecha acordada con el/la docente, en los mismos términos que los detallados para los estudiantes regulares."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACION PUBLICA",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Teoría (múltiple choice) y trabajo actualizado del TIF que realizó durante la cursada.",
+    "libre": "Teoría y Trabajo sobre Políticas Públicas que debe entregar el alumno 15 días antes del examen final"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: El alumno deberá preparar un tema a su elección para iniciar el examen. Luego, se le realizarán preguntas referidas a todas las unidades del programa, haciendo énfasis en la relación entre  temas",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: con programa y sin bolillero",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: Preparación de un tema a elección del estudiante + preguntas del\ndocente obre otros temas de la materia. \n\nOpcion 2 - Escrito: con preguntas a desarrollar",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "COMPORTAMIENTO HUMANO EN LAS ORGANIZACIONES",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Rinden en forma oral y pueden preparar tema, si lo desean, y posteriormente se preguntará el resto del programa.",
+    "libre": "Rinden con modalidad Mixta, es decir escrito y oral. En primer lugar, rinden un examen \nescrito que necesitan aprobar para pasar a la siguiente instancia que es la oral.  Para la instancia oral pueden preparar tema, si lo desean, y posteriormente se preguntará el resto del programa."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "CONTABILIDAD I CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: La evaluación constará de dos etapas complementarias: una evaluación escrita mediante un cuestionario de opción múltiple, con consignas que abarcarán todas las unidades del programa y aquellos alumnos que aprueben el cuestionario escrito deberán rendir una evaluación oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "CONTABILIDAD I CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Inicio con un examen de tipo múltiple choice de 16 preguntas que admite hasta 4 errores sobre todo el contenido general de la asignatura. Aprobado el mismo,  pasan a una instancia oral. Para los casos de alumnos que rinden la asignatura por quinta vez, independientemente del resultado obtenido en la prueba múltiple choice, pasan a una instancia oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "CONTABILIDAD I CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Alumnos con cursada aprobada: rinden un preevaluativo escrito con preguntas de opciones múltiples, si lo aprueban pasan al final oral, que estará a cargo del profesor adjunto y del ayudante con quien han cursado la materia. El alumno para comenzar el examen puede elegir un tema del programa y luego el profesor pregunta sobre el contenido de la asignatura",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "COSTOS PARA LA GESTION",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "El alumno/a debe preparar un tema especial sobre algún punto o capítulo del programa, luego el docente le hará preguntas sobre puntos del programa.",
+    "libre": "El alumno/a debe rendir primero la evaluación sobre ejercicios prácticos de forma escrita, si aprueba la evaluación práctica será evaluado/a en forma oral sobre temas teóricos, pudiendo comenzar la evaluación con un tema elegido por el alumno/a."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "DERECHO CONSTITUCIONAL",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: En las mesas de examen final los estudiantes pueden rendir a su eleccion con un tema especial, luego seran evaluados con programa abierto, donde el docente podra hacer preguntas sobre todos los temas. Asi mismo, se puede usar Bolillero para sortear dos temas al azar para que el alumno sea evaluado sobre dichos contenidos. El estudiante contara con 10 minutos para revisar el programa y el texto de la constitucion nacional para formular una guia a efectos de la exposicion oral",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "DERECHO EMPRESARIO",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Oral. Con o sin tema especial"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "DERECHO PRIVADO",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Oral. El alumno elige tema especial o saca bolilla. En ambos casos luego se le pregunta a programa abierto"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "DIRECCION GENERAL",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral y Escrito: El examen sera teorico practico, sobre las unidades del programa.",
+    "libre": "Debe rendir un escrito sobre un caso de negocio, hacer un analisis del desempeño de una empresa simulada (En el entorno de de simulacion CESIM) y luego de un oral sobre las distintas unidades del programa."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "DISEÑO DE SISTEMAS DE INFORMACION",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Se les sugiere que preparen un tema.",
+    "libre": "Parte 1) Resolución escrita de un trabajo de aplicación de extensión, temática y complejidad similares a los casos contemplados en las evaluaciones parciales de la cursada. Parte 2) Aprobada la instancia práctica, el alumno pasa a una instancia teórica oral."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "ESTADISTICA APLICADA",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Examen teórico práctico.",
+    "libre": "Examen teórico práctico con un ejercicio adicional"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "FINANZAS DE EMPRESAS",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito estructurado. Para los alumnos que acceden al coloqio se les tomará un oral sin tema especial",
+    "libre": "Escrito estructurado"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "FINANZAS PUBLICAS",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Preguntas de opción múltiple y preguntas a desarrollar."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "GESTION Y DESARROLLO DE LAS PERSONAS EN LAS ORGANIZACIONES",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1: Oral - Preguntas teóricas y de aplicación practica que incluirán todas las unidades del programa.\n\nOpción 2: Escrito - Podrán ser preguntas abiertas, de opción múltiple, anagramas, verdadero y falso, casos de estudio de todas las unidades temáticas del programa",
+    "libre": "Deberá aprobar la instancia escrita para poder acceder a la instancia oral."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "HISTORIA ECONÓMICA Y SOCIAL I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Opción 1- Tema especial: El estudiante. puede iniciar el examen exponiendo un tema de su elección dentro de los contenidos en el Programa vigente para Alumnos Regulares, con una presentación de 10 a 15 minutos. Si el estudiante elige comenzar con un tema especial, además sacará una bolilla al azar que remitirá a uno de los temas del programa de examen, de la que podrá elegir dejar componentes de lado.\n\nSi no hay tema especial, el estudiante deberá extraer igualmente una bolilla, pero en este caso deberá abordar el contenido completo del tema sorteado. Sobre las características del programa de examen final, ver el item siguiente.\n\nOpción 2 - Programa examen: El programa de examen final reconfigura los contenidos de las unidades del programa de la materia, agrupándolos en siete bloques temáticos que estructuran la evaluación. Cada tema del programa de examen se compone de una combinación flexible de contenidos provenientes de distintas unidades del programa general. Esta reconfiguración no sigue el esquema tradicional de evaluación unidad por unidad, sino que permite evaluar la capacidad del estudiante para relacionar procesos históricos, analizar continuidades y rupturas, y establecer conexiones entre diversas dimensiones del desarrollo economico, politico y social. De este modo, se evita una evaluación fragmentada y se favorece una comprensión más profunda de las dinámicas históricas."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "INTERPRETACIÓN DE LOS ESTADOS CONTABLES",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "ESCRITO:\nPara la corrección serán tenidos en cuenta los siguientes criterios: • Comprensión de los\nnúcleos esenciales de los contenidos de la asignatura. • Pertinencia de las respuestas a lo solicitado en las consignas. • Claridad en la exposición de sus respuestas. Coherencia en la argumentación y con las demás respuestas. • Aplicación de los conceptos teóricos específicos y referencia a los autores abordados. \n\nCuenta con un máximo de dos horas para desarrollar las respuestas.\n\nCRITERIOS DE APROBACIÓN: Para aprobar se requiere obtener el puntaje mínimo en cada una de las partes en las que está dividido el examen. El puntaje máximo posible de obtener es de 10 puntos, distribuidos de la siguiente manera: Parte A) Preguntas a desarrollar sobre temas teoricos (4 puntos). Parte B) Preguntas de interpretacion sobre la informacion contable (6 Puntos)",
+    "libre": "ESCRITO:\nPara la corrección serán tenidos en cuenta los siguientes criterios: • Comprensión de los núcleos esenciales de los contenidos de la asignatura. • Pertinencia de las respuestas a lo solicitado en las consignas. • Claridad en la exposición de sus respuestas. Coherencia en la argumentación y con las demás respuestas. • Aplicación de los conceptos teóricos específicos y referencia a los autores abordados. \n\nCuenta con un máximo de tres horas para desarrollar las respuestas. \n\nCRITERIOS DE APROBACIÓN: Para aprobar se requiere obtener el puntaje mínimo en cada una de las partes en las que está dividido el examen. El puntaje máximo posible de obtener es de 10 puntos, distribuidos de la siguiente manera: Parte A) Preguntas a desarrollar sobre temas teoricos (4 puntos). Parte B) Preguntas de interpretacion sobre la informacion contable (6 Puntos)"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "INTRO A LA CIENCIAS SOCIALES",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: El o la estudiante podrá optar por comenzar a desarrollar un tema\npor él o ella elegido o por responder las preguntas que le formule el/la docente.\n\nOpcion 2 - Escrito: En caso de que los/las estudiantes concurran en un número elevado, se tomará prueba escrita con preguntas a desarrollar.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Entre los meses de Agosto a Diciembre, cada profesor adjunto evaluara a los estudiantes que hayan aprobado en su comision. Aquellos estudiantes que hayan aprobado en años anteriores y durante los meses de Febrero a Julio, se tomara un examen unico para todos",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Escrito: Para los alumnos regulares que hayan cursado la materia la modalidad de examen final es escrita. El examen cubre todos los temas del programa.\n\nOpcion 2 - Oral: Para alumnos que deban rendir equivalencias. Los temas a evaluar serán seleccionados por el profesor a cargo de la mesa examinadora en el momento del examen. No se sortearán temas.",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MACROECONOMÍA I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Oral: Se recomienda a los alumnos la elección de un tema del programa a desarrollar para iniciar el examen.\n\nOpción 2 - Escrita: Se incluyen una serie de preguntas para respuesta seleccionando entre opciones multiples y para desarrollo",
+    "libre": "Los alumnos libres deben hacer una parte práctica escrita y luego de aprobarla se procede con las metodologias 1 ó 2 según cantidad de alumnos y docente encargado."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MARKETING ESTRATEGICO",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1: Oral - Preparación de tema especial y preguntas de las diferentes unidades del Programa de Estudio.\n\nOpción 2: Escrita - Preguntas de diferentes temas y su aplicación práctica.",
+    "libre": "Deberán realizar un trabajo práctico y presentarlo 72hs antes de la mesa de examen. Los alumnos aprobados rendirán de forma oral."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MARKETING TACTICO Y OPERATIVO",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Es un examen oral de aproximadamente 30 minutos de duración, mismos temas y material que el de la cursada.\n\n• Se pueden elegir 2 modalidades: \n• 1. Preparar tema: En este caso el/la estudiante elije un tema de la materia que le haya gustado y lo expone en una duración aproximada de 10 minutos. El tema no es una Unidad completa, sino un punto específico dentro de una Unidad. Dado que es un tema que elige el/la estudiante se esperará un excelente dominio del mismo, con ejemplificaciones y explicaciones claras y sólidas (es mucho más que repetir lo que dice el libro, implica unaelaboración). Luego de presentar el tema, el docente consultará sobre cualquiera de los otros temas de la materia. La ventaja de esta modalidad es que si el/la estudiante tiene un buen desempeño en el tema, arranca el examen de manera muy favorable. La desventaja es lo contrario.\n\n • 2. No preparar tema: En este caso, el docente comienza preguntando directamente desde el inicio hasta el final del examen.",
+    "libre": "Se toma un examen oral para evaluar los conocimientos teóricos de la materia (misma metodología que 1).\n\n• Si se aprueba el oral, el estudiante deberá resolver un caso práctico en un plazo de 1 semana y entregar el informe vía correo electrónico."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MATEMATICA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Presencial con consignas teoricas y resoluciones de trabajos practicos. Las preguntas podran ser abiertas y cerradas",
+    "libre": "No hay especificaciones"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MATEMATICA II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "La evaluación será teórico-práctica y se ponderará el uso de la teoría en las argumentaciones que se presentan para resolver los ejercicios propuestos, así como el correcto manejo de las herramientas de la asignatura para la resolución que se presenta.\nSe contará con 2 horas y media.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MATEMATICA PARA DECISIONES EMPRESARIAS",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "PLAN VII: El estudiante prepara y expone un tema especial elegido por él mismo, y luego de aprobarlo, es interrogado con preguntas abiertas, sobre conceptos fundamentales de la materia, básicos para dar aprobada la asignatura.\n\nPLAN VI: Oral, sin preparación de tema especial.",
+    "libre": "PLAN VII: El estudiante realiza una primera evaluación escrita sobre la parte práctica de la materia, consistente en ejercicios prácticos (similares a los contenidos en la guía de trabaos prácticos, desarrollada durante la cursada); no estructurada, abierta. Una vez aprobada, pasa a una segunda instancia oral, donde expone un tema a su elección. Luego de aprobado es interrogado con preguntas abiertas, sobre otros conceptos fundamentales básicos para considerar que adquirió el conocimiento necesario para aprobar la materia.\n\nPLAN VI: Se tomará una prueba oral de contenidos teóricos y en caso de aprobarse, un ejercicio práctico integrador."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "MICROECONOMIA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Evaluacion sobre tema teoricos de la materia",
+    "libre": "Deberan rendir en primer instancia, una evluacion escrita sobre los contenidos practicos (relacionada a la guia de trabajos practicos y las evaluaciones de seguimiento que se realizan durante la cursada). En caso de aprobar la parte practica, debera rendir seguidamente el examen teorico (el mismo que rinden los regulares)"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "NEGOCIOS INTERNACIONALES",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral : Presentación de Caso (Contexto, Desafío y Solución), el alumno podrá seleccionar una o dos Unidades del Programa Analítico. Se evaluará el Caso y se podrán realizar consultas sobre todas las unidades del programa analítico.",
+    "libre": "Oral - Libres: Presentación de Caso (Contexto, Desafío y Solución), el\nalumno podrá seleccionar una o dos Unidades del Programa Analítico. Se evaluará el Caso y se podrán realizar consultas sobre todo el programa de la materia."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "PSICOSOCIOLOGIA ORGANIZACIONAL",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: pueden preparar tema, si lo desean, y posteriormente se preguntará el resto del programa.",
+    "libre": "Rinden con modalidad Mixta, es decir escrito y oral. En primer lugar, rinden un examen escrito que necesitan aprobar para pasar a la siguiente instancia que es la oral. Para la instancia oral pueden preparar tema, si lo desean, y posteriormente se preguntará el resto del programa."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "TECNOLOGIA INFORMATICA Y SISTEMAS DE INFORMACION PARA LA DIRECCION",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Se puede preparar un tema en forma opcional. Luego, se le efectúan preguntas sobre los contenidos generales de la asignatura.",
+    "libre": "Oral: primero deben resolver un caso (que se envía con anticipación). El día de la evaluación, expone el caso, se le efectúan preguntas sobre el mismo y si las responde satisfactoriamente se pasa a la instancia teórica."
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "TOPICOS AVANZADOS EN FINANZAS",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Los alumnos podrán preparar tema especial. Avanzada la presentación del mismo en suspuntos principales, se les realizarán algunas preguntas sobre el tema preparado. Luego (o como primer paso en caso de que no hayan preparado tema especial) se realizarán preguntas sobre diversos puntos del programa comenzando por algunas genéricas que se espera sean respondidas, para ir a continuación a preguntas de más profundidad y detalle que permitan poner la nota definitiva del examen.",
+    "libre": "Se realizarán entre 5 y 10 preguntas de contenido teórico práctico sobre diferentes temas de la materia"
+  },
+  {
+    "carrera": "Lic. en Administración",
+    "materia": "TRABAJO Y SOCIEDAD",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: Deberán exponer un TEMA ESPECIAL, que hubieren elegido y luego deberán responder a las preguntas que se le realicen respecto del programa de estudio vigente.",
+    "libre": "Se realizará en dos etapas:\n 1° - Deberán realizar examen práctico escrito, y superada esta instancia.\n2° - Deberán rendir un examen oral donde deberán responder a las preguntas que se le realicen respecto del programa de estudio vigente."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: El alumno deberá preparar un tema a su elección para iniciar el examen. Luego, se le realizarán preguntas referidas a todas las unidades del programa, haciendo énfasis en la relación entre  temas",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: con programa y sin bolillero",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ADMINISTRACIÓN I    CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: Preparación de un tema a elección del estudiante + preguntas del\ndocente obre otros temas de la materia. \n\nOpcion 2 - Escrito: con preguntas a desarrollar",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "CONTABILIDAD I CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: La evaluación constará de dos etapas complementarias: una evaluación escrita mediante un cuestionario de opción múltiple, con consignas que abarcarán todas las unidades del programa y aquellos alumnos que aprueben el cuestionario escrito deberán rendir una evaluación oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "CONTABILIDAD I CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Inicio con un examen de tipo múltiple choice de 16 preguntas que admite hasta 4 errores sobre todo el contenido general de la asignatura. Aprobado el mismo,  pasan a una instancia oral. Para los casos de alumnos que rinden la asignatura por quinta vez, independientemente del resultado obtenido en la prueba múltiple choice, pasan a una instancia oral.",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "CONTABILIDAD I CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Mixta: Alumnos con cursada aprobada: rinden un preevaluativo escrito con preguntas de opciones múltiples, si lo aprueban pasan al final oral, que estará a cargo del profesor adjunto y del ayudante con quien han cursado la materia. El alumno para comenzar el examen puede elegir un tema del programa y luego el profesor pregunta sobre el contenido de la asignatura",
+    "libre": "-"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "DERECHO CONSTITUCIONAL",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Oral: En las mesas de examen final los estudiantes pueden rendir a su eleccion con un tema especial, luego seran evaluados con programa abierto, donde el docente podra hacer preguntas sobre todos los temas. Asi mismo, se puede usar Bolillero para sortear dos temas al azar para que el alumno sea evaluado sobre dichos contenidos. El estudiante contara con 10 minutos para revisar el programa y el texto de la constitucion nacional para formular una guia a efectos de la exposicion oral",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "DESARROLLO ECONOMICO",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: tanto de la parte teórica como práctica",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMETRIA I",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Tanto alumnos regulares como libres rinden el mismo examen final. Los alumnos regulares pueden tener una hoja con  anotaciones personales, los alumnos libres no.",
+    "libre": "Tanto alumnos regulares como libres rinden el mismo examen final. Los alumnos regulares pueden tener una hoja con  anotaciones personales, los alumnos libres no."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMETRIA II",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito y/o preguntas oral",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA DE LAS INSTITUCIONES Y EL COMPORTAMIENTO",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA DE LOS CICLOS Y LAS CRISIS",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito u oral",
+    "libre": "Escrito u oral"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA DEL EMPRESA Y LA ORGANIZACION INDUSTRIAL",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "regular",
+    "regular": "EL EXAMEN SERÁ ESCRITO, YA SEA EN PAPEL O EN COMPUTADORA, A RESOLVER DE MANERA INDIVIDUAL.ADEMÁS DEL EXAMEN ESCRITO (EN PAPEL O EN COMPUTADORA) SE INDAGARÁ SOBRE LOS PROCEDIMIENTOS UTILIZADOS PARA RESPONDER LAS PREGUNTAS.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA DEL SECTOR PUBLICO",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Consta de 10 preguntas a desarrollar",
+    "libre": "Se le agregan 2 preguntas prácticas al examen de 10 preguntas teoricas"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA ESPACIAL Y AMBIENTAL",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: preguntas abiertas y cerradas y desarrollo de un tema del programa elegido por el profesor en el momento del examen.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA INTERNACIONAL",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Preguntas a desarrollar en base a los contenidos de la materia",
+    "libre": "Escrito: Preguntas a desarrollar en base a los contenidos de la materia"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA LABORAL",
+    "catedra": "",
+    "año": "4° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Se evaluarán todos los contenidos de la materia.",
+    "libre": "Escrito: donde se evaluarán todos los contenidos de la materia. Además de ello, se incluirán preguntas de aplicación a casos de la vida real y análisis de trabajos de investigación publicados a asignar sobre los que se realizarán preguntas."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ECONOMIA Y REGULACION DE LOS SERVICIOS PUBLICOS",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Regulares y libres deberán rendir un examen final escrito.",
+    "libre": "Regulares y libres deberán rendir un examen final escrito."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ESTADISTICA PARA ECONOMICAS I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Teorico práctico segun programa vigente",
+    "libre": "Escrito: Teorico práctico segun programa vigente y eventualmente preguntas de forma oral sobre los temas del programa vigente."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ESTADISTICA PARA ECONOMISTAS II",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "ESTRUCTURAL SOCIAL ARGENTINA",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "regular",
+    "regular": "Exámen escrito de  3 horas de duración, que cubre todos los temas del curso, de teoría y de práctica. A los alumnos regulares que hayan aprobado la cursada se los eximirá de rendir la parte práctica. Antes del exámen final todos los alumnos deben presentar una monografía de investigación individual sobre algun tema desarrollado en el curso, que demuestre rigurosidad y originalidad. La monografia debera tener una extensión de entre 10 y 15 paginas. La monografia debe ser enviada previamente a la fecha de exámen al profesor titular, en un archivo pdf con el apellido del alumno y deberá adjuntarse tambien los dos files creados para elaborarla. Luego de corregir el examen final y la monografia, se evaluará en cada caso la necesidad o no de realizar un coloquio. En caso de considerarlo necesario, se realizará un coloquio presencial con el alumno en el que se preguntará sobre detalles de la monografia presentada y sobre sus resultas en el final escrito. La nota final se determinará en función del desempeño en el exámen escrito, la monografia y coloquio.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "FINANZAS DE LAS EMPRESAS",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "FINANZAS INTERNACIONALES",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Mixta: El examen podra incluir una parte oral y otra escrita. Para los estudiantes regulares la evaluciacion se centrara en la teoria.",
+    "libre": "Mixta: El examen podra incluir una parte oral y otra escrita. Para los estudiantes libres, la evaluciacion sera teorica y tendra una instancia practica, con el objetivo de abordar todos los temas de la materia"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "FINANZAS PUBLICAS",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Preguntas de opción múltiple y preguntas a desarrollar."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "HISTORIA DEL PENSAMIENTO ECONOMICO",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre",
+    "regular": "",
+    "libre": "Escrito: Preguntas y respuestas criticas sobre temas y bibliografía en el programa de la materia. En caso de que el exámen virtual, en ese caso las preguntas y respuestas se van a desarrollar de forma oral"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "HISTORIA ECONOMICA Y SOCIAL II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Oral: El estudiante puede preparar tema especial",
+    "libre": "Los alumnos se presentan para un examen escrito que abarca todas las unidades de la materia. El examen escrito es corregido delante del estudiante. En caso de aprobar, puede pasar a la parte oral. Para esa instancia se aplican las mismas regalas que para la modalidad oral de los alumnos regulares. El examen oral es inmediato al examen escrito. Es individual"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "HISTORIA ECONÓMICA Y SOCIAL I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "Opción 1- Tema especial: El estudiante puede iniciar el examen exponiendo un tema de su elección dentro de los contenidos en el Programa vigente para Alumnos Regulares, con una presentación de 10 a 15 minutos. Si el estudiante elige comenzar con un tema especial, además sacará una bolilla al azar que remitirá a uno de los temas del programa de examen, de la que podrá elegir dejar componentes de lado.\n\nSi no hay tema especial, el estudiante deberá extraer igualmente una bolilla, pero en este caso deberá abordar el contenido completo del tema sorteado. Sobre las características del programa de examen final, ver el item siguiente.\n\nOpción 2 - Programa examen: El programa de examen final reconfigura los contenidos de las unidades del programa de la materia, agrupándolos en siete bloques temáticos que estructuran la evaluación. Cada tema del programa de examen se compone de una combinación flexible de contenidos provenientes de distintas unidades del programa general. Esta reconfiguración no sigue el esquema tradicional de evaluación unidad por unidad, sino que permite evaluar la capacidad del estudiante para relacionar procesos históricos, analizar continuidades y rupturas, y establecer conexiones entre diversas dimensiones del desarrollo economico, politico y social. De este modo, se evita una evaluación fragmentada y se favorece una comprensión más profunda de las dinámicas históricas.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "INTRO A LA CIENCIAS SOCIALES",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: El o la estudiante podrá optar por comenzar a desarrollar un tema\npor él o ella elegido o por responder las preguntas que le formule el/la docente.\n\nOpcion 2 - Escrito: En caso de que los/las estudiantes concurran en un número elevado, se tomará prueba escrita con preguntas a desarrollar.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"A\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"B\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Entre los meses de Agosto a Diciembre, cada profesor adjunto evaluara a los estudiantes que hayan aprobado en su comision. Aquellos estudiantes que hayan aprobado en años anteriores y durante los meses de Febrero a Julio, se tomara un examen unico para todos",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "INTRO ECONOMÍA   CÁTEDRA \"C\"",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opcion 1 - Escrito: Para los alumnos regulares que hayan cursado la materia la modalidad de examen final es escrita. El examen cubre todos los temas del programa.\n\nOpcion 2 - Oral: Para alumnos que deban rendir equivalencias. Los temas a evaluar serán seleccionados por el profesor a cargo de la mesa examinadora en el momento del examen. No se sortearán temas.",
+    "libre": "Esta materia no posee modalidad libre por ser parte del ciclo propedeutico"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MACROECONOMIA II",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "La metodología mixta consistirá en un proceso en 2 etapas. Inicialmente se tomará un examen escrito conceptual en donde se evaluará el conocimiento de los aspectos teóricos básicos de la materia. Quienes aprueben esta instancia pasarán a un examen oral integral en el cual los diversos profesores de la Comisión Examinadora evaluarán con mayor profundidad tanto los aspectos teóricos no abordados en la parte escrita. La evaluación se fundamenta en los textos obligatorios de la materia pero incluirá además un análisis de comprensión analítica de la interrelación existente entre los mismos y los principales eventos macroeconómicos.",
+    "libre": "A la metodología descripta de regulares se le agrega el requisito de aprobar la parte práctica, consistente en 3 preguntas escritas sobre cualquiera de los temas desarrollados en la materia. Aunque esta evaluación estará principalmente enfocada en ejercicios similares a los desarrollados en clase (y que quienes no hayan cursado pueden encontrar en los materiales de la catedra en AU24), incorporaran variaciones diversas que tengan permitan evaluar la comprensión de los procesos metodológicos involucrados y no la mera asimilación en memoria por repetición acrítica."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MACROECONOMÍA I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Opción 1 - Oral: Se recomienda a los alumnos la elección de un tema del programa a desarrollar para iniciar el examen.\n\nOpción 2 - Escrita: Se incluyen una serie de preguntas para respuesta seleccionando entre opciones multiples y para desarrollo",
+    "libre": "Los alumnos libres deben hacer una parte práctica escrita y luego de aprobarla se procede con las metodologias 1 ó 2 según cantidad de alumnos y docente encargado."
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MATEMATICA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: Presencial con consignas teoricas y resoluciones de trabajos practicos. Las preguntas podran ser abiertas y cerradas",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MATEMATICA PARA ECONOMICAS I",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: Al ser exámenes de matemática requieren de una resolución por escrito en la que se evalúa a los alumnos en su capacidad de resolver matemáticamente problemas, de modo tal que reflejen la comprensión de los temas dictados en el curso.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MATEMATICA PARA ECONOMISTAS II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Modalidad presencial con consignas teoricas y resolucion de ejercicios practicos (las preguntas seran abiertas y cerradas)",
+    "libre": "El examen libre contsta de una parte escrita (comun con los estudiantes regulares), y en caso de aprobar, se pasara a una segunda parte oral sobre los temas teoricos. Modalidad presencial"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MICROECONOMIA I",
+    "catedra": "",
+    "año": "1° AÑO",
+    "modalidad": "libre y regular",
+    "regular": "Escrito: Evaluacion sobre tema teoricos de la materia",
+    "libre": "Deberan rendir en primer instancia, una evluacion escrita sobre los contenidos practicos (relacionada a la guia de trabajos practicos y las evaluaciones de seguimiento que se realizan durante la cursada). En caso de aprobar la parte practica, debera rendir seguidamente el examen teorico (el mismo que rinden los regulares)"
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MICROECONOMIA II",
+    "catedra": "",
+    "año": "2° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: Ejercicios teóricos y prácticos.",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "MONEDA, CREDITO Y BANCOS",
+    "catedra": "",
+    "año": "3° AÑO",
+    "modalidad": "regular",
+    "regular": "",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "POLITICA ECONOMICA I",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "regular",
+    "regular": "Escrito: Entre 8 y 10 preguntas sobre los distintos temas de clase",
+    "libre": ""
+  },
+  {
+    "carrera": "Lic. en Economía",
+    "materia": "POLITICA ECONOMICA II",
+    "catedra": "",
+    "año": "5° AÑO",
+    "modalidad": "regular",
+    "regular": "Opcion 1 - Oral: Se haran preguntas de las distintas unidades del programa, intentando cubrir los temas principales de la materia. Las unidades a ser cubiertas seran seleccionadas por cada profesor.\n\nOpcion 2 - Escrito: Mutiple Choice, Verdaderos o Falsos, Preguntas a desarrollar y Ejercicios",
+    "libre": ""
+  }
+]
+</script>
+
+<script>
+(function(){
+  // ========= Utilidades =========
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const safe = (v) => (v==null ? '' : String(v)).trim();
+  const norm = (s='') => s.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\./g,'').trim();
+
+  const canonCareer = (s='') => {
+    const n = norm(s);
+    if (n.includes('admin')) return 'lic en administracion';
+    if (n.includes('econom')) return 'lic en economia';
+    if (n.includes('contador') || n.includes('contabilidad') || n === 'contabilidad') return 'contador publico';
+    return n;
+  };
+
+  const isAdmin = <%- JSON.stringify(!!(user && user.role === 'admin')) %>;
+
+  // ========= Cargar datos =========
+  function readEmbeddedJson(){
+    try{
+      const tag = document.getElementById('finalsDataJson');
+      if (!tag) return [];
+      const txt = tag.textContent.trim();
+      if (!txt) return [];
+      const parsed = JSON.parse(txt);
+      return Array.isArray(parsed) ? parsed : [];
+    }catch(e){ return []; }
+  }
+
+  let DATA = readEmbeddedJson();
+  if (!Array.isArray(DATA) || !DATA.length){
+    if (Array.isArray(window.FINALS_DATA)) DATA = window.FINALS_DATA;
+  }
+
+  // Normalización
+  DATA = (DATA || []).map(r => {
+    const out = {
+      id       : r.id ?? r.ID ?? r._id ?? null,
+      carrera  : safe(r.carrera || r.Carrera),
+      materia  : safe(r.materia || r.Materia || r.asignatura || r.Asignatura),
+      catedra  : safe(r.catedra || r.Catedra || r.cátedra || r.Cátedra || ''),
+      'año'    : safe(r['año'] ?? r.ano ?? r.anio ?? r.year ?? ''),
+      modalidad: safe(r.modalidad || r.Modalidad || ''),
+      regular  : safe(r.regular || r.Regular || ''),
+      libre    : safe(r.libre || r.Libre || '')
+    };
+
+    const c = canonCareer(out.carrera);
+    if (c === 'lic en administracion') out.carrera = 'Lic. en Administración';
+    else if (c === 'lic en economia') out.carrera = 'Lic. en Economía';
+    else if (c === 'contador publico') out.carrera = 'Contador Público';
+
+    if (out.modalidad.toLowerCase() === 'nan') out.modalidad = '';
+    if (out.regular.toLowerCase() === 'nan') out.regular = '';
+    if (out.libre.toLowerCase() === 'nan') out.libre = '';
+
+    if (!out.modalidad){
+      const hasReg = !!out.regular;
+      const hasLib = !!out.libre;
+      out.modalidad = (hasReg && hasLib) ? 'Libre y Regular' : (hasReg ? 'Regular' : 'Libre y Regular');
+    }
+
+    return out;
+  });
+
+  // ========= Filtro por carrera (viewer) =========
+  const main = document.getElementById('finalesMain');
+  const VIEWER_RAW = main?.dataset.userCareer || '';
+  theViewer = canonCareer(VIEWER_RAW); // keep variable name unique
+  const VIEWER = theViewer;
+  const SOURCE = VIEWER ? DATA.filter(r => canonCareer(r.carrera) === VIEWER) : DATA;
+
+  // ========= Render =========
+  const TBody  = document.getElementById('cwFinalesBody');
+  const Modal  = document.getElementById('cwFinalesModal');
+  const CloseEls = Modal.querySelectorAll('[data-close="1"]');
+  const FmTitle = document.getElementById('cwFmTitle');
+  const FmMeta  = document.getElementById('cwFmMeta');
+  const FmBody  = document.getElementById('cwFmBody');
+  let lastFocus = null;
+
+  const fmtMateria = (m,c) => c ? `${m} — Cátedra "${c}"` : m;
+
+  function row(record, idx){
+    const year = (record['año'] ?? record.anio ?? record.ano ?? record.year ?? '').toString() || '—';
+    const tr = document.createElement('tr');
+    tr.className = 'border-t';
+    if (record.id != null) tr.setAttribute('data-id', String(record.id));
+
+    // Celda de selección (solo admin)
+    const selCell = isAdmin
+        ? `<td class="p-3 text-right">
+            <input
+              type="checkbox"
+              class="final-chk h-5 w-5 rounded border-slate-300"
+              data-id="${record.id != null ? String(record.id) : ''}"
+              title="${record.id == null ? 'No hay ID en esta fila; no se podrá borrar desde aquí' : ''}">
+          </td>`
+        : '';
+
+    tr.innerHTML = `
+      <td class="p-3"><div class="font-semibold">${fmtMateria(safe(record.materia), safe(record.catedra))}</div></td>
+      <td class="p-3">${year}</td>
+      <td class="p-3">${safe(record.modalidad) || '—'}</td>
+      <td class="p-3"><button class="btn btn-xs" data-kind="libre" data-idx="${idx}">ver</button></td>
+      <td class="p-3"><button class="btn btn-xs" data-kind="regular" data-idx="${idx}">ver</button></td>
+      <td class="p-3">${safe(record.carrera) || '—'}</td>
+      ${selCell}
+    `;
+    return tr;
+  }
+
+  function render(){
+    TBody.innerHTML = '';
+    SOURCE.forEach((r,i)=> TBody.appendChild(row(r,i)));
+    updateBulkButtonState();
+  }
+
+  // ===== Modal =====
+  function openModal(kind, r){
+    lastFocus = document.activeElement;
+    FmTitle.textContent = kind === 'regular' ? 'Información (Regular)' : 'Información (Libre)';
+    FmMeta.textContent = `${fmtMateria(r.materia, r.catedra)} · ${r.carrera} · Modalidad: ${r.modalidad || '—'}`;
+    const content = safe(kind === 'regular' ? r.regular : r.libre);
+    FmBody.textContent = content || 'No hay información.';
+    Modal.classList.remove('hidden');
+    Modal.classList.add('flex');
+    document.documentElement.style.overflow = 'hidden';
+  }
+  function closeModal(){
+    Modal.classList.add('hidden');
+    Modal.classList.remove('flex');
+    document.documentElement.style.overflow = '';
+    lastFocus && typeof lastFocus.focus === 'function' && lastFocus.focus();
+  }
+
+  // Delegación click en "ver"
+  TBody.addEventListener('click', (e)=>{
+    const btn = e.target.closest('button[data-kind]');
+    if(!btn) return;
+    const idx = Number(btn.dataset.idx);
+    const kind = btn.dataset.kind;
+    const rec = SOURCE[idx];
+    if(!rec) return;
+    openModal(kind, rec);
+  });
+
+  // Cierre modal
+  CloseEls.forEach(el=> el.addEventListener('click', closeModal));
+  Modal.addEventListener('click', (e)=>{ if(e.target === Modal || e.target.hasAttribute('data-close')) closeModal(); });
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && !Modal.classList.contains('hidden')) closeModal(); });
+
+  // ===== Búsqueda =====
+  document.getElementById("searchInput")?.addEventListener("keyup", function() {
+    const value = this.value.toLowerCase();
+    Array.from(TBody.querySelectorAll("tr")).forEach(row => {
+      const txt = row.textContent.toLowerCase();
+      row.style.display = txt.includes(value) ? "" : "none";
+    });
+  });
+
+  // ===== Borrado masivo (solo admin) =====
+  const btnBulk = document.getElementById('btnBulkDeleteFinals');
+
+  function getSelectedIds(){
+    return Array.from(TBody.querySelectorAll('input.final-chk:checked'))
+      .map(chk => parseInt(chk.getAttribute('data-id')||'', 10))
+      .filter(Number.isFinite);
+  }
+  function updateBulkButtonState(){
+    if (!btnBulk) return;
+    // Habilitar si hay al menos UNA casilla marcada,
+    // aunque no tenga data-id válido.
+    const anyChecked = TBody.querySelector('input.final-chk:checked') !== null;
+    btnBulk.disabled = !anyChecked;
+  }
+  if (isAdmin){
+    TBody.addEventListener('change', (e)=>{
+      if ((e.target instanceof HTMLInputElement) && e.target.classList.contains('final-chk')){
+        updateBulkButtonState();
+      }
+    });
+
+    btnBulk?.addEventListener('click', async ()=>{
+      const ids = getSelectedIds();
+      if (!ids.length) {
+        alert('No hay selecciones válidas con ID para borrar.\nSi tildaste filas sin ID, no se pueden eliminar desde aquí.');
+        return;
+      }
+      if (!confirm(`¿Eliminar ${ids.length} final(es) seleccionado(s)?`)) return;
+      try{
+        const r = await fetch('/admin/finales/batch', {
+          method: 'DELETE',
+          headers: { 'Content-Type':'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ ids })
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.error || 'No se pudo eliminar');
+
+        ids.forEach(id => {
+          const tr = TBody.querySelector(`tr[data-id="${id}"]`);
+          if (tr) tr.remove();
+        });
+
+        updateBulkButtonState();
+
+        const t = document.createElement('div');
+        t.textContent = `Borrados ${j.deleted} final(es).`;
+        t.className = 'fixed bottom-4 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-2 rounded-lg text-sm shadow-lg';
+        document.body.appendChild(t);
+        setTimeout(()=> t.remove(), 2500);
+      }catch(err){
+        alert('Error: ' + (err.message || err));
+      }
+    });
+  }
+
+  render();
+})();
+</script>
+
+<!-- Scripts existentes -->
+<script type="module" src="/public/js/tutorial-overlay.js"></script>
+<script type="module" src="/public/js/finales-tour.js"></script>

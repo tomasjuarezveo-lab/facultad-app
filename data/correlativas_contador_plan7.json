@@ -1,0 +1,307 @@
+{
+  "career": "Contabilidad",
+  "plan": 7,
+  "source": "Plan de Estudios VII (FCE-UNLP) – listado provisto por el usuario",
+  "subjects": [
+    {
+      "code": "7.1.1",
+      "name": "Contabilidad I (Bases y Fundamentos)",
+      "requires": [],
+      "notes": "Materia introductoria (sin correlativas)."
+    },
+    {
+      "code": "7.1.2",
+      "name": "Introducción a la Economía y Estructura Económica Argentina",
+      "requires": [],
+      "notes": "Materia introductoria (sin correlativas)."
+    },
+    {
+      "code": "7.1.3",
+      "name": "Administración I (Introducción a la Administración y al Estudio de las Organizaciones)",
+      "requires": [],
+      "notes": "Materia introductoria (sin correlativas)."
+    },
+    {
+      "code": "7.1.4",
+      "name": "Microeconomía I",
+      "requires": [
+        "7.1.2"
+      ],
+      "notes": "Requiere Introducción a la Economía (7.1.2)."
+    },
+    {
+      "code": "7.1.5",
+      "name": "Matemática I",
+      "requires": [
+        "7.1.2"
+      ],
+      "notes": "Según plan, requiere 7.1.2."
+    },
+    {
+      "code": "7.1.6",
+      "name": "Derecho Constitucional y Administrativo",
+      "requires": [
+        "7.1.1",
+        "7.1.2"
+      ],
+      "notes": "Requiere 7.1.1 y 7.1.2."
+    },
+    {
+      "code": "7.1.7",
+      "name": "Introducción a las Ciencias Sociales y al Conocimiento Científico",
+      "requires": [
+        "7.1.2",
+        "7.1.3"
+      ],
+      "notes": "Requiere 7.1.2 y 7.1.3."
+    },
+    {
+      "code": "7.2.1",
+      "name": "Contabilidad II (Ajuste y Valuación)",
+      "requires": [
+        "7.1.1"
+      ],
+      "notes": "Requiere Contabilidad I (7.1.1)."
+    },
+    {
+      "code": "7.2.2",
+      "name": "Macroeconomía I",
+      "requires": [
+        "7.1.2"
+      ],
+      "notes": "Requiere Introducción a la Economía (7.1.2)."
+    },
+    {
+      "code": "7.2.3",
+      "name": "Historia Económica y Social I",
+      "requires": [
+        "7.1.2"
+      ],
+      "notes": "Requiere Introducción a la Economía (7.1.2)."
+    },
+    {
+      "code": "7.2.4",
+      "name": "Administración II (Técnicas Administrativas y Gestión Organizacional)",
+      "requires": [
+        "7.1.3"
+      ],
+      "notes": "Requiere Administración I (7.1.3)."
+    },
+    {
+      "code": "7.2.5",
+      "name": "Derecho Privado",
+      "requires": [
+        "7.1.6"
+      ],
+      "notes": "Requiere Derecho Constitucional y Administrativo (7.1.6)."
+    },
+    {
+      "code": "7.2.6",
+      "name": "Matemática II",
+      "requires": [
+        "7.1.5"
+      ],
+      "notes": "Requiere Matemática I (7.1.5)."
+    },
+    {
+      "code": "7.2.7",
+      "name": "Finanzas Públicas",
+      "requires": [
+        "7.1.4"
+      ],
+      "notes": "Requiere Microeconomía I (7.1.4)."
+    },
+    {
+      "code": "7.3.x",
+      "name": "Contabilidad III (Estados Contables)",
+      "requires": [
+        "7.2.1"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Recomienda cumplir reglas de ciclo y Contabilidad II."
+    },
+    {
+      "code": "7.3.y",
+      "name": "Producción",
+      "requires": [],
+      "rule": "ciclo_profesional",
+      "notes": "Requiere condiciones de ciclo básico previas."
+    },
+    {
+      "code": "7.3.z",
+      "name": "Estadística Aplicada",
+      "requires": [],
+      "rule": "ciclo_profesional",
+      "notes": "Depende de matemática/ciclo básico según plan."
+    },
+    {
+      "code": "7.3.a",
+      "name": "Estructura Económica Societaria",
+      "requires": [],
+      "rule": "ciclo_profesional",
+      "notes": "Ciclo básico previo / materias de economía."
+    },
+    {
+      "code": "7.3.b",
+      "name": "Matemática para Decisiones Empresarias",
+      "requires": [
+        "7.2.6"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Recomienda Matemática II (7.2.6)."
+    },
+    {
+      "code": "7.3.c",
+      "name": "Sistema de Información Contable de Apoyo a las Operaciones",
+      "requires": [
+        "7.2.1"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Recomienda Contabilidad II/III y base de sistemas."
+    },
+    {
+      "code": "7.3.d",
+      "name": "Comercialización",
+      "requires": [
+        "7.1.3"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Se apoya en Administración (7.1.3)."
+    },
+    {
+      "code": "7.3.e",
+      "name": "Teoría y Técnica Impositiva I",
+      "requires": [
+        "7.2.1",
+        "7.2.5"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Base contable y derecho tributario."
+    },
+    {
+      "code": "7.4.a",
+      "name": "Finanzas de Empresas",
+      "requires": [
+        "7.2.7",
+        "7.2.6"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Ubicada en 4° año; finanzas públicas y matemática."
+    },
+    {
+      "code": "7.4.b",
+      "name": "Contabilidad del Sector Público",
+      "requires": [
+        "7.2.1",
+        "7.2.7"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Contabilidad II/III y Finanzas Públicas."
+    },
+    {
+      "code": "7.4.c",
+      "name": "Actuación Profesional Laboral y Previsional",
+      "requires": [
+        "7.2.5"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Derecho y materias profesionales."
+    },
+    {
+      "code": "7.4.d",
+      "name": "Análisis e Interpretación de Estados Contables",
+      "requires": [
+        "7.3.x",
+        "7.2.1"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Contabilidad III y/o II."
+    },
+    {
+      "code": "7.4.e",
+      "name": "Costos para la Gestión",
+      "requires": [
+        "7.2.1"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Base contable previa."
+    },
+    {
+      "code": "7.4.f",
+      "name": "Auditoría",
+      "requires": [
+        "7.3.x",
+        "7.4.d"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Contabilidad III y Análisis de Estados."
+    },
+    {
+      "code": "7.5.a",
+      "name": "Organización y Práctica Profesional",
+      "requires": [],
+      "rule": "ciclo_profesional",
+      "notes": "Exige materias de ciclo profesional."
+    },
+    {
+      "code": "7.5.b",
+      "name": "Actuación Profesional en la Justicia",
+      "requires": [
+        "7.2.5"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Base de derecho y materias profesionales."
+    },
+    {
+      "code": "7.5.c",
+      "name": "Teoría y Técnica Impositiva II",
+      "requires": [
+        "7.3.e"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Requiere Teoría y Técnica Impositiva I."
+    },
+    {
+      "code": "7.5.d",
+      "name": "Sistema de Información Contable para la Toma de Decisiones",
+      "requires": [
+        "7.2.1"
+      ],
+      "rule": "ciclo_profesional",
+      "notes": "Base contable y sistemas."
+    },
+    {
+      "code": "7.SEM",
+      "name": "Seminario (a partir de 22 materias aprobadas)",
+      "requires": [],
+      "rule": "credit_threshold",
+      "rule_value": ">=22",
+      "notes": "Regla global: 22 materias aprobadas."
+    },
+    {
+      "code": "7.PPS",
+      "name": "Práctica Profesional Supervisada (100h)",
+      "requires": [],
+      "rule": "credit_threshold",
+      "rule_value": ">=22",
+      "notes": "Regla global: 22 materias aprobadas."
+    }
+  ],
+  "global_rules": [
+    {
+      "rule": "cycle_gate",
+      "year": 3,
+      "requires": "finals_1y"
+    },
+    {
+      "rule": "cycle_gate",
+      "year": 4,
+      "requires": "finals_2y"
+    },
+    {
+      "rule": "cycle_gate",
+      "year": 5,
+      "requires": "finals_3y"
+    }
+  ]
+}

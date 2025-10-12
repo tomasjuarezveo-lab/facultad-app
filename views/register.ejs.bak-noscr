@@ -1,0 +1,65 @@
+﻿<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center min-h-[80vh] relative z-10">
+    <!-- IZQUIERDA VACÍA -->
+    <section class="hidden lg:block"></section>
+
+    <!-- DERECHA: REGISTRO -->
+    <section class="lg:pl-16">
+      <div class="auth-card glass p-6 sm:p-8">
+        <h1 class="text-2xl font-semibold mb-2">Crear cuenta</h1>
+        <p class="text-sm text-slate-500 mb-6">Elegí tu carrera y plan para ver el material correcto.</p>
+
+        <% if (typeof error !== "undefined" && error) { %>
+          <div class="mb-4 text-sm text-red-600"><%= error %></div>
+        <% } %>
+
+        <form method="POST" action="/register" class="space-y-4">
+          <label class="block">
+            <span class="ios-label">Nombre y apellido</span>
+            <input class="ios-input" type="text" name="name" required placeholder="Tu nombre" />
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Email</span>
+            <input class="ios-input" type="email" name="email" required placeholder="tu@email.com" />
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Contraseña</span>
+            <input class="ios-input" type="password" name="password" required placeholder="••••••••" />
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label class="block">
+              <span class="ios-label">Carrera</span>
+              <select class="ios-input" name="career" required>
+                <option value="">Elegir…</option>
+                <option value="Administración de Empresas">Lic. en Administración</option>
+                <option value="Economía">Lic. en Economía</option>
+                <option value="Contabilidad">Contabilidad</option>
+              </select>
+            </label>
+
+            <label class="block">
+              <span class="ios-label">Plan</span>
+              <select class="ios-input" name="plan" required>
+                <option value="">Elegir…</option>
+                <option value="7">Plan 7</option>
+                <option value="8">Plan 8</option>
+              </select>
+            </label>
+          </div>
+
+          <button class="ios-btn-primary w-full mt-2">Crear cuenta</button>
+        </form>
+
+        <div class="mt-6 text-sm text-slate-500">
+          ¿Ya tenés cuenta?
+          <a class="ios-link" href="/login">Iniciar sesión</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

@@ -1,0 +1,67 @@
+<% const pageTitle = 'Olvidé mi contraseña'; %>
+<% if (typeof title === 'undefined') { title = pageTitle; } %>
+
+<div style="max-margin:40px auto;padding:20px;background:#fff;border:1px solid rgba(15,23,42,.08);border-radius:16px;box-shadow:0 10px 24px rgba(15,23,42,.06); max-width:100%; height:auto;">
+  <h1 style="margin:0 0 14px;font-size:20px;font-weight:900; max-width:100%; height:auto;"><%= pageTitle %></h1>
+  <p style="margin:0 0 14px;color:#475569;font-size:14px; max-width:100%; height:auto;">
+    Completá los datos tal como los usaste al crear tu cuenta. Si coinciden, vas a poder elegir una nueva contraseña.
+  </p>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div style="background:#fee2e2;color:#991b1b;border:1px solid #fecaca;border-radius:10px;padding:8px 10px;margin-bottom:12px;font-size:14px; max-width:100%; height:auto;">
+      <%= error %>
+    </div>
+  <% } %>
+
+  <form action="/forgot" method="post" style="display:grid;gap:10px; max-width:100%; height:auto;">
+    <div>
+      <label style="display:block;font-weight:700;font-size:12px;margin-bottom:4px; max-width:100%; height:auto;">Nombre y Apellido</label>
+      <input name="name" required placeholder="Ej: Juan Pérez"
+             value="<%= (form && form.name) || '' %>"
+             style="width:100%;height:42px;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:0 12px; max-width:100%; height:auto;"/>
+    </div>
+
+    <div>
+      <label style="display:block;font-weight:700;font-size:12px;margin-bottom:4px; max-width:100%; height:auto;">Email</label>
+      <input type="email" name="email" required placeholder="tu@email.com"
+             value="<%= (form && form.email) || '' %>"
+             style="width:100%;height:42px;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:0 12px; max-width:100%; height:auto;"/>
+    </div>
+
+    <div>
+      <label style="display:block;font-weight:700;font-size:12px;margin-bottom:4px; max-width:100%; height:auto;">Teléfono</label>
+      <input name="phone" placeholder="Ej: 11 2345 6789"
+             value="<%= (form && form.phone) || '' %>"
+             style="width:100%;height:42px;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:0 12px; max-width:100%; height:auto;"/>
+    </div>
+
+    <div>
+      <label style="display:block;font-weight:700;font-size:12px;margin-bottom:4px; max-width:100%; height:auto;">Carrera</label>
+      <select name="career" required
+              style="width:100%;height:42px;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:0 10px;background:#fff; max-width:100%; height:auto;">
+        <% (careerOptions || []).forEach(function(c){ %>
+          <option value="<%= c %>" <%= ((form && form.career)===c)?'selected':'' %>><%= c %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div>
+      <label style="display:block;font-weight:700;font-size:12px;margin-bottom:4px; max-width:100%; height:auto;">Plan</label>
+      <select name="plan" required
+              style="width:100%;height:42px;border:1px solid rgba(15,23,42,.12);border-radius:12px;padding:0 10px;background:#fff; max-width:100%; height:auto;">
+        <% (planOptions || []).forEach(function(p){ 
+             var sp = String(p); 
+             var sel = (String((form && form.plan) || '') === sp) ? 'selected' : ''; %>
+          <option value="<%= sp %>" <%= sel %>><%= p %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <button type="submit"
+            style="height:44px;border-radius:12px;font-weight:800;background:#F8C160;color:#fff;border:0; max-width:100%; height:auto;">
+      Verificar datos
+    </button>
+
+    <a href="/login" style="text-align:center;color:#F8C160; font-size: 13px; max-width:100%; height:auto;">Volver a iniciar sesión</a>
+  </form>
+</div>

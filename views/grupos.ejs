@@ -1,0 +1,289 @@
+<%
+/*
+  views/grupos.ejs
+  Recibe:
+   - user, tab ('mis'|'explorar'), year (0..5), q (string)
+   - groups: [{ id, name, year, career, plan, miembros, last_msg_text, last_msg_at }]
+*/
+function cleanTitle(n){
+  return String(n||'').replace(/\s*\([^)]*\)\s*/g,'').trim();
+}
+const activeTab = (tab==='explorar' ? 'explorar' : 'mis');
+const qStr = typeof q==='string' ? q : '';
+function initial(s){ s = cleanTitle(s); return s ? s[0].toUpperCase() : 'G'; }
+%>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Grupos — <%= (user?.career||'') %> / <%= (user?.plan||'') %></title>
+  <style>
+    :root{ --ring:#e5e7eb; --ink:#0f172a; --muted:#64748b; --shadow:0 10px 24px rgba(15,23,42,.10); }
+
+    body{ margin:0; font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial; color:var(--ink); background:#f6f9fc; }
+    .wrap{ max-width: 1100px; margin: 14px auto 28px; padding: 0 12px; }
+
+    /* === Barra superior: tabs izquierda, búsqueda derecha === */
+    .topbar{
+      display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+      margin-bottom: 16px;
+    }
+    .tabs-wrap{ display:flex; }
+    .anio-bar{ display:flex; gap:8px; background:#fff; border:1px solid var(--ring); border-radius:9999px; padding:6px; box-shadow: var(--shadow); }
+    .anio-btn{ height:42px; min-width:120px; padding:0 18px; border-radius:9999px; display:grid; place-items:center; font-weight:800; color:var(--ink); text-decoration:none; }
+    .anio-btn.is-active{ background:#F8C160; color:#fff; box-shadow: 0 8px 16px rgba(248,193,96,.35); }
+
+    .searchbar{ display:flex; align-items:center; gap:8px; height:42px; min-width:min(360px, 45%); padding:0 12px; background:#ffffff00; border:0px solid var(--ring); border-radius:9999px; box-shadow: var(--shadow); }
+    .searchbar input{ border:none; outline:none; background:transparent; width:100%; color:var(--ink); }
+
+    /* === Barra de años (Explorar) igual a Materias === */
+    .years{ display:flex; justify-content:center; margin: 6px 0 16px; }
+    .years .anio-bar{ padding:4px; }
+    .years .anio-btn{ height:40px; min-width:64px; font-weight:800; }
+
+    /* === Lista === */
+    .list{ display:flex; flex-direction:column; gap:12px; }
+
+    .card{
+      width:100%;
+      display:grid; grid-template-columns: 56px 1fr auto; gap:12px; align-items:center;
+      padding:12px 14px; border:1px solid var(--ring); border-radius:20px; background:#fff; box-shadow: var(--shadow);
+    }
+    .card.clickable{ cursor:pointer; transition: transform .12s ease, box-shadow .12s ease; text-decoration:none; color:inherit; }
+    .card.clickable:hover{ transform: translateY(-1px); box-shadow: 0 14px 28px rgba(15,23,42,.12); }
+
+    .avatar{
+      width:56px; height:56px; border-radius:9999px; overflow:hidden; border:1px solid var(--ring);
+      background:#e2e8f0; display:grid; place-items:center; color:#111827; font-weight:900; position:relative;
+    }
+    .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+    .avatar .init{ position:absolute; inset:0; display:grid; place-items:center; font-size:1.05rem; }
+    .avatar[data-fallback="1"] .init{ display:grid; }
+    .avatar[data-fallback="1"] img{ display:none; }
+
+    .main{ min-width:0; }
+    .row-top{ display:grid; grid-template-columns: 1fr auto; gap:8px; align-items:center; }
+    .title{ font-weight:800; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .time{ color:var(--muted); white-space:nowrap; }
+
+    .last{ margin-top:2px; color:#384152; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    .join-btn{
+      height:38px; padding:0 14px; border-radius:9999px; border:1px solid var(--ring); background:#F8C160; color:#fff; font-weight:800; cursor:pointer;
+    }
+
+    @media (max-width:720px){
+      .topbar{ justify-content:center; }
+      .searchbar{ min-width:min(360px, 90vw); order:2; }
+      .tabs-wrap{ order:1; }
+    }
+  </style>
+
+  <!-- Injected: Mobile-friendly baseline -->
+<style>
+  /* Baseline mobile improvements (non-breaking) */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:50; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- Tabs (izquierda) + búsqueda (derecha) -->
+    <div class="topbar">
+      <div class="tabs-wrap">
+        <div class="anio-bar" role="tablist" aria-label="Cambiar vista">
+          <a href="/app/grupos?tab=mis<%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"
+             class="anio-btn <%= activeTab==='mis' ? 'is-active' : '' %>" role="tab" aria-selected="<%= activeTab==='mis' %>">
+            Mis grupos
+          </a>
+          <a href="/app/grupos?tab=explorar<%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"
+             class="anio-btn <%= activeTab==='explorar' ? 'is-active' : '' %>" role="tab" aria-selected="<%= activeTab==='explorar' %>">
+            Explorar
+          </a>
+        </div>
+      </div>
+
+      <form class="searchbar" method="get" action="/app/grupos" role="search" aria-label="Buscar grupo" onsubmit="return false;">
+        <input type="hidden" name="tab" value="<%= activeTab %>">
+        <% if (activeTab === 'explorar') { %><input type="hidden" name="year" value="<%= year %>"><% } %>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="#1C274C" stroke-width="1.6"/>
+          <path d="M20 20L16.5 16.5" stroke="#1C274C" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <input id="liveSearch" name="q" placeholder="Buscar grupo" value="<%- qStr %>" autocomplete="off"/>
+      </form>
+    </div>
+
+    <!-- Barra de años SOLO en Explorar -->
+    <% if (activeTab === 'explorar') { %>
+      <div class="years">
+        <div class="anio-bar">
+          <% const years = [1,2,3,4,5]; %>
+          <% years.forEach(y=>{ %>
+            <a class="anio-btn <%= (year===y) ? 'is-active' : '' %>"
+               href="/app/grupos?tab=explorar&year=<%= y %><%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"><%= y %>º</a>
+          <% }) %>
+          <a class="anio-btn <%= (year===0) ? 'is-active' : '' %>"
+             href="/app/grupos?tab=explorar&year=0<%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>">Todos</a>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Lista -->
+    <div class="list" id="groupsList">
+      <% if (!groups || !groups.length) { %>
+        <div class="text-slate-500" style="text-align:center; padding:24px 0; max-width:100%; height:auto;">No hay grupos para mostrar.</div>
+      <% } %>
+
+      <% (groups || []).forEach(function(g){
+           const name = cleanTitle(g.name);
+           const init = initial(g.name);
+           const ts = g.last_msg_at || '';
+           const lastText = (g.last_msg_text != null && String(g.last_msg_text).trim() !== '') ? g.last_msg_text : '';
+      %>
+        <% if (activeTab === 'mis') { %>
+          <!-- MIS: tarjeta completa navega, muestra hora y último mensaje (si existe) -->
+          <a class="card clickable g-item" href="/app/grupos/<%= g.id %>" data-id="<%= g.id %>" data-name="<%- name.toLowerCase() %>">
+            <div class="avatar">
+              <img src="/app/grupos/<%= g.id %>/avatar/view" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <div class="init"><%= init %></div>
+            </div>
+            <div class="main">
+              <div class="row-top">
+                <div class="title"><%= name %></div>
+                <time class="time" data-ts="<%= ts %>"></time>
+              </div>
+              <% if (lastText) { %>
+                <div class="last"><%- lastText %></div>
+              <% } %>
+            </div>
+            <div></div>
+          </a>
+        <% } else { %>
+          <!-- EXPLORAR: solo avatar + nombre + botón Unirse -->
+          <div class="card g-item" data-id="<%= g.id %>" data-name="<%- name.toLowerCase() %>">
+            <div class="avatar">
+              <img src="/app/grupos/<%= g.id %>/avatar/view" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <div class="init"><%= init %></div>
+            </div>
+            <div class="main">
+              <div class="row-top">
+                <div class="title"><%= name %></div>
+                <div class="time"></div>
+              </div>
+              <!-- sin último mensaje en explorar -->
+            </div>
+            <div>
+              <button class="join-btn" data-join="<%= g.id %>">Unirse</button>
+            </div>
+          </div>
+        <% } %>
+      <% }) %>
+    </div>
+  </div>
+
+  <script>
+    // Hora: HH:mm / Ayer / día / dd/mm/yyyy
+    (function(){
+      function two(n){ return n<10?('0'+n):''+n; }
+      const WEEK = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+      function parseTS(ts){
+        if (!ts) return null;
+        if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(ts)) ts = ts.replace(' ', 'T');
+        const d = new Date(ts);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      function sod(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+      function label(ts){
+        const d = parseTS(ts); if (!d) return '';
+        const now = new Date();
+        const dd = Math.round((sod(now)-sod(d))/(24*60*60*1000));
+        if (dd===0) return two(d.getHours())+':'+two(d.getMinutes());
+        if (dd===1) return 'Ayer';
+        if (dd<7) { const s=WEEK[d.getDay()]; return s.charAt(0).toUpperCase()+s.slice(1); }
+        return two(d.getDate())+'/'+two(d.getMonth()+1)+'/'+d.getFullYear();
+      }
+      document.querySelectorAll('.time[data-ts]').forEach(el=>{ el.textContent = label(el.dataset.ts||''); });
+    })();
+
+    // Unirse (Explorar)
+    document.addEventListener('click', async (e)=>{
+      const join = e.target.closest('[data-join]');
+      if (join) {
+        const id = join.getAttribute('data-join');
+        join.disabled = true;
+        try{
+          const r = await fetch(`/app/grupos/${id}/unirse`, { method:'POST', headers:{'Content-Type':'application/json'} });
+          const j = await r.json();
+          if (j && j.ok) {
+            location.href = `/app/grupos/${id}`;
+          } else {
+            alert(j && j.error ? j.error : 'No se pudo unir');
+          }
+        }catch{ alert('Error de red'); }
+        join.disabled = false;
+      }
+    });
+
+    // Búsqueda en tiempo real (por nombre)
+    const live = document.getElementById('liveSearch');
+    const items = Array.from(document.querySelectorAll('.g-item'));
+    function applyFilter(){
+      const q = (live?.value || '').toLowerCase().trim();
+      items.forEach(el=>{
+        const name = (el.getAttribute('data-name') || '');
+        el.style.display = (!q || name.includes(q)) ? '' : 'none';
+      });
+    }
+    live?.addEventListener('input', applyFilter);
+    applyFilter();
+  </script>
+
+  <script>
+    // Señaliza a los scripts globales que esta es la página de grupos
+    document.addEventListener('DOMContentLoaded', function(){
+      try { document.body.dataset.page = 'grupos'; } catch(e){}
+    });
+
+    // Usar SOLO el botón del layout (#helpFab)
+    // Al hacer click en ese botón, disparamos los eventos que escucha grupos-tour.js
+    (function(){
+      function startGruposTour(ev){
+        try {
+          document.dispatchEvent(new Event('open:tutorial', {bubbles:true}));
+          document.dispatchEvent(new Event('open-tutorial:grupos', {bubbles:true}));
+        } catch(_){
+          var ev1 = document.createEvent('Event'); ev1.initEvent('open:tutorial', true, true); document.dispatchEvent(ev1);
+          var ev2 = document.createEvent('Event'); ev2.initEvent('open-tutorial:grupos', true, true); document.dispatchEvent(ev2);
+        }
+        ev?.preventDefault?.();
+        ev?.stopPropagation?.();
+      }
+
+      // Delegación global al botón del layout
+      document.addEventListener('click', function(e){
+        const layoutHelp = e.target.closest && e.target.closest('#helpFab');
+        if (!layoutHelp) return;
+        // Sólo si estamos en la página de grupos
+        if (document.body.dataset.page === 'grupos') startGruposTour(e);
+      }, true);
+    })();
+  </script>
+
+  <!-- Carga el tour específico de grupos -->
+  <script type="module" src="/public/js/grupos-tour.js"></script>
+</body>
+</html>

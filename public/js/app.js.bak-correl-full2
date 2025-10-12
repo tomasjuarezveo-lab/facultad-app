@@ -1,0 +1,804 @@
+﻿// ===== Tooltip global para íconos de documentos =====
+function initDocTooltip(){
+  let tip = document.getElementById('docTooltip');
+  if (!tip){
+    tip = document.createElement('div');
+    tip.id = 'docTooltip';
+    document.body.appendChild(tip);
+  }
+  const show = (el)=>{
+    const title = el.getAttribute('data-title') || el.getAttribute('title') || '';
+    if (!title) return;
+    tip.textContent = title;
+    tip.style.display = 'block';
+    // Posicionar a la IZQUIERDA del botón
+    const r = el.getBoundingClientRect();
+    // medir ancho del tooltip
+    tip.style.left = '-9999px'; tip.style.top = '-9999px';
+    const tmp = tip.getBoundingClientRect();
+    const tw = tmp.width, th = tmp.height;
+    const left = Math.max(8, r.left - tw - 12);
+    const top  = Math.max(8, Math.min(window.innerHeight - th - 8, r.top + r.height/2 - th/2));
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  };
+  const hide = ()=>{ tip.style.display = 'none'; };
+
+  const bind = (el)=>{
+    el.addEventListener('mouseenter', ()=> show(el));
+    el.addEventListener('mouseleave', hide);
+    // táctil: mostrar 1.2s
+    let t;
+    el.addEventListener('touchstart', ()=>{ show(el); clearTimeout(t); t=setTimeout(hide, 1200); }, {passive:true});
+  };
+
+  document.querySelectorAll('.doc-item-icon').forEach(bind);
+}
+
+// ===== Resto de utilidades existentes =====
+window.filterByYear = function(year) {
+  document.querySelectorAll('[data-year]').forEach(el => {
+    el.style.display = (year === 'all' || el.dataset.year === String(year)) ? '' : 'none';
+  });
+  const ay = document.getElementById('activeYear');
+  if (ay) ay.textContent = year;
+};
+
+window.searchList = function(inputId, listSelector) {
+  const q = document.getElementById(inputId)?.value?.toLowerCase() || "";
+  document.querySelectorAll(listSelector).forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+};
+
+window.spinWheel = function() {
+  const wheel = document.getElementById('wheel');
+  if (!wheel) return;
+  const deg = 720 + Math.floor(Math.random()*360);
+  wheel.style.transition = 'transform 2.4s cubic-bezier(.17,.67,.32,1)';
+  wheel.style.transform = `rotate(${deg}deg)`;
+  setTimeout(() => { alert('¡Respondé la pregunta! (demo)'); }, 2500);
+};
+
+window.startQuiz = async function(subjectId) {
+  const res = await fetch('/app/autoevaluaciones/iniciar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ subject_id: subjectId }) });
+  const data = await res.json();
+  const cont = document.getElementById('quizBox');
+  if (!cont) return;
+  cont.innerHTML = '';
+  const answers = [];
+  let idx = 0;
+  function renderQ() {
+    const q = data.questions[idx];
+    cont.innerHTML = `
+      <div class="card glass p-4">
+        <div class="text-sm text-gray-500 mb-2">Pregunta ${idx+1} de 5</div>
+        <div class="text-lg font-medium mb-4">${q.q}</div>
+        ${['a','b','c','d'].map(opt => `
+          <label style="display:block;margin-bottom:8px;">
+            <input type="radio" name="opt" value="${opt}"/> ${q[opt]}
+          </label>`).join('')}
+        <button class="btn" id="nextBtn">${idx===4?'Finalizar':'Siguiente'}</button>
+      </div>`;
+    document.getElementById('nextBtn').onclick = async () => {
+      const chosen = cont.querySelector('input[name="opt"]:checked');
+      if (!chosen) return alert('Elegí una opción');
+      answers.push({ id:q.id, choice: chosen.value });
+      if (idx===4) {
+        const r = await fetch('/app/autoevaluaciones/responder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ subject_id: subjectId, answers }) });
+        const rr = await r.json();
+        cont.innerHTML = `<div class="card glass p-6 text-center"><div class="text-2xl font-semibold">Puntaje: ${rr.score}/${rr.total}</div><div class="mt-2 text-gray-600">(2 puntos por respuesta correcta)</div></div>`;
+      } else { idx++; renderQ(); }
+    };
+  }
+  renderQ();
+};
+
+window.renameDoc = async function(docId, currentTitle, subjectId, category) {
+  const nt = prompt('Nuevo nombre del documento:', currentTitle || '');
+  if (!nt) return;
+  try {
+    await fetch(`/upload/${docId}/rename`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: nt, subject_id: subjectId, category })
+    });
+    window.location.href = `/app/materias/${subjectId}?category=${encodeURIComponent(category)}&doc=${docId}`;
+  } catch (e) { alert('No se pudo renombrar el documento'); }
+};
+
+document.addEventListener('DOMContentLoaded', initDocTooltip);
+function initTabbar(){
+  const bar = document.querySelector(".tabbar"); if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+  const path = window.location.pathname;
+
+  // Encontrar ítem activo por prefijo de ruta
+  const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+
+  // Posicionar indicador
+  const place = () => {
+    const r = active.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  };
+  requestAnimationFrame(place);
+  window.addEventListener("resize", place);
+
+  // Animar al click (mientras navega)
+  items.forEach(i => i.addEventListener("click", () => {
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    const r = i.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  }));
+}
+document.addEventListener("DOMContentLoaded", initTabbar);
+function initTabbar2025(){
+  const bar = document.querySelector(".tabbar.crystal"); if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+  const path = window.location.pathname;
+
+  const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+
+  const place = (el) => {
+    const r = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  };
+
+  requestAnimationFrame(()=> place(active));
+  window.addEventListener("resize", ()=> place(document.querySelector(".tabbar-item.active") || active));
+
+  items.forEach(i => i.addEventListener("click", ()=>{
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    place(i);
+    if (window.navigator?.vibrate) navigator.vibrate(8); // micro-feedback
+  }));
+}
+document.addEventListener("DOMContentLoaded", initTabbar2025);
+/* --- FIX: cálculo exacto de X = itemLeft - barLeft - paddingLeft --- */
+(function fixTabbarIndicator(){
+  const bar = document.querySelector(".tabbar.crystal");
+  if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+
+  const getPadL = () => parseFloat(getComputedStyle(bar).paddingLeft) || 0;
+
+  const place = (el) => {
+    const r  = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    const x  = Math.max(0, Math.round((r.left - br.left) - getPadL()));  // restamos padding-left
+    ind.style.width = Math.round(r.width) + "px";
+    ind.style.transform = `translateX(${x}px)`;
+  };
+
+  const setActiveByPath = () => {
+    const path = window.location.pathname;
+    const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+    items.forEach(i => i.classList.toggle("active", i===active));
+    place(active);
+  };
+
+  // Inicial
+  requestAnimationFrame(setActiveByPath);
+
+  // Recalcular en resize/orientation
+  window.addEventListener("resize", () => {
+    const current = document.querySelector(".tabbar-item.active") || items[0];
+    place(current);
+  });
+
+  // Animar al click y ajustar
+  items.forEach(i => i.addEventListener("click", () => {
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    place(i);
+    if (window.navigator?.vibrate) navigator.vibrate(8);
+  }));
+})();
+/* === ALIGN: centra el pill bajo el ítem activo compensando padding/borde === */
+(function alignTabbarPill(){
+  const bar = document.querySelector(".tabbar.crystal");
+  if (!bar) return;
+  const ind = bar.querySelector(".tabbar-indicator");
+  const items = [...bar.querySelectorAll(".tabbar-item")];
+
+  function getActive(){
+    return document.querySelector(".tabbar-item.active") ||
+           items.find(i => location.pathname.startsWith(i.dataset.route)) ||
+           items[0];
+  }
+  function padLeft(el){ return parseFloat(getComputedStyle(el).paddingLeft) || 0; }
+  function borLeft(el){ return parseFloat(getComputedStyle(el).borderLeftWidth) || 0; }
+
+  function place(el){
+    if (!el) return;
+    const r  = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    const x  = (r.left - br.left) - padLeft(bar) - borLeft(bar); // <- compensaciones reales
+    ind.style.width = `${r.width}px`;
+    ind.style.transform = `translateX(${x}px)`;
+  }
+
+  function setActive(el){
+    items.forEach(i => i.classList.toggle("active", i === el));
+    place(el);
+  }
+
+  // Init + resize
+  const init = ()=> setActive(getActive());
+  requestAnimationFrame(init);
+  window.addEventListener("resize", ()=> place(getActive()));
+
+  // Recolocar tras cambios de fuente/DOM
+  new ResizeObserver(()=> place(getActive())).observe(bar);
+
+  // Click en cualquier tab (esperamos al layout antes de medir)
+  bar.addEventListener("click", (e)=>{
+    const a = e.target.closest(".tabbar-item");
+    if (!a) return;
+    setTimeout(()=> setActive(a), 0);
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  // Recolocar tras navegación SPA (si la hay)
+  window.addEventListener("popstate", init);
+})();
+/* ===== Sync dinámico de la altura del brand para centrar exacto ===== */
+(function syncBrandHeight(){
+  const brand = document.querySelector(".auth-brand");
+  if (!brand) return;
+  const set = () => {
+    const h = brand.offsetHeight || 60;
+    document.documentElement.style.setProperty("--brandH", h + "px");
+  };
+  set();
+  window.addEventListener("resize", set, { passive: true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(set).observe(brand);
+  }
+})();
+/* ===== Sync dinámico de la altura del brand para centrar exacto ===== */
+(function syncBrandHeight(){
+  const brand = document.querySelector(".auth-brand");
+  if (!brand) return;
+  const set = () => {
+    const h = brand.offsetHeight || 60;
+    document.documentElement.style.setProperty("--brandH", h + "px");
+  };
+  set();
+  window.addEventListener("resize", set, { passive: true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(set).observe(brand);
+  }
+})();
+/* ==== Password toggles (Login/Register) ==== */
+function initPasswordToggles(){
+  document.querySelectorAll(".ios-pw-toggle[data-pw-target]").forEach(btn=>{
+    const id = btn.getAttribute("data-pw-target");
+    const input = document.getElementById(id);
+    if(!input) return;
+    btn.addEventListener("click", ()=>{
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "Ocultar" : "Mostrar";
+      input.focus({ preventScroll: true });
+    });
+  });
+}
+document.addEventListener("DOMContentLoaded", initPasswordToggles);
+/* === Alinear badge fijo con el centro vertical de la tabbar === */
+(function alignBadgeToTabbar(){
+  const badge = document.getElementById("userBadge");
+  if (!badge) return;
+  const bar = document.querySelector(".tabbar");
+  if (!bar) return;
+
+  function place(){
+    const r = bar.getBoundingClientRect();
+    const y = r.top + (r.height/2);   // coordenada viewport
+    badge.style.top = y + "px";
+  }
+  place();
+  window.addEventListener("resize", place, { passive: true });
+  // En caso de cambios de orientación / fuentes
+  if ("ResizeObserver" in window){ new ResizeObserver(place).observe(bar); }
+})();
+/* === Altura de la tab bar = avatarHeight + 10px === */
+(function sizeTabbarByAvatar(){
+  const bar   = document.querySelector(".tabbar");
+  const badge = document.getElementById("userBadge");
+  if (!bar || !badge) return;
+
+  function compute(){
+    const av = badge.querySelector(".avatar");
+    const h  = (av?.getBoundingClientRect().height) || 42;   // fallback
+    const desired = Math.ceil(h + 10);                        // 5px arriba + 5px abajo
+    document.documentElement.style.setProperty("--tabbar-h", desired + "px");
+
+    // Re-alinear el badge al centro vertical real de la barra (por si cambió la altura)
+    const r = bar.getBoundingClientRect();
+    badge.style.top = (r.top + r.height/2) + "px";
+  }
+
+  compute();
+  window.addEventListener("resize", compute, { passive: true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(compute).observe(badge);
+    new ResizeObserver(compute).observe(bar);
+  }
+})();
+/* === Sheet de cambio de avatar === */
+(function initProfileSheet(){
+  const badge   = document.getElementById("userBadge");
+  if (!badge) return; // solo en páginas principales
+  const avatarBtn = badge.querySelector(".avatar");
+  const sheet   = document.getElementById("profileSheet");
+  const back    = document.getElementById("psBackdrop");
+  const fileInp = document.getElementById("avatarFile");
+  const preview = document.getElementById("avatarPreview");
+  const btnSave = document.getElementById("sheetSave");
+  const btnCancel = document.getElementById("sheetCancel");
+
+  function currentAvatarSrc(){
+    const img = badge.querySelector(".avatar img");
+    return img ? img.src : null;
+  }
+  function open(){
+    // set preview con el actual
+    const src = currentAvatarSrc();
+    if (src){ preview.src = src; preview.style.objectFit = "cover"; }
+    else{ preview.removeAttribute("src"); preview.style.objectFit = "contain"; preview.alt = "Sin foto"; }
+    fileInp.value = ""; btnSave.disabled = true;
+    back.style.display = "block"; sheet.style.display = "block";
+  }
+  function close(){ back.style.display = "none"; sheet.style.display = "none"; }
+
+  avatarBtn?.addEventListener("click", open);
+  btnCancel?.addEventListener("click", close);
+  back?.addEventListener("click", close);
+  window.addEventListener("keydown", (e)=>{ if (e.key === "Escape" && sheet.style.display==="block") close(); });
+
+  fileInp?.addEventListener("change", ()=>{
+    const f = fileInp.files?.[0];
+    if (!f){ btnSave.disabled = true; return; }
+    if (!/^image\//.test(f.type) || f.size > 3*1024*1024){
+      alert("Subí una imagen PNG/JPG menor a 3 MB.");
+      fileInp.value = ""; btnSave.disabled = true; return;
+    }
+    const r = new FileReader();
+    r.onload = e => { preview.src = e.target.result; preview.style.objectFit = "cover"; };
+    r.readAsDataURL(f);
+    btnSave.disabled = false;
+  });
+})();
+/* ===== Activo por ruta en el Dock ===== */
+(function initDockActive(){
+  const dock = document.querySelector(".tabbar.dock"); if(!dock) return;
+  const items = [...dock.querySelectorAll(".dock-item")];
+  const active = items.find(i => location.pathname.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+})();
+(function initDockActive(){
+  const dock = document.querySelector(".tabbar.dock"); if(!dock) return;
+  const items = [...dock.querySelectorAll(".dock-item")];
+  const active = items.find(i => location.pathname.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+})();
+/* Menú iOS: marcar activo por ruta */
+(function initIosMenuActive(){
+  const links = Array.from(document.querySelectorAll(".tabbar-wrap a[data-route]"));
+  if(!links.length) return;
+  const active = links.find(a => location.pathname.startsWith(a.dataset.route)) || links[0];
+  links.forEach(a => a.classList.toggle("ring-2", a===active));
+  links.forEach(a => a.classList.toggle("ring-sky-400", a===active));
+  // demo: si hacés click, se actualiza visualmente
+  links.forEach(a => a.addEventListener("click", ()=>{
+    links.forEach(x=>x.classList.remove("ring-2","ring-sky-400"));
+    a.classList.add("ring-2","ring-sky-400");
+  }));
+})();
+/* ===== Alinear badge al centro del menú (compat: dock viejo o iOS nuevo) ===== */
+(function alignBadgeToMenu(){
+  const badge = document.getElementById("userBadge");
+  if (!badge) return;
+
+  const getBar = () =>
+    document.querySelector(".tabbar.dock") ||               // dock anterior
+    document.querySelector(".tabbar-wrap .fn-glass") ||     // menú iOS nuevo
+    document.querySelector(".tabbar-wrap");                 // fallback
+
+  function place(){
+    const bar = getBar();
+    if (!bar) return;
+    const r = bar.getBoundingClientRect();
+    badge.style.top = (r.top + r.height/2) + "px";
+  }
+
+  place();
+  window.addEventListener("resize", place, { passive:true });
+  if ("ResizeObserver" in window){
+    const ro = new ResizeObserver(place);
+    ro.observe(document.body);
+    const bar = getBar();
+    if (bar) ro.observe(bar);
+  }
+})();
+/* ===== Correlativas: viewport fijo, panel flotante y sólo scroll interno ===== */
+(function setupCorrelativasUI(){
+  if (!location.pathname.startsWith("/app/correlativas")) return;
+
+  // Asegurar clases de bloqueo de scroll
+  document.body.classList.add("no-scroll-page","page-correlativas");
+  document.documentElement.classList.add("no-scroll-page");
+
+  const main = document.querySelector("main") || document.body;
+
+  // 1) Detectar el gráfico existente y meterlo dentro del viewport fijo
+  let graphEl = main.querySelector("#correlGraph, #correlativasGraph, .correlativas-graph, .correl-graph, svg, canvas");
+  if (!graphEl) graphEl = main.firstElementChild;
+  if (!graphEl) return;
+
+  let vp = document.querySelector(".synoptic-viewport");
+  if (!vp){
+    vp = document.createElement("div");
+    vp.className = "synoptic-viewport";
+    graphEl.parentNode.insertBefore(vp, graphEl);
+    vp.appendChild(graphEl);
+  }
+
+  // 2) Panel iOS flotante (no ocupa espacio)
+  let controls = document.querySelector(".correl-controls");
+  if (!controls){
+    controls = document.createElement("div");
+    controls.className = "correl-controls";
+    controls.innerHTML = `
+      <button class="seg-btn" data-mode="filtro">Materias Filtro</button>
+      <button class="seg-btn" data-mode="correl">Correlativas</button>
+      <button class="seg-btn" data-mode="no">Materias No Correlativas</button>
+    `;
+    document.body.appendChild(controls);
+  }
+
+  function setActive(mode){
+    controls.querySelectorAll(".seg-btn").forEach(b=>b.classList.toggle("active", b.dataset.mode===mode));
+  }
+  function triggerFilter(mode){
+    // Intentar integrarse con UI previa si existe
+    const map = {
+      filtro: '[data-filter="filtro"], .btn-filtro, #btnFiltro',
+      correl: '[data-filter="correlativas"], .btn-correlativas, #btnCorrelativas',
+      no:     '[data-filter="no-correlativas"], .btn-no-correlativas, #btnNoCorrelativas'
+    };
+    const legacy = document.querySelector(map[mode] || "");
+    if (legacy) legacy.click();
+    // Emitir evento para listeners personalizados
+    window.dispatchEvent(new CustomEvent("correl:filter", { detail: mode }));
+  }
+
+  controls.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".seg-btn"); if (!btn) return;
+    setActive(btn.dataset.mode);
+    triggerFilter(btn.dataset.mode);
+  });
+  setActive("correl"); // estado inicial
+
+  // 3) Calcular top/bottom disponibles para el viewport y panel
+  function place(){
+    const header = document.querySelector("header");
+    const top = (header ? header.getBoundingClientRect().bottom : 0) + 10;
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    const bottom = bar ? (window.innerHeight - bar.getBoundingClientRect().top) + 10 : 110;
+    vp.style.top = top + "px";
+    vp.style.bottom = bottom + "px";
+    controls.style.top = (top + 4) + "px";
+  }
+  place();
+  window.addEventListener("resize", place, { passive:true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(place).observe(document.body);
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    if (bar) new ResizeObserver(place).observe(bar);
+  }
+
+  // 4) Evitar zoom por ctrl+rueda o gestos (mantener sólo scroll vertical interno)
+  window.addEventListener("wheel", (e)=>{ if (e.ctrlKey) e.preventDefault(); }, { passive:false });
+  ["gesturestart","gesturechange","gestureend"].forEach(ev=>{
+    document.addEventListener(ev, e=>e.preventDefault(), { passive:false });
+  });
+})();
+/* ===== Correlativas UI final ===== */
+(function setupCorrelativasNew(){
+  if (!location.pathname.startsWith("/app/correlativas")) return;
+
+  // Asegurar clases de “solo scroll interno”
+  document.documentElement.classList.add("no-scroll-page");
+  document.body.classList.add("no-scroll-page","page-correlativas");
+
+  const main = document.querySelector("main") || document.body;
+
+  // 1) Localizar el grafo y meterlo en un recuadro centrado con patrón
+  let graphEl = main.querySelector("#correlGraph, #correlativasGraph, .correlativas-graph, .correl-graph, svg, canvas");
+  if (!graphEl) graphEl = main.firstElementChild;
+  if (!graphEl) return;
+
+  let vp = document.querySelector(".synoptic-viewport");
+  if (!vp){
+    vp = document.createElement("div");
+    vp.className = "synoptic-viewport";
+    main.prepend(vp);
+  }
+  let frame = document.querySelector(".synoptic-frame");
+  if (!frame){
+    frame = document.createElement("div");
+    frame.className = "synoptic-frame";
+    vp.appendChild(frame);
+  }
+  if (graphEl.parentNode !== frame) frame.appendChild(graphEl);
+
+  // 2) Panel iOS con slider (sólo este, delante de todo)
+  let controls = document.querySelector(".correl-controls");
+  if (!controls){
+    controls = document.createElement("div");
+    controls.className = "correl-controls";
+    controls.innerHTML = `
+      <div class="correl-seg" id="correlSeg">
+        <div class="seg-knob" id="segKnob"></div>
+        <button class="seg-btn" data-mode="filtro">Materias Filtro</button>
+        <button class="seg-btn" data-mode="correl">Correlativas</button>
+        <button class="seg-btn" data-mode="no">Materias No Correlativas</button>
+      </div>`;
+    document.body.appendChild(controls);
+  }
+
+  // 3) Ocultar/retirar del flujo cualquier control anterior
+  const legacy = main.querySelectorAll('[data-filter="filtro"],[data-filter="correlativas"],[data-filter="no-correlativas"],.btn-filtro,.btn-correlativas,.btn-no-correlativas,.correl-legacy,#correlControlsOld');
+  legacy.forEach(n=>{ n.style.display="none"; n.setAttribute("aria-hidden","true"); });
+
+  // 4) Función para aplicar el filtro real:
+  //    - Si existe lógica anterior, la reusamos “clickeando” los botones ocultos.
+  //    - Si no existe, aplicamos un resaltado de fallback por clases genéricas.
+  function applyFilter(mode){
+    const mapSel = {
+      filtro: '[data-filter="filtro"], .btn-filtro, #btnFiltro',
+      correl: '[data-filter="correlativas"], .btn-correlativas, #btnCorrelativas',
+      no:     '[data-filter="no-correlativas"], .btn-no-correlativas, #btnNoCorrelativas'
+    };
+    const oldBtn = main.querySelector(mapSel[mode]);
+    if (oldBtn){ oldBtn.click(); return; }
+
+    // Fallback visual: resaltar por data-atributos comunes
+    const nodes = frame.querySelectorAll('.materia-node,[data-node],.node,.materia');
+    nodes.forEach(n=>n.classList.remove('is-filtro','is-correl','is-nocorrel','is-dim'));
+    if (mode === "filtro"){
+      nodes.forEach(n=>{
+        const deg = parseInt(n.getAttribute("data-degree") || n.dataset.degree || "0");
+        if (deg >= 2) n.classList.add('is-filtro'); else n.classList.add('is-dim');
+      });
+    }else if (mode === "correl"){
+      nodes.forEach(n=> (n.dataset.correl === "true" || n.classList.contains("correl")) ? n.classList.add('is-correl') : n.classList.add('is-dim'));
+    }else{
+      nodes.forEach(n=> (n.dataset.correl === "true" || n.classList.contains("correl")) ? n.classList.add('is-dim') : n.classList.add('is-nocorrel'));
+    }
+  }
+
+  // 5) Wire del segmented + slider blanco
+  const seg = document.getElementById("correlSeg");
+  const knob = document.getElementById("segKnob");
+  const btns = Array.from(seg.querySelectorAll(".seg-btn"));
+  function placeKnob(target){
+    const r = target.getBoundingClientRect();
+    const R = seg.getBoundingClientRect();
+    knob.style.width = r.width + "px";
+    knob.style.left  = (r.left - R.left) + "px";
+  }
+  function setActive(mode){
+    const btn = btns.find(b=>b.dataset.mode===mode) || btns[0];
+    btns.forEach(b=>b.classList.toggle("active", b===btn));
+    placeKnob(btn);
+  }
+  seg.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".seg-btn"); if(!btn) return;
+    setActive(btn.dataset.mode);
+    applyFilter(btn.dataset.mode);
+    // evento público por si alguien escucha
+    window.dispatchEvent(new CustomEvent("correl:filter", { detail: btn.dataset.mode }));
+  });
+
+  // Estado inicial
+  setActive("correl"); applyFilter("correl");
+
+  // Recolocar en resize / cambios
+  window.addEventListener("resize", ()=>{ const act = seg.querySelector(".seg-btn.active") || btns[1]; placeKnob(act); }, { passive:true });
+  if ("ResizeObserver" in window) new ResizeObserver(()=>{ const act = seg.querySelector(".seg-btn.active") || btns[1]; placeKnob(act); }).observe(seg);
+
+  // 6) Ajustar top/bottom del viewport para no tapar el menú iOS
+  function placeViewport(){
+    const header = document.querySelector("header");
+    const top = (header ? header.getBoundingClientRect().bottom : 0) + 10;
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    const bottom = bar ? (window.innerHeight - bar.getBoundingClientRect().top) + 10 : 110;
+    vp.style.top = top + "px";
+    vp.style.bottom = bottom + "px";
+    controls.style.top = (top + 4) + "px";
+  }
+  placeViewport();
+  window.addEventListener("resize", placeViewport, { passive:true });
+  if ("ResizeObserver" in window){
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    if (bar) new ResizeObserver(placeViewport).observe(bar);
+  }
+})();
+/* ===== CORRELATIVAS — FULLSCREEN + TOPBAR iOS + SEARCH ===== */
+(function correlFullUI(){
+  if (!location.pathname.startsWith("/app/correlativas")) return;
+
+  // Sólo scroll dentro del organigrama
+  document.documentElement.classList.add("no-scroll-page");
+  document.body.classList.add("no-scroll-page","page-correlativas");
+
+  const main = document.querySelector("main") || document.body;
+
+  // 1) Acomodar organigrama dentro de viewport y frame
+  let graphEl = main.querySelector("#correlGraph, #correlativasGraph, .correlativas-graph, .correl-graph, svg, canvas");
+  if (!graphEl) graphEl = main.firstElementChild;
+  if (!graphEl) return;
+
+  let vp = document.querySelector(".synoptic-viewport");
+  if (!vp){
+    vp = document.createElement("div");
+    vp.className = "synoptic-viewport";
+    main.prepend(vp);
+  }
+
+  let frame = document.querySelector(".synoptic-frame");
+  if (!frame){
+    frame = document.createElement("div");
+    frame.className = "synoptic-frame";
+    vp.appendChild(frame);
+  }
+  if (graphEl.parentNode !== frame) frame.appendChild(graphEl);
+
+  // 2) Eliminar/ocultar controles anteriores si existen
+  const legacy = main.querySelectorAll('[data-filter="filtro"],[data-filter="correlativas"],[data-filter="no-correlativas"],.btn-filtro,.btn-correlativas,.btn-no-correlativas,.correl-legacy,#correlControlsOld');
+  legacy.forEach(n=>{ n.style.display="none"; n.setAttribute("aria-hidden","true"); });
+
+  // 3) Topbar (Search + Segmented) fijo y centrado
+  let topbar = document.querySelector(".correl-topbar");
+  if (!topbar){
+    topbar = document.createElement("div");
+    topbar.className = "correl-topbar";
+    topbar.innerHTML = `
+      <div class="correl-search" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 105.3 11.9l3.9 3.9a1 1 0 001.4-1.4l-3.9-3.9A7 7 0 0011 4zm0 2a5 5 0 110 10 5 5 0 010-10z" fill="currentColor"/></svg>
+        <input id="correlSearch" type="search" placeholder="Buscar" autocomplete="off" />
+      </div>
+      <div class="correl-seg" id="correlSeg">
+        <div class="seg-knob" id="segKnob"></div>
+        <button class="seg-btn" data-mode="filtro">Materias filtro</button>
+        <button class="seg-btn" data-mode="correl">Correlativas</button>
+        <button class="seg-btn" data-mode="no">No correlativas</button>
+      </div>
+    `;
+    document.body.appendChild(topbar);
+  }else{
+    // si existe versión vieja, limpiamos y reponemos
+    const seg = topbar.querySelector("#correlSeg"); if(!seg) topbar.innerHTML = "";
+  }
+
+  const seg = document.getElementById("correlSeg");
+  const knob = document.getElementById("segKnob");
+  const btns = Array.from(seg.querySelectorAll(".seg-btn"));
+  const q = document.getElementById("correlSearch");
+
+  // 4) Filtros: reusar lógica vieja si hay, si no, fallback por clases
+  function applyLegacyClick(mode){
+    const mapSel = {
+      filtro: '[data-filter="filtro"], .btn-filtro, #btnFiltro',
+      correl: '[data-filter="correlativas"], .btn-correlativas, #btnCorrelativas',
+      no:     '[data-filter="no-correlativas"], .btn-no-correlativas, #btnNoCorrelativas'
+    };
+    const oldBtn = main.querySelector(mapSel[mode]);
+    if (oldBtn){ oldBtn.click(); return true; }
+    return false;
+  }
+
+  function clearClasses(){
+    const nodes = frame.querySelectorAll('.materia-node,[data-node],.node,.materia, svg g');
+    nodes.forEach(n=> n.classList.remove('is-filtro','is-correl','is-nocorrel','is-dim','is-search-match'));
+  }
+
+  function applyFilter(mode){
+    if (applyLegacyClick(mode)) return;
+    clearClasses();
+    const nodes = frame.querySelectorAll('.materia-node,[data-node],.node,.materia, svg g');
+    if (mode === "filtro"){
+      nodes.forEach(n=>{
+        const deg = parseInt(n.getAttribute("data-degree") || n.dataset.degree || "0");
+        if (deg >= 2) n.classList.add('is-filtro'); else n.classList.add('is-dim');
+      });
+    }else if (mode === "correl"){
+      nodes.forEach(n=> (n.dataset.correl==="true" || n.classList.contains("correl")) ? n.classList.add('is-correl') : n.classList.add('is-dim'));
+    }else{
+      nodes.forEach(n=> (n.dataset.correl==="true" || n.classList.contains("correl")) ? n.classList.add('is-dim') : n.classList.add('is-nocorrel'));
+    }
+  }
+
+  // 5) Knob deslizante
+  function placeKnob(target){
+    const r = target.getBoundingClientRect();
+    const R = seg.getBoundingClientRect();
+    knob.style.width = r.width + "px";
+    knob.style.left  = (r.left - R.left) + "px";
+  }
+  function setActive(mode){
+    const btn = btns.find(b=>b.dataset.mode===mode) || btns[0];
+    btns.forEach(b=>b.classList.toggle("active", b===btn));
+    placeKnob(btn);
+  }
+  seg.addEventListener("click", (e)=>{
+    const btn = e.target.closest(".seg-btn"); if(!btn) return;
+    setActive(btn.dataset.mode);
+    applyFilter(btn.dataset.mode);
+    window.dispatchEvent(new CustomEvent("correl:filter", { detail: btn.dataset.mode }));
+  });
+
+  // 6) Búsqueda: resalta coincidencias por texto
+  function getLabel(el){
+    return (el.getAttribute?.("data-title") || el.dataset?.title ||
+           el.getAttribute?.("aria-label") || el.textContent || "")
+           .replace(/\s+/g," ").trim().toLowerCase();
+  }
+  function doSearch(){
+    const term = q.value.trim().toLowerCase();
+    // Si hay lógica vieja, intentamos disparar evento
+    window.dispatchEvent(new CustomEvent("correl:search", { detail: term }));
+    const nodes = frame.querySelectorAll('.materia-node,[data-node],.node,.materia, svg g');
+    nodes.forEach(n=>{
+      n.classList.remove('is-search-match','is-dim');
+      if (!term) return;
+      const hit = getLabel(n).includes(term);
+      if (hit) n.classList.add('is-search-match'); else n.classList.add('is-dim');
+    });
+    // si hay match, opcionalmente podríamos scrollIntoView del primero
+    if (term){
+      const first = frame.querySelector('.is-search-match');
+      if (first && first.scrollIntoView){ try{ first.scrollIntoView({block:"center", inline:"center"}); }catch(e){} }
+    }
+  }
+  q.addEventListener("input", doSearch);
+
+  // Estado inicial
+  setActive("correl"); applyFilter("correl");
+
+  // 7) Colocar topbar y viewport para que el organigrama ocupe todo menos header/dock
+  function placeAll(){
+    const header = document.querySelector("header");
+    const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    const bottomGap = bar ? (window.innerHeight - bar.getBoundingClientRect().top) : 110;
+
+    vp.style.top = (headerBottom + 8) + "px";
+    vp.style.bottom = (bottomGap + 8) + "px";
+
+    topbar.style.top = (headerBottom + 10) + "px";
+  }
+  placeAll();
+  window.addEventListener("resize", placeAll, { passive:true });
+  if ("ResizeObserver" in window){
+    const ro = new ResizeObserver(placeAll);
+    ro.observe(document.body);
+    const bar = document.querySelector(".fn-glass") || document.querySelector(".tabbar.dock");
+    if (bar) ro.observe(bar);
+  }
+})();

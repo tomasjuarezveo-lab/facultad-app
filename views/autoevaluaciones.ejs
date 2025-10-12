@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Autoevaluaciones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{
+      --glass-1: rgba(255,255,255,.65);
+      --glass-2: rgba(255,255,255,.40);
+      --stroke:  rgba(255,255,255,.60);
+      --ink: #0f172a;
+      --muted:#64748b;
+      --shadow-strong: 0 26px 46px rgba(15,23,42,.18);
+      --tile-shadow: 0 12px 22px rgba(15,23,42,.14), inset 0 1px 0 rgba(255,255,255,.85), inset 0 -10px 24px rgba(15,23,42,.06);
+      --radius-xl: 20px;
+      --radius-lg: 18px;
+    }
+    body{ color:var(--ink); }
+
+    /* ===== Panel izquierdo (años) con estética del dock ===== */
+    .year-panel{
+      position: fixed; left: 16px; top: 50%; z-index: 30;
+      transform: translateY(-50%);
+      width: 78px; padding: 10px;
+      background: var(--glass-2);
+      border: 1px solid var(--stroke);
+      border-radius: 22px;
+      box-shadow: var(--shadow-strong), inset 0 1px 0 rgba(255,255,255,.75);
+      backdrop-filter: blur(22px) saturate(160%); -webkit-backdrop-filter: blur(22px) saturate(160%);
+      display: grid; align-content: start; gap: 8px;
+      height: auto; overflow: visible;
+    }
+    .year-btn{
+      height: 40px; border-radius: 9999px; font-weight: 700; letter-spacing: -.01em;
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border: 1px solid var(--stroke);
+      box-shadow: var(--tile-shadow);
+      color:#2a1e0f;
+      transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+    }
+    .year-btn:hover{ transform: translateY(-2px); }
+    .year-btn[aria-current="true"]{
+      background:#F8C160; color:#fff; box-shadow: 0 16px 28px rgba(15,23,42,.22), inset 0 1px 0 rgba(255,255,255,.2);
+    }
+
+    /* ===== Grid central de materias ===== */
+    .card{
+      border-radius: var(--radius-xl);
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border: 1px solid var(--stroke);
+      box-shadow: var(--tile-shadow);
+      backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .tile:hover{ transform: translateY(-2px); box-shadow: 0 18px 30px rgba(15,23,42,.12); }
+
+    /* ===== Barra de búsqueda iOS ===== */
+    .search-wrap{ position: relative; }
+    .search-ios{
+      height: 42px; width: 18rem;
+      padding-left: 40px; padding-right: 14px;
+      border-radius: 9999px;
+      background: var(--glass-2);
+      border: 1px solid var(--stroke);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 6px 16px rgba(15,23,42,.06);
+      backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+      color: #334155;
+    }
+    .search-ios::placeholder{ color: #8a99ad; }
+    .search-icon{ position:absolute; left: 12px; top: 50%; transform: translateY(-50%); color:#9aa4b2; }
+    @media (max-width: 768px){ .search-ios{ width: 14rem; } }
+
+    /* ===== Modal quiz A PANTALLA COMPLETA (blanco) ===== */
+    #quizModal{ position: fixed; inset: 0; z-index: 1100; display: none; }
+    .quiz-sheet{
+      position: absolute; inset: 0; background: #fff; color:#0f172a; overflow: auto;
+      display: grid; grid-template-rows: auto 1fr auto;
+    }
+    .quiz-header{
+      display:flex; align-items:center; justify-content:space-between; gap: 12px;
+      padding: 14px 18px; border-bottom: 1px solid #e5e7eb;
+    }
+    .quiz-body{ padding: 16px; max-width: 920px; width: 100%; margin: 0 auto; }
+    .quiz-footer{
+      padding: 14px 18px; border-top: 1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:10px;
+      position: sticky; bottom: 0; background: #fff;
+    }
+
+    /* ===== Botones estilo iOS (como el dock) ===== */
+    .ios-pill{
+      height: 36px; padding: 0 16px; border-radius: 9999px; font-weight: 600;
+      background: linear-gradient(145deg, rgba(255,255,255,.35), rgba(255,255,255,.18));
+      border: 1px solid var(--stroke);
+      box-shadow: var(--tile-shadow);
+      backdrop-filter: blur(18px) saturate(160%); -webkit-backdrop-filter: blur(18px) saturate(160%);
+      color:#0f172a;
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .ios-pill:hover{ transform: translateY(-1px); box-shadow: 0 18px 30px rgba(15,23,42,.12); }
+
+    /* Botones existentes */
+    .pill{
+      height: 36px; padding: 0 14px; border-radius: 9999px; font-weight: 600;
+      background:#0f172a; color:#fff;
+    }
+    .pill-secondary{
+      background:#f1f5f9; color:#0f172a; border:1px solid #e2e8f0;
+    }
+
+    /* ===== Responsive ===== */
+    @media (max-width: 1024px){
+      .year-panel{
+        position: sticky; left: auto; right: auto; top: auto; bottom: auto;
+        width: 100%; height: auto; grid-auto-flow: column; overflow: visible;
+        display: flex; gap: 8px; padding: 8px; margin-bottom: 10px;
+      }
+      .year-btn{ flex: 1 1 0; height: 38px; }
+    }
+      #tourBackdrop{ background: rgAba(15,23,42,.58); }
+  </style>
+
+  <!-- Injected: Mobile-friendly baseline -->
+<style>
+  /* Baseline mobile improvements (non-breaking) */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:50; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="max-w-6xl mx-auto px-4 md:px-6 pt-2 md:pt-3 pb-4 md:pb-6">
+    <!-- FILA: búsqueda arriba de todo -->
+    <!-- FILA: título y búsqueda -->
+      <div class="flex items-center justify-between mb-2">
+        <div>
+          <h1 class="text-xl md:text-2xl font-semibold">Autoevaluaciones</h1>
+          <div class="text-sm text-slate-500">Elegí año y materia para practicar</div>
+        </div>
+
+        <div class="search-wrap">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input id="qSubjects" class="search-ios" placeholder="Buscar materia" />
+        </div>
+      </div>
+
+    <!-- Panel izquierdo (años) -->
+    <aside class="year-panel" id="yearPanel" aria-label="Filtrar por año">
+      <button class="year-btn" data-year="1">1º</button>
+      <button class="year-btn" data-year="2">2º</button>
+      <button class="year-btn" data-year="3">3º</button>
+      <button class="year-btn" data-year="4">4º</button>
+      <button class="year-btn" data-year="5">5º</button>
+      <button class="year-btn" data-year="all">Todos</button>
+    </aside>
+
+    <!-- Lista de materias -->
+    <div id="subjectsGrid" class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 pl-[132px] lg:pl-0">
+      <%
+        // Filtramos solo las materias de la carrera/plan del usuario
+        const _subs = (subjects || []).filter(s =>
+          String(s.career||'') === String(user?.career||'') &&
+          String(s.plan||'')   === String(user?.plan||'')
+        );
+      %>
+      <% if (_subs.length) { %>
+        <% _subs.forEach(function(s){ %>
+          <button
+            class="card tile w-full p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
+            data-subject-id="<%= s.id %>"
+            data-subject-name="<%- s.name %>"
+            data-name="<%- (s.name||'').toLowerCase() %>"
+            data-year="<%= s.year %>">
+            <div class="flex items-center justify-between">
+              <div class="min-w-0 font-semibold truncate text-slate-900"><%= s.name %></div>
+              <div class="text-xs text-slate-600"><%= s.year %>º</div>
+            </div>
+            <div class="mt-1 text-xs text-slate-500/80 truncate">
+              <%= s.career %> · Plan <%= s.plan %>
+            </div>
+            <div class="mt-3 text-xs text-slate-400">Click para comenzar</div>
+          </button>
+        <% }) %>
+      <% } else { %>
+        <div class="col-span-full text-center text-slate-500 py-12">
+          No hay materias para tu perfil (<%= user?.career %> · Plan <%= user?.plan %>).
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- ====== QUIZ A PANTALLA COMPLETA ====== -->
+  <div id="quizModal">
+    <div class="quiz-sheet" role="dialog" aria-modal="true" aria-labelledby="quizTitle">
+      <!-- Header -->
+      <div class="quiz-header">
+        <div class="flex items-center gap-2">
+          <!-- Botón Salir con estética iOS -->
+          <button id="closeQuiz" class="ios-pill">Salir</button>
+          <div id="quizTitle" class="text-base md:text-lg font-semibold truncate">Autoevaluación</div>
+        </div>
+        <div id="quizProgress" class="text-sm text-slate-500">0 / 5</div>
+      </div>
+
+      <!-- Body (preguntas ARRIBA, como antes) -->
+      <div class="quiz-body">
+        <div id="questionBox" class="w-full max-w-2xl mx-auto space-y-4"></div>
+
+        <div id="reviewBox" class="hidden mt-6 border-t pt-4">
+          <div class="text-sm text-slate-600 mb-2">Revisión:</div>
+          <div id="reviewContent" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="quiz-footer">
+        <button id="btnPrev" class="pill-secondary px-4 hidden">Anterior</button>
+        <button id="btnNext" class="pill px-4">Siguiente</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======== FILTROS: año + búsqueda ========
+    const yearPanel   = document.getElementById('yearPanel');
+    const grid        = document.getElementById('subjectsGrid');
+    const qInput      = document.getElementById('qSubjects');
+
+    let currentYear   = 'all';
+    let searchQuery   = '';
+
+    function applyFilters(){
+      const cards = grid.querySelectorAll('[data-year]');
+      cards.forEach(c => {
+        const okYear = (currentYear === 'all') || (String(c.dataset.year) === String(currentYear));
+        const name   = (c.dataset.name || c.dataset.subjectName || '').toLowerCase();
+        const okText = !searchQuery || name.includes(searchQuery);
+        c.style.display = (okYear && okText) ? '' : 'none';
+      });
+    }
+
+    yearPanel.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.year-btn');
+      if(!btn) return;
+      currentYear = btn.dataset.year;
+      yearPanel.querySelectorAll('.year-btn').forEach(b=>b.setAttribute('aria-current','false'));
+      btn.setAttribute('aria-current','true');
+      applyFilters();
+    });
+    // Preseleccionar "Todos"
+    yearPanel.querySelector('.year-btn[data-year="all"]').setAttribute('aria-current','true');
+
+    qInput.addEventListener('input', ()=>{
+      searchQuery = (qInput.value || '').trim().toLowerCase();
+      applyFilters();
+    });
+
+    // ======== QUIZ: lógica de UI ========
+    const quizModal     = document.getElementById('quizModal');
+    const closeQuiz     = document.getElementById('closeQuiz');
+    const questionBox   = document.getElementById('questionBox');
+    const reviewBox     = document.getElementById('reviewBox');
+    const reviewContent = document.getElementById('reviewContent');
+    const btnPrev       = document.getElementById('btnPrev');
+    const btnNext       = document.getElementById('btnNext');
+    const quizTitle     = document.getElementById('quizTitle');
+    const quizProgress  = document.getElementById('quizProgress');
+
+    let Q = [];               // preguntas
+    let idx = 0;              // índice actual
+    let answers = [];         // respuestas del usuario (índice de opción)
+    let finished = false;     // se terminó
+
+    function openQuiz(){
+      quizModal.style.display = 'block';
+      document.body.style.overflow = 'hidden';
+    }
+    function closeQuizFn(){
+      quizModal.style.display = 'none';
+      document.body.style.overflow = '';
+      Q = []; idx = 0; answers = []; finished = false;
+      questionBox.innerHTML = ''; reviewContent.innerHTML = ''; reviewBox.classList.add('hidden');
+      btnPrev.classList.add('hidden'); 
+      btnNext.textContent = 'Siguiente';
+      btnNext.classList.remove('ios-pill');   // quitar estilo iOS si quedó como “Cerrar”
+      btnNext.classList.add('pill');
+      quizProgress.textContent = '0 / 5';
+    }
+    closeQuiz.addEventListener('click', closeQuizFn);
+
+    // Render de una pregunta (arriba)
+    function renderQuestion(){
+      if (!Q.length) return;
+      const q = Q[idx];
+      quizProgress.textContent = (idx+1) + ' / ' + Q.length;
+
+      questionBox.innerHTML = `
+        ${q.subtitle ? `<div class="text-sm text-slate-500 mb-1">${q.subtitle}</div>` : ''}
+        <h2 class="text-lg md:text-xl font-semibold mb-3">${q.text}</h2>
+        <div class="space-y-2">
+          ${q.options.map((opt, i) => `
+            <label class="flex items-start gap-2 p-3 border rounded-lg cursor-pointer hover:bg-slate-50">
+              <input type="radio" name="opt" value="${i}" ${answers[idx]===i?'checked':''} class="mt-1">
+              <span>${opt}</span>
+            </label>
+          `).join('')}
+        </div>
+      `;
+
+      reviewBox.classList.add('hidden');
+      btnPrev.classList.toggle('hidden', idx===0);
+      // Mientras no sea la última → “Siguiente” (oscuro). Última → “Finalizar” (oscuro).
+      btnNext.textContent = (idx === Q.length-1) ? (finished ? 'Cerrar' : 'Finalizar') : 'Siguiente';
+      // Estilos del botón principal según estado
+      if (finished){
+        btnNext.classList.remove('pill');     // botón Cerrar con estética iOS (vidrio)
+        btnNext.classList.add('ios-pill');
+      } else {
+        btnNext.classList.remove('ios-pill');
+        btnNext.classList.add('pill');
+      }
+    }
+
+    // Navegación
+    btnPrev.addEventListener('click', ()=>{ if(idx>0){ idx--; renderQuestion(); } });
+    btnNext.addEventListener('click', ()=>{
+      // Guardar respuesta elegida (si hay)
+      const checked = questionBox.querySelector('input[name="opt"]:checked');
+      if (checked) answers[idx] = parseInt(checked.value, 10);
+
+      if (!finished){
+        if (idx < Q.length-1){ idx++; renderQuestion(); }
+        else {
+          // finalizar → puntaje y revisión
+          finished = true;
+          const correct = answers.reduce((acc, v, i) => acc + (v===Q[i].answer ? 1 : 0), 0);
+          const score10 = Math.round((correct / Q.length) * 10);
+
+          questionBox.innerHTML = `
+            <div class="text-center py-10">
+              <div class="text-5xl font-black tracking-tight">${score10}</div>
+              <div class="mt-2 text-slate-600">Puntaje sobre 10</div>
+              <div class="mt-4 text-sm text-slate-500">Debajo podés ver tus respuestas (gris) y las correctas (en verde).</div>
+            </div>
+          `;
+
+          reviewContent.innerHTML = Q.map((q, i) => {
+            const user = answers[i];
+            const ok = (user === q.answer);
+            return `
+              <div class="p-3 border rounded-lg ${ok ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50'}">
+                <div class="font-medium mb-1">${i+1}. ${q.text}</div>
+                <div class="text-sm text-slate-600">Tu respuesta: <span class="${ok?'text-emerald-700':'text-slate-500'}">${user!=null ? q.options[user] : '—'}</span></div>
+                <div class="text-sm text-emerald-700">Correcta: ${q.options[q.answer]}</div>
+              </div>
+            `;
+          }).join('');
+
+          reviewBox.classList.remove('hidden');
+          btnPrev.classList.add('hidden');
+
+          // Cambiar el botón principal a “Cerrar” con estilo iOS (vidrio)
+          btnNext.textContent = 'Cerrar';
+          btnNext.classList.remove('pill');
+          btnNext.classList.add('ios-pill');
+        }
+      } else {
+        closeQuizFn();
+      }
+    });
+
+    // Click en una materia → cargar preguntas
+    grid.addEventListener('click', async (e)=>{
+      const card = e.target.closest('[data-subject-id]');
+      if(!card) return;
+      const subjectId = card.dataset.subjectId;
+      const subjectName = card.dataset.subjectName || 'Autoevaluación';
+      quizTitle.textContent = subjectName;
+
+      openQuiz();
+      // Pedimos 5 preguntas
+      try{
+        const res = await fetch(`/api/quizzes?subject_id=${encodeURIComponent(subjectId)}&limit=5`);
+        const data = await res.json();
+        Q = Array.isArray(data) ? data : [];
+      }catch(err){
+        Q = [];
+      }
+
+      // Si no hay preguntas subidas por el admin, mostramos vacío (sin demos)
+      if (!Q.length){
+        questionBox.innerHTML = '<div class="text-center py-10 text-slate-500">No hay preguntas cargadas para esta materia.</div>';
+        reviewBox.classList.add('hidden');
+        btnPrev.classList.add('hidden');
+        btnNext.textContent = 'Cerrar';
+        btnNext.classList.remove('pill');
+        btnNext.classList.add('ios-pill');
+        return;
+      }
+      
+      answers = new Array(Q.length).fill(null);
+      idx = 0; finished = false;
+      renderQuestion();
+    });
+  </script>
+<script type="module" src="/public/js/tutorial-overlay.js"></script>
+<script type="module" src="/public/js/autoeval-tour.js"></script>
+</body>
+</html>

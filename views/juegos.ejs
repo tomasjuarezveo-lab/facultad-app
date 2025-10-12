@@ -1,0 +1,505 @@
+<!-- JUEGOS · Ruleta iOS de materias con botón central y selector de cantidad -->
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b;
+    --glass-1: rgba(255,255,255,.70);
+    --glass-2: rgba(255,255,255,.42);
+    --ring:    rgba(255,255,255,1);
+    --shadow-outer: 0 20px 38px rgba(15,23,42,.18);
+    --shadow-soft:  0 12px 26px rgba(15,23,42,.12);
+    --thumb:        0 1px 0 rgba(255,255,255,.9) inset, 0 10px 22px rgba(15,23,42,.12) inset;
+    --radius-xl: 22px;
+  }
+  .wheel-wrap{ max-width: 560px; margin: 0 auto; position: relative; }
+
+  /* Selector de cantidad (2–5) */
+  .count-wrap{
+    position: absolute; right: -10px; top: -8px; z-index: 6;
+    display:flex; gap:6px; align-items:center;
+    background: var(--glass-2); border:1px solid rgba(255,255,255,.7);
+    border-radius: 9999px; padding:6px 8px;
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+    box-shadow: var(--shadow-soft);
+    transform: translateX(100%); /* pegado al lado derecho del wheel */
+  }
+  .count-label{ font-size:12px; color:#475569; font-weight:700; letter-spacing:.01em; }
+  .count-btn{
+    min-width:30px; height:28px; padding:0 8px; border-radius:9999px; font-size:12px; font-weight:800;
+    background: linear-gradient(145deg, rgba(255,255,255,.34), rgba(255,255,255,.18));
+    border:1px solid rgba(255,255,255,.7); color:#0f172a; cursor:pointer;
+  }
+  .count-btn[aria-pressed="true"]{
+    background:#F4BA5D; color:#fff; box-shadow: 0 8px 18px rgba(15,23,42,.25), inset 0 1px 0 rgba(255,255,255,.2);
+  }
+
+  /* Contador de puntos (izquierda, alineado con “Sectores”) */
+  .points-badge{
+    position:absolute; left:-10px; top:-8px; z-index:6;
+    transform: translateX(-100%); /* pegado al lado izquierdo del wheel */
+    display:flex; align-items:center; gap:6px;
+    background: var(--glass-2); border:1px solid rgba(255,255,255,.7);
+    border-radius: 9999px; padding:6px 10px;
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+    font-size:12px; color:#0f172a; font-weight:800; letter-spacing:.01em;
+  }
+  .points-dot{
+    width:8px; height:8px; border-radius:9999px; background:#F5BC60; opacity:.8;
+  }
+
+  .wheel-stage{
+    position: relative; aspect-ratio: 1/1; width: min(88vw, 520px);
+    margin: 0 auto; filter: drop-shadow(var(--shadow-outer));
+  }
+  .wheel-stage::before{
+    content:""; position:absolute; inset:-12px; border-radius: 9999px;
+    background: radial-gradient(120% 120% at 50% 30%, rgba(255,255,255,.9), rgba(255,255,255,.55) 60%, transparent);
+    z-index:0;
+  }
+  .wheel-svg{ position:absolute; inset:0; z-index:1; }
+  .wheel-ring{ fill:#f6f9ff; filter: drop-shadow(0 6px 12px rgba(15,23,42,.12)); }
+
+  /* flecha superior */
+  .wheel-pointer{
+    position:absolute; left:50%; top:-11px; transform:translateX(-50%); z-index:3;
+    width:50px; height:50px; border-radius:9999px;
+    background: var(--glass-1); border:1px solid rgba(255,255,255,.75);
+    box-shadow: var(--shadow-soft), 0 1px 0 rgba(255,255,255,.95) inset;
+    display:grid; place-items:center;
+  }
+  .wheel-pointer svg{ width:24px; height:24px; opacity:.55 }
+
+  /* botón central (girar) */
+  .spin-btn{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); z-index:4;
+    width:75px; height:75px; border-radius:9999px;
+    background: linear-gradient(145deg, rgba(255,255,255,.36), rgba(255,255,255,.18));
+    border:1px solid rgba(255,255,255,.75);
+    box-shadow: 0 12px 24px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.9);
+    display:grid; place-items:center; cursor:pointer;
+    transition: transform .08s ease;
+  }
+  .spin-btn:active{ transform:translate(-50%,-50%) scale(.98); }
+  .spin-btn svg{ width:40px; height:40px; opacity:.85 }
+
+  /* etiquetas */
+  .slice-label{
+    font-weight: 800; letter-spacing: -.01em; fill:#fff; text-anchor: middle;
+    paint-order: stroke; stroke: rgba(0,0,0,.08); stroke-width: 1.2px;
+  }
+
+  /* Ícono pequeño por sector */
+  .slice-icon{
+    fill:#fff;
+    opacity:.95;
+    pointer-events:auto;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+  }
+
+  /* Giro: 5s con ease-out agresivo */
+  .spin {
+    transition: transform 5s cubic-bezier(.05,.7,0,1);
+    will-change: transform;
+    transform-origin: 50% 50%;
+  }
+
+  /* OVERLAY de pregunta */
+  .qa-overlay{
+    position: fixed; inset: 0; z-index: 50; display:none;
+    background: rgba(15,23,42,.42);
+    backdrop-filter: blur(4px) saturate(120%); -webkit-backdrop-filter: blur(4px) saturate(120%);
+  }
+  .qa-overlay.show{ display:block; }
+  .qa-card{
+    position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width: min(92vw, 720px);
+    background:#fff; border-radius: 22px; padding: 20px 18px;
+    box-shadow: 0 18px 30px rgba(15,23,42,.18), 0 1px 0 rgba(255,255,255,.9) inset;
+    border: 1px solid #eef2f7;
+  }
+  .qa-header{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;
+  }
+  .qa-title{ font-size: clamp(17px, 2vw, 22px); font-weight: 800; color:#0f172a; letter-spacing:-.01em; }
+  .qa-cancel{
+    border:1px solid #e5e7eb; border-radius:9999px; padding:8px 12px; background:#fafafa; font-weight:700; cursor:pointer;
+  }
+  .opt{
+    display:flex; align-items:center; gap:10px;
+    border-radius: 14px; border:1px solid #e6ebf3; padding:10px 12px;
+    background:#fff; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .opt:hover{ transform: translateY(-1px); box-shadow: 0 8px 16px rgba(15,23,42,.08); }
+  .btn-continue{
+    display:block; margin:14px auto 2px; min-width: 210px;
+    padding:12px 20px; border-radius: 9999px; color:#fff; font-weight: 800; letter-spacing:.01em;
+    background: linear-gradient(180deg, #f9c56b 0%, #f3b343 100%);
+    cursor:pointer;
+  }
+  .qa-feedback{
+    margin-top:10px; text-align:center; font-weight:800; color:#0f172a;
+  }
+
+  /* Popover materias */
+  .slice-pop{
+    position:absolute; transform: translate(-50%,-50%); z-index:5;
+    background: var(--glass-2); border:1px solid rgba(255,255,255,.7);
+    backdrop-filter: blur(16px) saturate(150%); -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border-radius: 16px; padding:10px; box-shadow: var(--shadow-soft);
+    width: min(70vw, 320px); max-height: 46vh; overflow:auto;
+  }
+  .slice-pop button{ display:block; width:100%; text-align:left; padding:8px 10px; border-radius:12px; cursor:pointer; }
+  .slice-pop button:hover{ background: rgba(255,255,255,.6); }
+
+  @media (max-width:640px){
+    .wheel-wrap{ max-width: 100%; }
+    .wheel-stage{ width:min(92vw, 460px); }
+    .spin-btn{ width:86px; height:86px; }
+    .count-wrap{ right:-6px; top:-6px; transform: translateX(0); }
+    .points-badge{ left:-6px; top:-6px; transform: translateX(-0); }
+  }
+  .Transparenttotal{
+    color:#0f172a00;
+  }
+</style>
+<%
+  // Materias del perfil del usuario
+  const _subs = (subjects || []).filter(s =>
+    String(s.career||'') === String(user?.career||'') &&
+    String(s.plan||'')   === String(user?.plan||'')
+  );
+%>
+
+<div class="wheel-wrap">
+  <!-- Contador de puntos (izquierda) -->
+  <div class="points-badge" id="pointsBadge" aria-live="polite" title="Puntos">
+       <span class="points-dot" aria-hidden="true"></span>
+    <div style="margin:10px 0;font-weight:800; max-width:100%; height:auto;">
+      Mis puntos: <span id="score"><%= typeof puntos!=='undefined' ? puntos : 0 %></span>
+    </div>
+ 
+    <span><strong id="pointsValue" class="Transparenttotal"><%= typeof puntos!=='undefined' ? puntos : 0 %></strong></span>
+  </div>
+
+  <!-- Selector de cantidad -->
+  <div class="count-wrap" id="countWrap" aria-label="Cantidad de sectores">
+    <span class="count-label">Materias</span>
+    <button type="button" class="count-btn" data-count="2">2</button>
+    <button type="button" class="count-btn" data-count="3">3</button>
+    <button type="button" class="count-btn" data-count="4">4</button>
+    <button type="button" class="count-btn" data-count="5" aria-pressed="true">5</button>
+  </div>
+
+  <!-- FLECHA SUPERIOR -->
+  <div class="wheel-pointer">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16L6 8h12l-6 8z" fill="black"/></svg>
+  </div>
+
+  <!-- RULETA (SVG) -->
+  <div class="wheel-stage">
+    <svg id="wheelSvg" class="wheel-svg" viewBox="0 0 1000 1000" role="img" aria-label="Ruleta de materias">
+      <circle cx="500" cy="500" r="470" class="wheel-ring"/>
+      <g id="wheelSpin" class="spin"></g>
+    </svg>
+
+    <!-- Botón central para girar -->
+    <button id="btnSpin" class="spin-btn" type="button" aria-label="Girar ruleta">
+      <!-- SVG NUEVO (flecha de girar ruleta) -->
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <g id="SVGRepo_iconCarrier">
+          <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M6.87348 7.87338C9.01606 5.7308 12.1674 5.20902 14.8007 6.31041L15.9309 5.18019C12.6515 3.53111 8.55119 4.07435 5.81282 6.81272C2.39573 10.2298 2.39573 15.77 5.81282 19.1871C9.2299 22.6042 14.7701 22.6042 18.1872 19.1871C20.1746 17.1997 21.0057 14.4933 20.6819 11.9072C20.6304 11.4962 20.2555 11.2048 19.8445 11.2562C19.4335 11.3077 19.142 11.6826 19.1935 12.0936C19.4622 14.24 18.7727 16.4802 17.1265 18.1264C14.2952 20.9577 9.70478 20.9577 6.87348 18.1264C4.04217 15.2951 4.04217 10.7047 6.87348 7.87338Z" fill="#1C274C"></path>
+          <path d="M18.7212 4.20119C18.7212 3.89785 18.5384 3.62437 18.2582 3.50828C17.9779 3.3922 17.6553 3.45637 17.4408 3.67086L15.9314 5.18028L14.8012 6.3105L13.1982 7.9135C12.9837 8.128 12.9195 8.45059 13.0356 8.73085C13.1517 9.0111 13.4252 9.19383 13.7285 9.19383H17.9712C18.3854 9.19383 18.7212 8.85805 18.7212 8.44383V4.20119Z" fill="#1C274C"></path>
+        </g>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- OVERLAY de PREGUNTAS (delante de todo) -->
+<div id="qaOverlay" class="qa-overlay" aria-modal="true" role="dialog" aria-hidden="true">
+  <div class="qa-card" role="document" id="qaCard">
+    <div class="qa-header">
+      <div id="qText" class="qa-title">Tocá <strong>Girar</strong> para comenzar</div>
+      <button id="btnCancel" class="qa-cancel" type="button">Cancelar</button>
+    </div>
+    <form id="opts" class="mt-3 space-y-2"></form>
+    <button id="btnNext" class="btn-continue" type="button">Responder</button>
+    <div id="qFeedback" class="qa-feedback" aria-live="polite"></div>
+  </div>
+</div>
+
+<script>
+  // ======= Datos iniciales =======
+  const ALL_SUBJECTS = <%- JSON.stringify(_subs.map(s => ({ id:s.id, name:s.name }))) %>;
+  const MAX_SLICES = 5, MIN_SLICES = 2;
+  let sliceCount = Math.max(MIN_SLICES, Math.min(MAX_SLICES, ALL_SUBJECTS.length || 2));
+  let slices = [];
+
+  // Puntos (persistentes en servidor)
+  const scoreEl = document.getElementById('score');
+  const pointsValueEl = document.getElementById('pointsValue');
+
+  async function fetchPointsAndSyncUI(){
+    try{
+      const r = await fetch('/app/api/juegos/puntos', { credentials:'include' });
+      const j = await r.json();
+      if(j && j.ok){
+        scoreEl.textContent = j.points;
+        pointsValueEl.textContent = j.points;
+      }
+    }catch(e){
+      // fallback: mantener valores de plantilla
+      const initial = parseInt(scoreEl.textContent || '0',10) || 0;
+      pointsValueEl.textContent = initial;
+    }
+  }
+  async function addServerPoints(delta){
+    try{
+      const r = await fetch('/app/api/juegos/puntos/add',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        credentials:'include',
+        body: JSON.stringify({ delta: Number(delta)||0 })
+      });
+      const j = await r.json();
+      if(j && j.ok){
+        scoreEl.textContent = j.points;
+        pointsValueEl.textContent = j.points;
+      }else{
+        alert(j.error || 'No se pudieron guardar los puntos');
+      }
+    }catch(e){
+      alert('Error de red al guardar puntos');
+    }
+  }
+
+  function seedSlices(){
+    slices = [];
+    const src = ALL_SUBJECTS.slice();
+    if (!src.length){
+      while (slices.length < sliceCount) slices.push({ id:null, name:'Materia' });
+      return;
+    }
+    for (let i=0;i<sliceCount;i++){
+      const s = src[i % src.length];
+      slices.push({ id:s.id, name:s.name });
+    }
+  }
+
+  // Paleta
+  const COLS = [
+    ['#F4B24D','#F6C56F'],
+    ['#7C8CF6','#9AA5FF'],
+    ['#5B8CF8','#7DB0FF'],
+    ['#55D6BF','#8BE7D9'],
+    ['#7B7BEA','#A09EFF']
+  ];
+
+  const svg   = document.getElementById('wheelSvg');
+  const spinG = document.getElementById('wheelSpin');
+  const W = 1000, H = 1000, CX = 500, CY = 500, R = 440;
+
+  function polarToXY(cx, cy, r, ang){ return [cx + r * Math.cos(ang), cy + r * Math.sin(ang)]; }
+  function slicePath(startAng, endAng){
+    const [x1,y1] = polarToXY(CX, CY, R, startAng);
+    const [x2,y2] = polarToXY(CX, CY, R, endAng);
+    const largeArc = (endAng - startAng) > Math.PI ? 1 : 0;
+    return `M ${CX} ${CY} L ${x1} ${y1} A ${R} ${R} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+  }
+
+  function renderWheel(){
+    spinG.innerHTML = '';
+    const n = slices.length;
+    const step = (Math.PI * 2) / n;
+    for (let i=0;i<n;i++){
+      const a0 = -Math.PI/2 + i*step;
+      const a1 = a0 + step;
+      const g  = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('data-index', i);
+
+      const gradId = `grad${i}`;
+      const defs = document.createElementNS('http://www.w3.org/2000/svg','defs');
+      const lg = document.createElementNS('http://www.w3.org/2000/svg','linearGradient');
+      lg.setAttribute('id', gradId); lg.setAttribute('x1','0%'); lg.setAttribute('y1','0%'); lg.setAttribute('x2','100%'); lg.setAttribute('y2','100%');
+      const s1 = document.createElementNS('http://www.w3.org/2000/svg','stop'); s1.setAttribute('offset','0%'); s1.setAttribute('stop-color', COLS[i%COLS.length][0]);
+      const s2 = document.createElementNS('http://www.w3.org/2000/svg','stop'); s2.setAttribute('offset','100%'); s2.setAttribute('stop-color', COLS[i%COLS.length][1]);
+      lg.appendChild(s1); lg.appendChild(s2); defs.appendChild(lg); g.appendChild(defs);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', slicePath(a0, a1));
+      path.setAttribute('fill', `url(#${gradId})`);
+      path.setAttribute('opacity','0.96');
+      g.appendChild(path);
+
+      const mid = (a0 + a1) / 2;
+      const [tx,ty] = polarToXY(CX, CY, R*0.55, mid);
+      const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+      text.setAttribute('x', tx); text.setAttribute('y', ty);
+      text.setAttribute('class','slice-label');
+      text.setAttribute('style','font-size:36px; cursor:pointer; user-select:none;');
+      const nm = slices[i].name || 'Materia';
+      text.textContent = nm.length > 12 ? (nm.slice(0,11)+'…') : nm;
+      text.addEventListener('click', (e)=> openPicker(i, e.clientX, e.clientY));
+      g.appendChild(text);
+
+      spinG.appendChild(g);
+    }
+  }
+
+  // Popover de materias
+  let popEl=null;
+  function openPicker(idx, x, y){
+    closePicker();
+    popEl = document.createElement('div');
+    popEl.className = 'slice-pop';
+    popEl.style.left = x+'px'; popEl.style.top = y+'px';
+    popEl.innerHTML = (ALL_SUBJECTS.length
+      ? ALL_SUBJECTS.map(s => `<button type="button" onclick="setSlice(${idx}, ${s.id}, '${s.name.replace(/'/g,"&#39;")}')">${s.name}</button>`).join('')
+      : `<div style="font-size:13px;color:#0f172a; max-width:100%; height:auto;">No hay materias disponibles.</div>`
+    );
+    document.body.appendChild(popEl);
+    setTimeout(()=>{ document.addEventListener('click', outsidePicker, { once:true }); }, 0);
+  }
+  function outsidePicker(){ closePicker(); }
+  function closePicker(){ if(popEl){ popEl.remove(); popEl=null; } }
+  window.setSlice = (i,id,name)=>{ slices[i] = {id, name}; renderWheel(); closePicker(); };
+
+  // Giro
+  let spinning=false, currentRot=0;
+  const btnSpin  = document.getElementById('btnSpin');
+  let currentAnim = null;
+
+  function spin(){
+    if (spinning || slices.length===0) return;
+    spinning = true; closePicker();
+
+    if (currentAnim){ try{ currentAnim.cancel(); }catch(_){} currentAnim=null; }
+
+    const n = slices.length;
+    const stepDeg = 360 / n;
+    const targetIdx = Math.floor(Math.random()*n);
+    const targetAngle = (targetIdx * stepDeg) + stepDeg/2;
+
+    const fastTurns = 100 + Math.floor(Math.random()*40);
+    const approachTurns = 1 + Math.floor(Math.random()*2);
+
+    const fastDeg = fastTurns * 360;
+    const finalDeg = fastDeg + (approachTurns * 360) + targetAngle;
+
+    const startDeg = currentRot;
+    const midDeg = startDeg + fastDeg;
+    const endDeg = startDeg + finalDeg;
+
+    const keyframes = [
+      { transform: `rotate(${startDeg}deg)` },
+      { transform: `rotate(${midDeg}deg)`, offset: 0.8, easing: 'cubic-bezier(.05,.9,.2,1)' },
+      { transform: `rotate(${endDeg}deg)`, offset: 1, easing: 'cubic-bezier(.2,1,.25,1)' }
+    ];
+
+    currentAnim = spinG.animate(keyframes, {
+      duration: 5000,
+      easing: 'linear',
+      fill: 'forwards'
+    });
+
+    currentAnim.addEventListener('finish', () => {
+      currentRot = ((endDeg % 360) + 360) % 360;
+      spinning = false;
+      const chosen = slices[targetIdx];
+      loadQuestion(chosen);
+    }, { once:true });
+  }
+
+  btnSpin.addEventListener('click', spin);
+  document.querySelector('.wheel-stage').addEventListener('dblclick', spin);
+
+  // ====== Overlay de Preguntas ======
+  const qaOverlay = document.getElementById('qaOverlay');
+  const qaCard    = document.getElementById('qaCard');
+  const qText     = document.getElementById('qText');
+  const optsBox   = document.getElementById('opts');
+  const btnNext   = document.getElementById('btnNext');
+  const btnCancel = document.getElementById('btnCancel');
+  const qFeedback = document.getElementById('qFeedback');
+
+  function openQA(){
+    qaOverlay.classList.add('show');
+    qaOverlay.setAttribute('aria-hidden','false');
+  }
+  function closeQA(){
+    qaOverlay.classList.remove('show');
+    qaOverlay.setAttribute('aria-hidden','true');
+    qFeedback.textContent = '';
+    btnNext.disabled = false;
+  }
+
+  qaOverlay.addEventListener('click', (e)=>{
+    if (e.target === qaOverlay) closeQA();
+  });
+  btnCancel.addEventListener('click', closeQA);
+
+  async function loadQuestion(subject){
+    qText.textContent = `Cargando pregunta de ${subject.name || 'Materia'}…`;
+    optsBox.innerHTML = '';
+    qFeedback.textContent = '';
+    openQA();
+
+    let q = null;
+    try{
+      if (subject.id!=null){
+        const r = await fetch(`/api/quizzes?subject_id=${encodeURIComponent(subject.id)}&limit=10`);
+        const arr = await r.json();
+        if (Array.isArray(arr) && arr.length) q = arr[Math.floor(Math.random()*arr.length)];
+      }
+    }catch(e){}
+    if(!q){
+      q = { text:'(No hay preguntas registradas) — Probá con otra materia.', options:['OK'], answer:0 };
+    }
+
+    qText.textContent = q.text || 'Pregunta';
+    if (Array.isArray(q.options) && q.options.length){
+      optsBox.innerHTML = q.options.map((opt,i)=>`
+        <label class="opt">
+          <input type="radio" name="ans" value="${i}">
+          <span>${opt}</span>
+        </label>
+      `).join('');
+
+      btnNext.onclick = async ()=> {
+        const checked = optsBox.querySelector('input[name="ans"]:checked');
+        if (!checked) { qFeedback.textContent = 'Elegí una opción'; return; }
+        btnNext.disabled = true;
+
+        const u = parseInt(checked.value,10);
+        const ok = (u === q.answer);
+
+        if (ok) {
+          qFeedback.textContent = '¡Correcto! 🎉 +1 punto';
+          await addServerPoints(1); // 👈 suma 1 punto al usuario en servidor y refresca UI
+        } else {
+          const correct = (q.options && q.options[q.answer] != null) ? q.options[q.answer] : '—';
+          qFeedback.textContent = `Incorrecto. Respuesta correcta: ${correct}`;
+        }
+        setTimeout(()=> { closeQA(); }, 1200);
+      };
+    } else {
+      btnNext.onclick = ()=> { closeQA(); };
+    }
+  }
+
+  // Selector de cantidad
+  const countWrap = document.getElementById('countWrap');
+  countWrap.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.count-btn'); if(!btn) return;
+    const n = parseInt(btn.dataset.count,10);
+    sliceCount = Math.max(MIN_SLICES, Math.min(MAX_SLICES, n));
+    countWrap.querySelectorAll('.count-btn').forEach(b=>b.setAttribute('aria-pressed','false'));
+    btn.setAttribute('aria-pressed','true');
+    seedSlices(); renderWheel();
+  });
+
+  // Init
+  seedSlices(); renderWheel();
+  fetchPointsAndSyncUI(); // 👈 al cargar, traemos puntos del backend
+</script>
+<script type="module" src="/public/js/tutorial-overlay.js"></script>
+<script type="module" src="/public/js/juegos-tour.js"></script>

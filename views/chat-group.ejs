@@ -1,0 +1,2090 @@
+<!-- ===== Overlay Reset Banner (always rendered; does not affect layout) ===== -->
+  <div class="reset-banner-overlay" id="resetBannerOverlay" role="note" aria-live="polite">
+    <div class="reset-banner-pill">
+      <p class="text-xs text-slate-500"> Los miembros y mensajes del grupo serán reseteados el <%= nextResetText %> a las 23:59.</p>
+    </div>
+  </div>
+<style>
+
+  /* ===== Reset Banner (Glass iOS pill overlay) ===== */
+  .reset-banner-overlay{
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    top: var(--reset-banner-top, 88px); /* JS sets this relative to header bottom */
+    z-index: 2147483647; /* on top of everything */
+    pointer-events: none; /* don't block chat interactions */
+    width: auto;
+    max-width: min(1000px, 84%);
+  }
+  .reset-banner-pill{
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 6px 18px;       /* smaller height */
+    min-height: 30px;
+    border-radius: 9999px;   /* very rounded */
+    background: rgba(255,255,255,0.36);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: 0 10px 28px rgba(15,23,42,0.18);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    text-align: center;
+  }
+  .reset-banner-pill p{
+    margin: 0;
+    /* Keep your existing tailwind classes if present; fallback below: */
+    font-size: 0.75rem; /* text-xs */
+    color: #475569;     /* slate-500 */
+    line-height: 1.25rem;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px){
+    .reset-banner-overlay{ max-width: 92%; }
+    .reset-banner-pill{ padding: 6px 14px; }
+    .reset-banner-pill p{ white-space: normal; }
+  }
+  /* Hide any legacy reset-box in the layout so the message isn't duplicated */
+  .reset-box{ display: none !important; }
+  /* ============================================== */
+
+
+  /* --- Animated visibility states --- */
+  .reset-banner-overlay{
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+    transition: opacity 280ms ease, transform 280ms ease;
+  }
+  .reset-banner-overlay.show{
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  .reset-banner-overlay.hide{
+    opacity: 0;
+    transform: translateX(-50%) translateY(-12px);
+  }
+  .reset-banner {
+  margin: 6px auto 10px auto;
+  padding: 6px 18px;
+  max-width: min(1000px, 84%);
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.36);
+  border: 1px solid rgba(255,255,255,0.55);
+  box-shadow: 0 10px 28px rgba(15,23,42,0.18);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  display: flex; justify-content: center; align-items: center;
+  text-align: center;
+  transition: opacity 280ms ease, transform 280ms ease;
+  opacity: 1;
+  transform: translateY(0);
+}
+.reset-banner.hide {
+  opacity: 0;
+  transform: translateY(-12px);
+}
+
+</style>
+<%
+function cleanName(n){
+  return String(n || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+}
+function fmt(ts){
+  const m = String(ts || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+  return m ? `${m[3]}/${m[2]}/${m[1]} - ${m[4]}:${m[5]}` : String(ts || '');
+}
+const groupName    = cleanName(subject?.name);
+const groupInitial = (groupName && groupName[0] ? groupName[0] : 'G').toUpperCase();
+const meId = user?.id;
+%>
+
+
+<%
+  // === Reset banner: resolve text safely (no runtime errors if vars missing) ===
+  var __resetText = "";
+  try {
+    if (typeof nextResetText !== "undefined" && nextResetText) {
+      __resetText = nextResetText;
+    } else if (typeof group !== "undefined") {
+      __resetText = (group.nextResetText || group.resetText || group.reset_at_text || group.resetAtText || "");
+    }
+  } catch (e) { __resetText = ""; }
+%>
+<style>
+  :root{
+    --dock-offset: 233px;
+
+    --chat-bg: #eae6df;
+    --chat-paper: #ffffff;
+
+    --msg-me:  #F8C160;
+    --msg-oth: #cfe9ff;
+    --name-me: #ff9800;
+    --name-ot: #2196f3;
+
+    --ink: #0f172a;
+    --muted:#64748b;
+    --shadow: 0 10px 24px rgba(15,23,42,.10);
+
+    --hl-bg: #fff59d;
+    --hl-ring: #f59e0b;
+  }
+
+  html.chat-no-scroll, body.chat-no-scroll { overflow: hidden !important; }
+
+  .chat-frame{
+    max-width: 1100px; height: calc(100vh - var(--dock-offset));
+    margin: 18px auto; position: relative;
+    overflow: hidden;
+    border-radius: 18px; box-shadow: var(--shadow);
+    background: var(--chat-paper);
+  }
+  @supports (height: env(safe-area-inset-bottom)){
+    .chat-frame{ height: calc(100vh - var(--dock-offset) - env(safe-area-inset-bottom)); }
+  }
+
+  .chat-card{
+    height: 100%;
+    position: relative;
+    display: grid; grid-template-rows: auto 1fr auto;
+    overflow: hidden; border-radius: 18px;
+  }
+  /* Attach & Fullscreen */
+  .attach-btn{
+    width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e5e7eb;
+    background:#fff; display:grid; place-items:center; cursor:pointer;
+  }
+  .attach-btn:hover{ background:#f7f7f7; }
+  .attach-menu{
+    position: fixed; z-index: 2147483000;
+    display:none; flex-direction:column; gap:8px;
+    background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:10px;
+    box-shadow: var(--shadow, 0 10px 24px rgba(15,23,42,.10)); transform-origin: bottom right;
+    animation: popUp .18s ease-out;
+  }
+  .attach-menu.open{ display:flex; }
+  .attach-item{
+    height:38px; border-radius:9999px; padding:0 14px; display:flex; align-items:center; gap:10px;
+    border:1px solid #e5e7eb; cursor:pointer; user-select:none;
+  }
+  .attach-item:hover{ background:#f7f7f7; }
+  @keyframes popUp{
+    from{ opacity:0; transform: translateY(10px) scale(0.98); }
+    to  { opacity:1; transform: translateY(0)    scale(1.00); }
+  }
+  .bubble .image-wrap img{
+    max-width: min(60vw, 420px); height:auto; border-radius:12px; display:block;
+  }
+  .chat-fs-btn{
+    width:40px; height:40px; border-radius:9999px; border:1px solid #e5e7eb00; background:#ffffff00;
+    display:grid; place-items:center; cursor:pointer; position:absolute; top:12px; right:54px; z-index:2147483000;
+  }
+  .chat-fs-btn:hover{ background:#f1f5f9; }
+  .chat-card.chat-fs{
+    position: fixed; inset:0; width:100vw; height:100vh; z-index:2147483000; border-radius:0;
+    background: var(--chat-paper, #fff);
+  }
+
+
+  /* Header */
+  .chat-header{
+    background: #f7f7f7;
+    border-bottom: 1px solid #e5e7eb;
+    height: 64px; padding: 0 12px 0 16px;
+    display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px;
+    position: relative;
+  }
+  .header-left{ display:flex; align-items:center; gap:12px; cursor: pointer; }
+
+  .avatar-wrap{ position: relative; width:44px; height:44px; flex:0 0 auto; }
+  .avatar-img{
+    width:44px; height:44px; border-radius:9999px; border:1px solid #e5e7eb;
+    object-fit:cover; background:#e5e7eb;
+    display:block;
+  }
+  .avatar-initial{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0f172a; }
+  .panel-avatar-initial{ position:absolute; left:8px; top:8px; width:40px; height:40px; display:grid; place-items:center; font-weight:800; color:#0f172a; border-radius:9999px; background:#e5e7eb; }
+  .avatar-wrap img.error{ display:none; }
+  .panel-header{ position:relative; }
+  .panel-header img.error{ display:none; }
+  /* Lápiz superpuesto, abajo a la derecha, mitad de tamaño */
+  .avatar-edit{
+    position:absolute; right:-2px; bottom:-2px;
+    width:18px; height:18px; border-radius:9999px;
+    border:1px solid #e5e7eb; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.1);
+    display:grid; place-items:center; cursor:pointer;
+  }
+  .avatar-edit:hover{ background:#f3f4f6; }
+  .avatar-edit svg{ width:12px; height:12px; }
+
+  .chat-header .title{ font-weight: 700; color: var(--ink); line-height: 1.1; }
+  .chat-header .subtitle{ font-size: .8rem; color: var(--muted); }
+
+  .header-kebab{
+    justify-self: end; border:none; background: transparent; cursor:pointer;
+    width: 36px; height: 36px; border-radius: 9999px; font-size: 20px;
+  }
+  .header-kebab:hover{ background:#eceff3; }
+  .header-menu{
+    position: absolute; top: 56px; right: 8px; z-index: 10;
+    background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 24px rgba(15,23,42,.15);
+    display: none; overflow: hidden; min-width: 180px;
+  }
+  .header-menu.open{ display:block; }
+  .header-menu .item{ padding:10px 14px; cursor:pointer; }
+  .header-menu .item:hover{ background:#f6f7f9; }
+  .header-menu .item.danger{ color:#b42318; }
+
+  /* Body (único con scroll) */
+  .chat-body{
+    background: var(--chat-bg) url('/public/img/whatsapp-pattern.png');
+    background-size: 400px 400px;
+    padding: 16px;
+    overflow-y: auto; overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  /* Admin selection checkbox (solo visible si __IS_ADMIN__ = true) */
+  .msg-admin-check {
+    position: absolute;
+    top: -14px;
+    /* lado según emisor */
+    /* para mensajes del otro (fila .other) el checkbox queda a la izquierda */
+  }
+  .row.other .msg-admin-check { left: -28px; }
+  .row.me    .msg-admin-check { right: -28px; }
+
+  .msg-admin-check input[type="checkbox"]{
+    width: 18px; height: 18px; cursor: pointer;
+    appearance: auto;
+  }
+
+  /* Mensajes */
+  .row{
+    display: grid; gap: 8px; margin: 8px 0;
+    max-width: 50%;
+  }
+  .row.other{
+    grid-template-columns: 36px minmax(0,1fr);
+    justify-items: start; align-items: end;
+  }
+  .row.me{
+    grid-template-columns: minmax(0,1fr) 36px;
+    justify-items: end; align-items: end; margin-left: auto;
+  }
+
+  .msg-avatar{
+    width: 36px; height: 36px; border-radius: 9999px; overflow: hidden;
+    border: 1px solid #e5e7eb; background: #e2e8f0; display: grid; place-items: center;
+    color:#0f172a; font-weight: 800; font-size: .85rem;
+  }
+  .msg-avatar img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  .msg-avatar .initial{ display: none; }
+  .msg-avatar[data-fallback="1"] .initial{ display: grid; }
+  .msg-avatar[data-fallback="1"] img{ display: none; }
+
+  .bubble{
+    padding: 10px 12px;
+    border-radius: 22px;
+    font-size: .98rem; line-height: 1.25;
+    word-wrap: break-word; overflow-wrap: anywhere;
+    position: relative;
+  }
+  .row.me .bubble{ background: var(--msg-me); border-top-right-radius: 12px; }
+  .row.other .bubble{ background: var(--msg-oth); border-top-left-radius: 12px; }
+
+  .bubble-head{
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .row.other .bubble-head{ justify-content: flex-start; }
+  .row.me    .bubble-head{ justify-content: flex-end; }
+
+  .who{ font-weight: 800; }
+  .row.me .who{ color: var(--name-me); }
+  .row.other .who{ color: var(--name-ot); }
+
+  .menu-btn{
+    line-height: 0; background: transparent; border: none; cursor: pointer;
+    font-size: 18px; opacity: .8;
+  }
+  
+  /* Admin: checkbox de selección de mensajes */
+  .msg-admin-check{
+    position: absolute;
+    right: -28px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+
+  .menu-btn:hover{ opacity: 1; }
+  .row{ position: relative; }
+  /* Admin: reserva espacio a la derecha para el checkbox */
+  .row{
+    padding-right: 34px; /* asegura espacio para el checkbox */
+  }
+
+  /* Admin: checkbox de selección de mensajes */
+  .msg-admin-check{
+    position: absolute;
+    right: 8px;                /* ADVERTENCIA: antes estaba en -28px y podía quedar fuera */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    z-index: 2;                /* evita que lo tape la burbuja */
+  }
+  .row-menu{
+    position: absolute; top: -14px; font-size:18px; line-height:0; background: transparent; border:none; cursor:pointer; opacity:.8;
+  }
+  .row-menu:hover{ opacity:1; }
+  .row.other .row-menu{ left: 6px; }
+  .row.me .row-menu{ right: 6px; }
+
+  .ctx-menu{
+    position: absolute; top: 6px; right: 8px; z-index: 5;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(15,23,42,.15); overflow: hidden;
+    display: none;
+  }
+  .ctx-menu.open{ display: block; }
+  .ctx-item{
+    padding: 10px 14px; font-size: .92rem; white-space: nowrap; cursor: pointer;
+  }
+  .ctx-item:hover{ background:#f6f7f9; }
+  .ctx-item.danger{ color:#b42318; }
+
+  .text{ white-space: pre-wrap; }
+
+  .stamp{
+    font-size: .68rem; color:#667085; white-space: nowrap; margin-top: 2px;
+  }
+  .row.other .stamp{ grid-column: 2; justify-self: start; }
+  .row.me    .stamp{ grid-column: 1; justify-self: end; }
+
+  /* Composer */
+  .chat-composer{
+    position: relative;
+    background: #f0f2f5; border-top: 1px solid #e5e7eb;
+    padding: 10px; display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px;
+  }
+  .chat-input{
+    height: 44px; border-radius: 22px; padding: 0 14px;
+    border: 1px solid #e5e7eb; background: #fff; outline: none;
+  }
+  .emoji-btn{
+    width: 44px; height: 44px; border-radius: 22px; border: 1px solid #e5e7eb;
+    background:#fff; display:grid; place-items:center; cursor:pointer;
+  }
+  .emoji-btn:hover{ background:#f7f7f7; }
+  .send-btn{
+    height: 44px; padding: 0 16px; border-radius: 22px;
+    background: linear-gradient(145deg, #F8C160, #F8C160); color: #fff; font-weight: 700;
+    border: 1px solid rgba(254,132,25,.25);
+  }
+  .send-btn[disabled]{ opacity:.6; cursor:not-allowed; }
+
+  /* Emoji picker */
+  .emoji-picker{
+    position: absolute; bottom: 60px; right: 64px;
+    width: 360px; max-width: 90vw; background:#fff; border:1px solid #e5e7eb;
+    border-radius: 14px; box-shadow: 0 10px 24px rgba(15,23,42,.15);
+    padding: 8px; display: none; z-index: 1000;
+  }
+  .emoji-picker.open{ display: block; }
+  .emoji-tabs{
+    display:flex; gap:6px; padding:4px; border-bottom:1px solid #e5e7eb; margin-bottom:8px;
+  
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+
+  margin-top: auto;
+
+  margin-top: auto;
+  margin-bottom: 1px;
+}
+  .emoji-tab{
+    width:34px; height:34px; border-radius:10px; border:1px solid #e5e7eb; background:#fff; display:grid; place-items:center; cursor:pointer;
+  
+    flex: 0 0 auto;
+}
+  .emoji-tab[aria-selected="true"]{ background:#0f172a; border-color:#0f172a; }
+  .emoji-tab[aria-selected="true"] svg{ stroke:#fff; fill:#fff; }
+  .emoji-pane{
+    height: 260px; /* fijo: todas las secciones mismo alto */
+    overflow-y: auto;
+  }
+  .emoji-grid{
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  }
+  .emoji{
+    font-size: 24px; line-height: 36px; width: 36px; height: 36px;
+    display:grid; place-items:center; cursor:pointer; border-radius: 8px;
+  }
+  .emoji:hover{ background:#f6f7f9; }
+
+  /* Panel lateral (oculto) */
+  .side-panel{
+    position: absolute; right: 0; top: 0; height: 100%;
+    width: 323px; max-width: 90vw; background: rgba(255, 255, 255, 0.596);
+    border: 1px solid rgba(255,255,255,0.45);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    box-shadow: -10px 0 24px rgba(15,23,42,.12);
+    border-left: 1px solid #e5e7eb;
+    border-top-left-radius: 26px; border-bottom-left-radius: 26px;
+
+    transform: translateX(100%); opacity: 0; pointer-events: none;
+    transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+    display: grid; grid-template-rows: auto 1fr;
+  }
+  .side-panel.open{ transform: translateX(0); opacity: 1; pointer-events: auto; }
+
+  .panel-header{
+    height: 70px; display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    border-bottom: 1px solid #e5e7eb; background:#f7f7f7;
+    border-top-left-radius: 26px;
+  }
+  /* avatar del grupo en panel derecho */
+  .panel-avatar-img{
+    width:56px; height:56px; border-radius:9999px; border:1px solid #e5e7eb;
+    object-fit:cover; background:#e5e7eb; display:block;
+  }
+  .panel-title{ font-weight: 800; }
+  .panel-close{ margin-left: auto; width:36px; height:36px; border-radius:9999px; display:grid; place-items:center; }
+  .panel-close:hover{ background:#eaecef; }
+
+  .panel-body{
+    overflow-y:auto; overflow-x:hidden;
+    padding: 12px 12px 24px 12px;
+    border-bottom-left-radius: 26px;
+  }
+
+  /* Herramientas del panel: centradas y grandes */
+  .panel-tools{
+    display:flex; justify-content:center; gap:12px; padding: 10px; margin: 10px 4px 10px 4px;
+    border:1px solid #e5e7eb; border-radius: 14px; background: rgba(255,255,255,0.6);
+    backdrop-filter: blur(8px) saturate(140%);
+    -webkit-backdrop-filter: blur(8px) saturate(140%);
+    position: sticky; top: 8px; z-index: 1;
+  }
+  .tool-btn{
+    flex:0 0 auto; width:48px; height:48px; border-radius:12px; border:1px solid #e5e7eb;
+    display:grid; place-items:center; background:#fff; cursor:pointer;
+  }
+  .tool-btn:hover{ background:#f6f7f9; }
+
+  /* Tarjeta de miembro */
+  .member-card{
+    display:grid; grid-template-columns: 44px 1fr auto; gap:12px;
+    align-items:center;
+    border:1px solid #e5e7eb; border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; background:#fff;
+  }
+  .member-avatar{
+    width:44px; height:44px; border-radius:9999px; overflow:hidden;
+    border:1px solid #e5e7eb; background:#e2e8f0; display:grid; place-items:center;
+    color:#0f172a; font-weight:800; font-size: 1rem;
+  }
+  .member-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .member-avatar .initial{ display:none; }
+  .member-avatar[data-fallback="1"] .initial{ display:grid; }
+  .member-avatar[data-fallback="1"] img{ display:none; }
+
+  .member-info .name{ font-weight: 700; color:#0f172a; }
+  .member-info .meta{ font-size: .85rem; color:#475569; margin-top: 2px; }
+  .member-menu-btn{
+    width:36px; height:36px; border-radius:10px; border:1px solid #e5e7eb; display:grid; place-items:center; cursor:pointer; background:#fff;
+  }
+  .member-menu-btn:hover{ background:#f6f7f9; }
+  .member-menu{ position: relative; }
+  .member-menu-content{
+    position:absolute; top: 40px; right: 0; z-index: 5; display:none;
+    background:#fff; border:1px solid #e5e7eb; border-radius: 12px; overflow:hidden; box-shadow: 0 10px 24px rgba(15,23,42,.15);
+    min-width: 160px;
+  }
+  .member-menu-content.open{ display:block; }
+  .member-menu-item{ padding:10px 14px; cursor:pointer; }
+  .member-menu-item:hover{ background:#f6f7f9; }
+
+  /* Buscador mini */
+  #searchOverlay{
+    position: absolute; top: 72px; right: 12px; z-index: 2147483100;
+    display: none; align-items: center; gap: 6px;
+    background:#ffffff5b; border:1px solid #e5e7eb; border-radius: 12px;
+    padding: 6px 8px; box-shadow: 0 10px 24px rgba(15,23,42,.15);
+  }
+  #searchOverlay.open{ display: flex; }
+  #findInput{
+    width: 190px; height: 34px; border:1px solid #e5e7eb; border-radius: 8px; padding: 0 8px;
+    outline: none;
+  }
+  .find-btn, .close-find{
+    width: 34px; height: 34px; border-radius: 8px; border:1px solid #e5e7eb; background:#fff; display:grid; place-items:center; cursor:pointer;
+  }
+  .find-btn:hover, .close-find:hover{ background:#f6f7f9; }
+  .find-count{ font-size: .8rem; color:#475569; padding: 0 4px; }
+
+  mark.hl{ background: var(--hl-bg); padding: 0 .15em; border-radius: 3px; }
+  .current-match mark.hl{ outline: 2px solid var(--hl-ring); }
+
+  /* Modal genérico (reutilizado) */
+  .modal-backdrop{
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; z-index: 50;
+  }
+  .modal-backdrop.open{ display: grid; place-items: center; }
+  .modal{
+    width: min(520px, 92vw);
+    background: #fff; border-radius: 18px; padding: 20px;
+    box-shadow: 0 20px 40px rgba(0,0,0,.25);
+  }
+  .modal h3{ font-weight:800; font-size: 1.1rem; margin-bottom: 8px; }
+  .modal p{ color:#475569; margin-bottom: 16px; }
+  .modal .actions{ display:flex; justify-content:flex-end; gap: 10px; }
+  .btn{ border-radius: 12px; padding: 8px 12px; border:1px solid #e5e7eb; background:#fff; }
+  .btn-danger{ background:#ef4444; color:#fff; border-color:#ef4444; }
+
+  /* ===== Modal Editor Avatar (Emoji + Color) ===== */
+  .fix-modal{ position:fixed; inset:0; display:grid; place-items:center; z-index:60; }
+  .fix-modal[hidden]{ display:none; }
+  .backdrop{ position:absolute; inset:0; background:rgba(15,23,42,.35); backdrop-filter: blur(2px); }
+  .panel{
+    position:relative; background:#fff; width:min(920px, 95vw); height:min(520px, 90vh);
+    border-radius:24px; box-shadow:0 24px 48px rgba(0,0,0,.18); display:grid; grid-template-columns: 1fr 1px 1.2fr; overflow:hidden;
+  }
+  .divider{ background:#e5e7eb; }
+  .col{ padding:18px; }
+  .left{ display:flex; flex-direction:column; justify-content:space-between; }
+  .preview{ display:grid; place-items:center; height:100%; position:relative; }
+  #prevCircle{
+    width:180px;height:180px;border-radius:9999px;background:#E5E7EB;border:1px solid #e5e7eb;position:relative;
+  }
+  #prevEmoji{ position:absolute; font-size:96px; }
+  .actions{ display:flex; gap:10px; justify-content:center; margin-top:12px; }
+  .btn.primary{ background:#F8C160; color:#fff; border-color:#F8C160; }
+  .btn.ghost{ background:#fff; color:#0f172a; }
+
+  .tabs{ display:flex; gap:8px; }
+  .tbtn{ height:38px; padding:0 14px; border-radius:9999px; border:1px solid #e5e7eb; background:#fff; font-weight:800; cursor:pointer; }
+  .tbtn.is-active{ background:#0f172a; color:#fff; border-color:#0f172a; }
+  .content{ margin-top:12px; height:calc(100% - 50px); overflow:hidden; }
+  .pane{ height:100%; overflow:auto; }
+  .emoji-grid-edit{ display:grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap:8px; padding-right:6px; }
+  .emoji-grid-edit button{ font-size:28px; height:48px; border-radius:12px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; }
+  .color-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap:10px; padding-right:6px; }
+  .color-grid button{ width:40px;height:40px;border-radius:9999px;border:2px solid #e5e7eb; cursor:pointer; }
+  .header-menu .item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-menu .item svg {
+  width: 20px;
+  height: 20px;
+}
+
+</style>
+
+
+<div class="chat-frame">
+  <div class="chat-card">
+    <script>
+  // Disponible en todo el archivo para condicionar UI de admin
+    window.__IS_ADMIN__ = <%= (user && user.role === 'admin') ? 'true' : 'false' %>;
+  </script>
+    <!-- Header -->
+    <div class="chat-header">
+      <div id="btnTogglePanel" class="header-left" title="Ver información del grupo" aria-controls="panel" aria-expanded="false">
+        <div class="avatar-wrap">
+          <img id="chatGroupAvatar" class="avatar-img" alt="Avatar"
+               src="/app/grupos/<%= subject.id %>/avatar/view?ts=<%= Date.now() %>">
+          <span class="avatar-initial"><%= groupInitial %></span>
+          <!-- Lápiz superpuesto -->
+          
+        </div>
+        <div class="min-w-0">
+          <div class="title truncate"><%= groupName %></div>
+          <div class="subtitle">Grupo · <%= subject.year %>º · Plan <%= subject.plan %></div>
+        </div>
+      </div>
+
+      <div></div>
+
+      <% if (user && user.role === 'admin') { %>
+      <button id="btnBulkDelete" class="chat-fs-btn" type="button" aria-label="Eliminar mensajes seleccionados" title="Eliminar mensajes seleccionados" style="right: 98px;">
+        <svg viewBox="-5.52 -5.52 35.04 35.04" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M3 6.38597C3 5.90152 3.34538 5.50879 3.77143 5.50879L6.43567 5.50832C6.96502 5.49306 7.43202 5.11033 7.61214 4.54412C7.61688 4.52923 7.62232 4.51087 7.64185 4.44424L7.75665 4.05256C7.8269 3.81241 7.8881 3.60318 7.97375 3.41617C8.31209 2.67736 8.93808 2.16432 9.66147 2.03297C9.84457 1.99972 10.0385 1.99986 10.2611 2.00002H13.7391C13.9617 1.99986 14.1556 1.99972 14.3387 2.03297C15.0621 2.16432 15.6881 2.67736 16.0264 3.41617C16.1121 3.60318 16.1733 3.81241 16.2435 4.05256L16.3583 4.44424C16.3778 4.51087 16.3833 4.52923 16.388 4.54412C16.5682 5.11033 17.1278 5.49353 17.6571 5.50879H20.2286C20.6546 5.50879 21 5.90152 21 6.38597C21 6.87043 20.6546 7.26316 20.2286 7.26316H3.77143C3.34538 7.26316 3 6.87043 3 6.38597Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M9.42543 11.4815C9.83759 11.4381 10.2051 11.7547 10.2463 12.1885L10.7463 17.4517C10.7875 17.8855 10.4868 18.2724 10.0747 18.3158C9.66253 18.3592 9.29499 18.0426 9.25378 17.6088L8.75378 12.3456C8.71256 11.9118 9.01327 11.5249 9.42543 11.4815Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M14.5747 11.4815C14.9868 11.5249 15.2875 11.9118 15.2463 12.3456L14.7463 17.6088C14.7051 18.0426 14.3376 18.3592 13.9254 18.3158C13.5133 18.2724 13.2126 17.8855 13.2538 17.4517L13.7538 12.1885C13.795 11.7547 14.1625 11.4381 14.5747 11.4815Z" fill="#1C274C"></path> <path opacity="0.5" d="M11.5956 22.0001H12.4044C15.1871 22.0001 16.5785 22.0001 17.4831 21.1142C18.3878 20.2283 18.4803 18.7751 18.6654 15.8686L18.9321 11.6807C19.0326 10.1037 19.0828 9.31524 18.6289 8.81558C18.1751 8.31592 17.4087 8.31592 15.876 8.31592H8.12405C6.59127 8.31592 5.82488 8.31592 5.37105 8.81558C4.91722 9.31524 4.96744 10.1037 5.06788 11.6807L5.33459 15.8686C5.5197 18.7751 5.61225 20.2283 6.51689 21.1142C7.42153 22.0001 8.81289 22.0001 11.5956 22.0001Z" fill="#1C274C"></path> </g></svg>
+      </button>
+      <% } %>
+
+      <button id="btnFullscreen" class="chat-fs-btn" type="button" aria-pressed="false" aria-label="Pantalla completa">
+<svg viewBox="-10.56 -10.56 45.12 45.12" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.6" fill-rule="evenodd" clip-rule="evenodd" d="M8.60714 22C8.60714 22.4142 8.27136 22.75 7.85714 22.75H2C1.58579 22.75 1.25 22.4142 1.25 22V16.1429C1.25 15.7286 1.58579 15.3929 2 15.3929C2.41421 15.3929 2.75 15.7286 2.75 16.1429V20.1893L8.46967 14.4697C8.76256 14.1768 9.23744 14.1768 9.53033 14.4697C9.82322 14.7626 9.82322 15.2374 9.53033 15.5303L3.81066 21.25H7.85714C8.27136 21.25 8.60714 21.5858 8.60714 22Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M15.3929 2C15.3929 1.58579 15.7286 1.25 16.1429 1.25H22C22.4142 1.25 22.75 1.58579 22.75 2V7.85714C22.75 8.27136 22.4142 8.60714 22 8.60714C21.5858 8.60714 21.25 8.27136 21.25 7.85714V3.81066L15.5303 9.53033C15.2374 9.82322 14.7626 9.82322 14.4697 9.53033C14.1768 9.23744 14.1768 8.76256 14.4697 8.46967L20.1893 2.75H16.1429C15.7286 2.75 15.3929 2.41421 15.3929 2Z" fill="#1C274C"></path> </g></svg>
+</button>
+<button id="headerKebab" class="header-kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Opciones">⋯</button>
+      <div id="headerMenu" class="header-menu" role="menu" aria-hidden="true">
+        <div class="item" id="menuShare" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+            <g id="SVGRepo_iconCarrier">
+              <path d="M13.9546 5.18341L18.9324 9.60815C19.863 10.4353 20.3283 10.8489 20.4998 11.3373C20.6503 11.7662 20.6503 12.2335 20.4998 12.6624C20.3283 13.1508 19.863 13.5644 18.9324 14.3916L13.9546 18.8163C13.5323 19.1917 13.3211 19.3794 13.1418 19.3861C12.986 19.3919 12.8364 19.3247 12.7372 19.2044C12.6231 19.0659 12.6231 18.7834 12.6231 18.2184V15.4284C10.195 15.4284 7.63044 16.2083 5.75782 17.5926C4.78293 18.3133 4.29546 18.6737 4.1098 18.6595C3.92883 18.6456 3.81398 18.575 3.72008 18.4196C3.62374 18.2603 3.70883 17.7624 3.879 16.7666C4.98397 10.3004 9.43394 8.57129 12.6231 8.57129V5.78134C12.6231 5.21632 12.6231 4.93381 12.7372 4.79531C12.8364 4.67498 12.986 4.6078 13.1418 4.61363C13.3211 4.62034 13.5323 4.80803 13.9546 5.18341Z" fill="#1C274C"></path>
+            </g>
+          </svg>
+          Compartir
+        </div>
+
+        <div class="item" id="menuCopy" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+            <g id="SVGRepo_iconCarrier">
+              <path d="M6.59961 11.3974C6.59961 8.67119 6.59961 7.3081 7.44314 6.46118C8.28667 5.61426 9.64432 5.61426 12.3596 5.61426H15.2396C17.9549 5.61426 19.3125 5.61426 20.1561 6.46118C20.9996 7.3081 20.9996 8.6712 20.9996 11.3974V16.2167C20.9996 18.9429 20.9996 20.306 20.1561 21.1529C19.3125 21.9998 17.9549 21.9998 15.2396 21.9998H12.3596C9.64432 21.9998 8.28667 21.9998 7.44314 21.1529C6.59961 20.306 6.59961 18.9429 6.59961 16.2167V11.3974Z" fill="#1C274C"></path>
+              <path opacity="0.5" d="M4.17157 3.17157C3 4.34315 3 6.22876 3 10V12C3 15.7712 3 17.6569 4.17157 18.8284C4.78913 19.446 5.6051 19.738 6.79105 19.8761C6.59961 19.0353 6.59961 17.8796 6.59961 16.2167V11.3974C6.59961 8.6712 6.59961 7.3081 7.44314 6.46118C8.28667 5.61426 9.64432 5.61426 12.3596 5.61426H15.2396C16.8915 5.61426 18.0409 5.61426 18.8777 5.80494C18.7403 4.61146 18.4484 3.79154 17.8284 3.17157C16.6569 2 14.7712 2 11 2C7.22876 2 5.34315 2 4.17157 3.17157Z" fill="#1C274C"></path>
+            </g>
+          </svg>
+          Copiar enlace
+        </div>
+
+        <div class="item danger" id="menuLeave" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
+            <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
+            <g id="SVGRepo_iconCarrier">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M13.9697 17.5303C14.2626 17.8232 14.7374 17.8232 15.0303 17.5303L20.0303 12.5303C20.3232 12.2374 20.3232 11.7626 20.0303 11.4697L15.0303 6.46967C14.7374 6.17678 14.2626 6.17678 13.9697 6.46967C13.6768 6.76256 13.6768 7.23744 13.9697 7.53033L18.4393 12L13.9697 16.4697C13.6768 16.7626 13.6768 17.2374 13.9697 17.5303Z" fill="#1C274C"></path>
+              <g opacity="0.5">
+                <path d="M17.6893 12.75H9.5C8.54665 12.75 7.13332 12.4702 5.93677 11.6086C4.70198 10.7196 3.75 9.24444 3.75 7C3.75 6.58578 4.08579 6.25 4.5 6.25C4.91421 6.25 5.25 6.58578 5.25 7C5.25 8.75556 5.96468 9.7804 6.81323 10.3913C7.70002 11.0298 8.78668 11.25 9.5 11.25L17.6893 11.25L18.4393 12L17.6893 12.75Z" fill="#1C274C"></path>
+                <path d="M20.1931 12.2871C20.2298 12.1987 20.25 12.1017 20.25 12C20.25 12.0977 20.231 12.1954 20.1931 12.2871Z" fill="#1C274C"></path>
+              </g>
+            </g>
+          </svg>
+          Salir
+        </div>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div id="chatBody" class="chat-body">
+      <% (messages || []).forEach(function(m){
+           const mine   = (m.user_id === meId);
+           const whoCls = mine ? 'me' : 'other';
+           const who    = mine ? user.name : (m.user_name || 'Usuario');
+           const init   = (who && who[0] ? who[0] : 'U').toUpperCase();
+           const text   = m.text || '';
+      %>
+        <div class="row <%= whoCls %>" data-msgid="<%= m.id %>">
+          <% if (user && user.role === 'admin') { %>
+          <input type="checkbox" class="msg-admin-check" aria-label="Seleccionar mensaje" />
+          <% } %>
+          <% if (!mine) { %>
+            <div class="msg-avatar" data-userid="<%= m.user_id %>">
+              <img src="/public/avatars/<%= m.user_id %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial"><%= init %></span>
+            </div>
+          <% } %>
+
+          <div class="bubble">
+            <div class="bubble-head">
+              <% if (mine) { %>
+                <button class="menu-btn js-menu" aria-label="Más opciones">⋯</button>
+              <% } %>
+              <span class="who"><%= who %></span>
+            </div>
+            <div class="text"><%- text %></div>
+
+            <% if (mine) { %>
+              <div class="ctx-menu" role="menu">
+                <div class="ctx-item js-copy" role="menuitem">Copiar</div>
+                <div class="ctx-item danger js-delete" role="menuitem">Eliminar</div>
+              </div>
+            <% } %>
+          </div>
+
+          <% if (mine) { %>
+            <div class="msg-avatar" data-userid="<%= m.user_id %>">
+              <img src="/public/avatars/<%= m.user_id %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial"><%= init %></span>
+            </div>
+          <% } %>
+
+          <div class="stamp"><%= fmt(m.created_at) %></div>
+        </div>
+      <% }) %>
+    </div>
+
+    <!-- Buscador mini -->
+    <div id="searchOverlay" aria-hidden="true">
+      <input id="findInput" type="text" placeholder="Buscar..." />
+      <button id="findPrev" class="find-btn" title="Anterior" aria-label="Anterior">‹</button>
+      <button id="findNext" class="find-btn" title="Siguiente" aria-label="Siguiente">›</button>
+      <span id="findCount" class="find-count">0/0</span>
+      <button id="findClose" class="close-find" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- Composer -->
+    <form id="composer" class="chat-composer" autocomplete="off">
+      <input type="text" id="msgText" name="text" class="chat-input" maxlength="2000" placeholder="Escribir mensaje..." />
+      <button class="emoji-btn" id="emojiBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Emojis">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" stroke="#1C274C" stroke-width="1.8"/>
+          <circle cx="9" cy="10" r="1.2" fill="#1C274C"/>
+          <circle cx="15" cy="10" r="1.2" fill="#1C274C"/>
+          <path d="M7.5 14.5C8.3 16.2 10 17.3 12 17.3C14 17.3 15.7 16.2 16.5 14.5" stroke="#1C274C" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <button class="attach-btn" id="attachBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Adjuntar"><svg viewBox="-4.8 -4.8 33.60 33.60" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.2442 1.95482C12.9441 1.01506 15.0345 1.01506 16.7345 1.95482C17.3641 2.30291 17.9518 2.86575 18.9065 3.78014C18.9373 3.80965 18.9685 3.83952 19.0001 3.86977C19.2993 4.15623 19.3096 4.631 19.0231 4.93018C18.7366 5.22936 18.2619 5.23967 17.9627 4.9532C16.8844 3.92069 16.4452 3.50886 16.0087 3.26758C14.7604 2.57747 13.2183 2.57747 11.9699 3.26758C11.5334 3.50886 11.0943 3.92069 10.0159 4.9532L4.02651 10.6881C3.72732 10.9745 3.25256 10.9642 2.9661 10.665C2.67963 10.3659 2.68994 9.8911 2.98912 9.60464L8.97855 3.86977C9.01014 3.83952 9.04133 3.80965 9.07214 3.78014C10.0268 2.86575 10.6145 2.30291 11.2442 1.95482ZM14.945 6.76023C15.2314 6.46104 15.7062 6.45074 16.0054 6.7372C16.0326 6.76328 16.0596 6.78906 16.0863 6.81457C16.4533 7.16504 16.7689 7.46639 16.9459 7.81825C17.2622 8.44722 17.2622 9.18288 16.9459 9.81184C16.7689 10.1637 16.4533 10.4651 16.0863 10.8155C16.0596 10.841 16.0326 10.8668 16.0054 10.8929L8.62553 17.9591C8.32635 18.2455 7.85159 18.2352 7.56512 17.936C7.27866 17.6369 7.28897 17.1621 7.58815 16.8756L14.968 9.80945C15.4628 9.33562 15.5615 9.22595 15.6058 9.13786C15.7089 8.93291 15.7089 8.69718 15.6058 8.49224C15.5615 8.40415 15.4628 8.29447 14.968 7.82064C14.6688 7.53417 14.6585 7.05941 14.945 6.76023Z" fill="#1C274C"></path> <path opacity="0.5" d="M17.9628 4.95358C19.0429 5.9878 19.4703 6.40622 19.7194 6.81926C20.4269 7.99256 20.4269 9.43347 19.7194 10.6068C19.4703 11.0198 19.0429 11.4382 17.9628 12.4725L10.5295 19.5898C9.97082 20.1247 9.58528 20.493 9.26135 20.7543C8.94539 21.0092 8.7384 21.1195 8.55399 21.1725C8.19285 21.2763 7.80709 21.2763 7.44595 21.1725C7.26154 21.1195 7.05455 21.0092 6.73859 20.7543C6.41466 20.493 6.02912 20.1247 5.47047 19.5898C4.91163 19.0547 4.52727 18.6858 4.2548 18.3761C3.98794 18.0728 3.87862 17.8805 3.82747 17.7174C3.72418 17.388 3.72418 17.0378 3.82747 16.7084C3.87862 16.5453 3.98794 16.353 4.2548 16.0497C4.52727 15.74 4.91163 15.3711 5.47047 14.836L12.7968 7.82101C13.2887 7.35 13.4068 7.25113 13.5074 7.20474C13.7436 7.09583 14.0213 7.09583 14.2575 7.20474C14.3581 7.25113 14.4761 7.35 14.9681 7.82101C14.9682 7.82113 14.9679 7.8209 14.9681 7.82101C14.6689 7.53455 14.6585 7.05916 14.945 6.75998C15.2259 6.46658 15.6879 6.45099 15.9878 6.72068L15.9274 6.66272C15.558 6.30819 15.2461 6.00881 14.8856 5.84257C14.2508 5.54989 13.5141 5.54989 12.8793 5.84257C12.5188 6.00881 12.2069 6.30819 11.8375 6.66271L4.40899 13.7756C3.88009 14.282 3.44862 14.6951 3.12862 15.0589C2.79815 15.4345 2.53687 15.811 2.3962 16.2596C2.20127 16.8811 2.20127 17.5447 2.3962 18.1663C2.53687 18.6148 2.79815 18.9913 3.12862 19.3669C3.44862 19.7307 3.88006 20.1438 4.40896 20.6502L4.4568 20.696C4.98604 21.2027 5.41736 21.6157 5.79685 21.9218C6.18996 22.2389 6.57706 22.4834 7.03145 22.6141C7.66343 22.7958 8.3365 22.7958 8.96849 22.6141C9.42288 22.4834 9.80998 22.2389 10.2031 21.9218C10.5826 21.6157 11.0139 21.2028 11.5431 20.696L19.0979 13.4623C20.0489 12.552 20.6381 11.988 21.0039 11.3813C21.9987 9.73161 21.9987 7.69442 21.0039 6.04471C20.6381 5.43798 20.0489 4.874 19.0979 3.96371L19.0175 3.88672C19.2996 4.17468 19.3039 4.63666 19.0231 4.92993C18.7366 5.22911 18.262 5.24004 17.9628 4.95358Z" fill="#1C274C"></path> </g></svg></button>
+      <button class="send-btn" id="sendBtn" type="submit" aria-label="Enviar">Enviar</button>
+
+      <div id="emojiPicker" class="emoji-picker" aria-hidden="true">
+        <div class="emoji-tabs" role="tablist" aria-label="Categorías de emojis">
+          <button class="emoji-tab" data-cat="faces" role="tab" aria-selected="true" title="Caras" aria-label="Caras">
+            <!-- face icon -->
+            <svg viewBox="-6.48 -6.48 36.96 36.96" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" fill="#000000"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools --> <title>ic_fluent_emoji_add_24_filled</title> <desc>Created with Sketch.</desc> <g id="🔍-Product-Icons" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd"> <g id="ic_fluent_emoji_add_24_filled" fill="#212121" fill-rule="nonzero"> <path d="M17.5,12 C20.5375661,12 23,14.4624339 23,17.5 C23,20.5375661 20.5375661,23 17.5,23 C14.4624339,23 12,20.5375661 12,17.5 C12,14.4624339 14.4624339,12 17.5,12 Z M12.0000002,1.99896738 C17.523704,1.99896738 22.0015507,6.47681407 22.0015507,12.0005179 C22.0015507,12.2637452 21.9913819,12.5245975 21.9714157,12.7827034 C20.8064946,11.6777279 19.2323932,11 17.5,11 C14.2818854,11 11.6099921,13.3386511 11.0911401,16.4091331 C10.0524954,16.1974014 9.12309331,15.6232213 8.46174078,14.7838355 C8.20539113,14.4584777 7.73382403,14.4025354 7.40846617,14.6588851 C7.08310832,14.9152347 7.02716611,15.3868018 7.28351576,15.7121597 C8.21128537,16.8896809 9.53812034,17.6766509 11.0135802,17.9211203 C11.1130495,19.4856999 11.7675688,20.9012435 12.7825138,21.9716342 C12.5247521,21.9918733 12.2635668,22.0020684 12.0000002,22.0020684 C6.47629639,22.0020684 1.99844971,17.5242217 1.99844971,12.0005179 C1.99844971,6.47681407 6.47629639,1.99896738 12.0000002,1.99896738 Z M17.5,13.9992349 L17.4101244,14.0072906 C17.2060313,14.0443345 17.0450996,14.2052662 17.0080557,14.4093593 L17,14.4992349 L16.9996498,16.9992349 L14.4976498,17 L14.4077742,17.0080557 C14.2036811,17.0450996 14.0427494,17.2060313 14.0057055,17.4101244 L13.9976498,17.5 L14.0057055,17.5898756 C14.0427494,17.7939687 14.2036811,17.9549004 14.4077742,17.9919443 L14.4976498,18 L17.0006498,17.9992349 L17.0011076,20.5034847 L17.0091633,20.5933603 C17.0462073,20.7974534 17.207139,20.9583851 17.411232,20.995429 L17.5011076,21.0034847 L17.5909833,20.995429 C17.7950763,20.9583851 17.956008,20.7974534 17.993052,20.5933603 L18.0011076,20.5034847 L18.0006498,17.9992349 L20.5045655,18 L20.5944411,17.9919443 C20.7985342,17.9549004 20.9594659,17.7939687 20.9965098,17.5898756 L21.0045655,17.5 L20.9965098,17.4101244 C20.9594659,17.2060313 20.7985342,17.0450996 20.5944411,17.0080557 L20.5045655,17 L17.9996498,16.9992349 L18,14.4992349 L17.9919443,14.4093593 C17.9549004,14.2052662 17.7939687,14.0443345 17.5898756,14.0072906 L17.5,13.9992349 Z M9.00044779,8.75115873 C8.3104845,8.75115873 7.75115873,9.3104845 7.75115873,10.0004478 C7.75115873,10.6904111 8.3104845,11.2497368 9.00044779,11.2497368 C9.69041108,11.2497368 10.2497368,10.6904111 10.2497368,10.0004478 C10.2497368,9.3104845 9.69041108,8.75115873 9.00044779,8.75115873 Z M15.0004478,8.75115873 C14.3104845,8.75115873 13.7511587,9.3104845 13.7511587,10.0004478 C13.7511587,10.6904111 14.3104845,11.2497368 15.0004478,11.2497368 C15.6904111,11.2497368 16.2497368,10.6904111 16.2497368,10.0004478 C16.2497368,9.3104845 15.6904111,8.75115873 15.0004478,8.75115873 Z" id="🎨-Color"> </path> </g> </g> </g></svg>
+          </button>
+          <button class="emoji-tab" data-cat="gestures" role="tab" aria-selected="false" title="Gestos" aria-label="Gestos">
+            <!-- hand icon -->
+            <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.1906 3.30834C10.9766 2.94126 10.3527 2.71865 9.71907 3.0808C9.08771 3.44163 8.97667 4.07767 9.187 4.43836L11.7127 8.76947C11.9213 9.12729 11.8004 9.58651 11.4426 9.79517C11.0848 10.0038 10.6255 9.88291 10.4169 9.52509L7.04934 3.75027C6.83528 3.38319 6.21147 3.16058 5.5778 3.52273C4.94644 3.88356 4.8354 4.5196 5.04573 4.88029L8.83422 11.377C9.04288 11.7348 8.92196 12.194 8.56414 12.4027C8.20632 12.6113 7.7471 12.4904 7.53844 12.1326L5.85467 9.24517C5.64061 8.8781 5.0168 8.65548 4.38313 9.01763C3.75177 9.37846 3.64073 10.0145 3.85106 10.3752L7.63955 16.8719C9.24849 19.631 13.2188 20.5263 16.5858 18.6021C19.9505 16.6791 21.1465 12.8376 19.5413 10.0849L17.0156 5.75382C16.8016 5.38675 16.1778 5.16413 15.5441 5.52628C14.9128 5.88711 14.8017 6.52315 15.012 6.88384L16.6958 9.77125C16.7966 9.94406 16.8241 10.15 16.7724 10.3432C16.7206 10.5364 16.5938 10.701 16.4201 10.8002C14.8776 11.6817 14.4049 13.3863 15.0802 14.5443C15.2889 14.9021 15.1679 15.3613 14.8101 15.57C14.4523 15.7787 13.9931 15.6577 13.7844 15.2999C12.8717 13.7347 13.2405 11.8501 14.4194 10.518C14.749 10.1456 14.8618 9.60391 14.6113 9.17433L11.1906 3.30834Z" fill="#1C274C"></path> <g opacity="0.5"> <path fill-rule="evenodd" clip-rule="evenodd" d="M4.41333 17.859C4.77115 17.6504 5.23037 17.7713 5.43903 18.1291C6.26589 19.5471 7.52998 20.6193 9.08886 21.3151C9.46711 21.4839 9.63689 21.9274 9.46807 22.3057C9.29925 22.6839 8.85576 22.8537 8.47751 22.6849C6.666 21.8764 5.1462 20.6046 4.14325 18.8847C3.93459 18.5269 4.05551 18.0677 4.41333 17.859Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M18.9053 3.92194C17.8914 2.88646 16.4454 2.50452 15.0299 2.9073C14.6315 3.02066 14.2166 2.78959 14.1033 2.39119C13.9899 1.99279 14.221 1.57792 14.6194 1.46456C16.5576 0.913072 18.574 1.43959 19.9771 2.8725C20.2669 3.16846 20.2619 3.64331 19.9659 3.9331C19.67 4.2229 19.1951 4.2179 18.9053 3.92194Z" fill="#1C274C"></path> </g> </g></svg>
+          </button>
+          <button class="emoji-tab" data-cat="animals" role="tab" aria-selected="false" title="Animales" aria-label="Animales">
+            <!-- paw icon -->
+           <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M9.60601 5.5625C10.3721 5.5625 10.5197 5.40636 12 5.40636C13.4804 5.40636 13.6279 5.5625 14.394 5.5625C15.0324 5.5625 16.9477 4.00011 17.9053 4.00011C18.8629 4.00011 19.9801 4.56261 19.9801 6.18761V8.0625C19.9781 8.55469 19.7993 10.0634 19.0993 9.66022C20.2113 10.9744 19.98 12.5815 19.9801 14C19.9801 17.9062 14.7132 19 12 19C9.28677 19 4.01994 17.9062 4.01994 14C4.01995 12.5815 3.78875 10.9744 4.90066 9.66022C4.20072 10.0634 4.02188 8.55469 4.01995 8.0625V6.1875C4.01995 4.5625 5.13715 4 6.09476 4C7.05236 4 8.9676 5.5625 9.60601 5.5625Z" fill="#1C274C"></path> <path d="M9.01622 11.0625C8.52738 11.0625 8.20149 11.38 8.03646 11.6464C7.86433 11.9243 7.78235 12.2612 7.78235 12.5938C7.78235 12.9263 7.86433 13.2632 8.03646 13.5411C8.20149 13.8075 8.52738 14.125 9.01622 14.125C9.50506 14.125 9.83095 13.8075 9.99598 13.5411C10.1681 13.2632 10.2501 12.9263 10.2501 12.5938C10.2501 12.2612 10.1681 11.9243 9.99598 11.6464C9.83095 11.38 9.50506 11.0625 9.01622 11.0625Z" fill="#1C274C"></path> <path d="M14.0365 11.6464C14.2015 11.38 14.5274 11.0625 15.0162 11.0625C15.5051 11.0625 15.831 11.38 15.996 11.6464C16.1681 11.9243 16.2501 12.2612 16.2501 12.5938C16.2501 12.9263 16.1681 13.2632 15.996 13.5411C15.831 13.8075 15.5051 14.125 15.0162 14.125C14.5274 14.125 14.2015 13.8075 14.0365 13.5411C13.8643 13.2632 13.7823 12.9263 13.7823 12.5938C13.7823 12.2612 13.8643 11.9243 14.0365 11.6464Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.1782 14.0797C11.4305 13.9819 11.7282 13.9375 12.0194 13.9375C12.3107 13.9375 12.6083 13.9819 12.8607 14.0797C12.9844 14.1276 13.1358 14.2032 13.2691 14.3254C13.403 14.448 13.5759 14.675 13.5759 15C13.5759 15.325 13.403 15.552 13.2691 15.6746C13.1358 15.7968 12.9844 15.8724 12.8607 15.9203C12.6083 16.0181 12.3107 16.0625 12.0194 16.0625C11.7282 16.0625 11.4305 16.0181 11.1782 15.9203C11.0545 15.8724 10.9031 15.7968 10.7697 15.6746C10.6359 15.552 10.463 15.325 10.463 15C10.463 14.675 10.6359 14.448 10.7697 14.3254C10.9031 14.2032 11.0545 14.1276 11.1782 14.0797Z" fill="#1C274C"></path> <path d="M17.8634 13.375C17.8634 12.9608 18.1992 12.625 18.6134 12.625C18.9091 12.625 19.2636 12.6924 19.594 12.7737C19.9387 12.8585 20.3134 12.9729 20.6705 13.095C21.3544 13.3289 22.0797 13.6271 22.4074 13.8387C22.7553 14.0634 22.8552 14.5277 22.6305 14.8756C22.4058 15.2236 21.9415 15.3235 21.5936 15.0988C21.4374 14.9979 20.8723 14.7493 20.1852 14.5144C19.8569 14.4021 19.526 14.3017 19.2356 14.2302C18.9309 14.1553 18.7208 14.125 18.6134 14.125C18.1992 14.125 17.8634 13.7892 17.8634 13.375Z" fill="#1C274C"></path> <path d="M17.9679 15.125C17.5536 15.125 17.2179 15.4608 17.2179 15.875C17.2179 16.2892 17.5536 16.625 17.9679 16.625C18.1741 16.625 18.5175 16.7402 18.9481 16.9678C19.2901 17.1485 19.6038 17.3533 19.8491 17.5134C19.8952 17.5435 19.9393 17.5723 19.9803 17.5988C20.3283 17.8235 20.7925 17.7236 21.0173 17.3756C21.242 17.0277 21.1421 16.5634 20.7941 16.3387C20.761 16.3173 20.7232 16.2926 20.6812 16.2652C20.4388 16.1067 20.0586 15.8581 19.6489 15.6416C19.1925 15.4004 18.5681 15.125 17.9679 15.125Z" fill="#1C274C"></path> <path d="M3.81532 14.5144C3.12823 14.7493 2.5632 14.9979 2.40698 15.0988C2.05903 15.3235 1.59478 15.2236 1.37006 14.8756C1.14534 14.5277 1.24524 14.0634 1.5932 13.8387C1.92085 13.6271 2.64614 13.3289 3.33003 13.095C3.68718 12.9729 4.0619 12.8585 4.4066 12.7737C4.73696 12.6924 5.09144 12.625 5.38719 12.625C5.80141 12.625 6.13719 12.9608 6.13719 13.375C6.13719 13.7892 5.80141 14.125 5.38719 14.125C5.27973 14.125 5.06968 14.1553 4.76496 14.2302C4.47458 14.3017 4.14365 14.4021 3.81532 14.5144Z" fill="#1C274C"></path> <path d="M4.02026 17.5988C4.06139 17.5722 4.10522 17.5436 4.15147 17.5134C4.3968 17.3533 4.71048 17.1485 5.05248 16.9678C5.48313 16.7402 5.82654 16.625 6.03273 16.625C6.44695 16.625 6.78273 16.2892 6.78273 15.875C6.78273 15.4608 6.44695 15.125 6.03273 15.125C5.43247 15.125 4.80813 15.4004 4.35169 15.6416C3.94197 15.8581 3.56178 16.1067 3.31938 16.2652C3.27751 16.2925 3.23956 16.3174 3.20648 16.3387C2.85852 16.5634 2.75862 17.0277 2.98334 17.3756C3.20806 17.7236 3.67231 17.8235 4.02026 17.5988Z" fill="#1C274C"></path> </g></svg>
+          </button>
+          <button class="emoji-tab" data-cat="objects" role="tab" aria-selected="false" title="Objetos" aria-label="Objetos">
+            <!-- bulb icon -->
+              <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.5 21H12.5C16.2712 21 18.1569 21 19.3284 19.8284C20.5 18.6569 20.5 16.7713 20.5 13V6.99805C20.3548 7.00008 20.1509 7.00005 20 7.00002H4C3.84905 7.00005 3.6452 7.00008 3.5 6.99805V13C3.5 16.7713 3.5 18.6569 4.67157 19.8284C5.84315 21 7.72876 21 11.5 21ZM9.07612 11.1173C9 11.3011 9 11.5341 9 12C9 12.4659 9 12.6989 9.07612 12.8827C9.17761 13.1277 9.37229 13.3224 9.61732 13.4239C9.80109 13.5 10.0341 13.5 10.5 13.5H13.5C13.9659 13.5 14.1989 13.5 14.3827 13.4239C14.6277 13.3224 14.8224 13.1277 14.9239 12.8827C15 12.6989 15 12.4659 15 12C15 11.5341 15 11.3011 14.9239 11.1173C14.8224 10.8723 14.6277 10.6776 14.3827 10.5761C14.1989 10.5 13.9659 10.5 13.5 10.5H10.5C10.0341 10.5 9.80109 10.5 9.61732 10.5761C9.37229 10.6776 9.17761 10.8723 9.07612 11.1173Z" fill="#1C274C"></path> <g opacity="0.5"> <path d="M2 5C2 4.05719 2 3.58579 2.29289 3.29289C2.58579 3 3.05719 3 4 3H20C20.9428 3 21.4142 3 21.7071 3.29289C22 3.58579 22 4.05719 22 5C22 5.94281 22 6.41421 21.7071 6.70711C21.4142 7 20.9428 7 20 7H4C3.05719 7 2.58579 7 2.29289 6.70711C2 6.41421 2 5.94281 2 5Z" fill="#1C274C"></path> </g> </g></svg>
+            </button>
+          <button class="emoji-tab" data-cat="symbols" role="tab" aria-selected="false" title="Símbolos" aria-label="Símbolos">
+            <!-- sparkles icon -->
+            <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M2 9.1371C2 13.5422 5.29819 16.0833 8.10627 18.2468C8.39814 18.4717 8.68471 18.6925 8.96173 18.9109C10 19.7294 11 20.5 12 20.5V5.50063C7.50016 0.825464 2 4.27416 2 9.1371Z" fill="#1C274C"></path> <path d="M14 7.49928L12 5.50063V20.5C13 20.5 14 19.7294 15.0383 18.9109C15.3153 18.6925 15.6019 18.4717 15.8937 18.2468C18.7018 16.0833 22 13.5422 22 9.1371C22 4.67465 17.3685 1.40309 13.1285 4.50712L15.0605 6.43843C15.3534 6.73127 15.3535 7.20614 15.0607 7.49908C14.7678 7.79203 14.2929 7.79212 14 7.49928Z" fill="#1C274C"></path> </g></svg>
+          
+          </button>
+        
+<button class="emoji-tab" data-cat="foods" role="tab" aria-selected="false" title="Comida" aria-label="Comida">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M14.8153 2H9.18576C7.34797 2 6.42908 2 5.70634 2.44432C5.58164 2.52098 5.46272 2.60666 5.35053 2.70069C4.70028 3.24563 4.40942 4.11727 3.8277 5.86056L3.79188 5.96791C3.47312 6.92318 3.31374 7.40081 3.48212 7.76195C3.53526 7.87592 3.60942 7.97884 3.70071 8.06533C3.98998 8.33937 4.4935 8.33937 5.50055 8.33937H18.5006C19.5076 8.33937 20.0111 8.33937 20.3004 8.06533C20.3917 7.97884 20.4658 7.87592 20.519 7.76195C20.6874 7.40081 20.528 6.92318 20.2092 5.96791L20.1734 5.86056L20.1734 5.8605C19.5917 4.11727 19.3008 3.24562 18.6506 2.70069C18.5384 2.60666 18.4195 2.52098 18.2948 2.44432C17.572 2 16.6531 2 14.8153 2Z" fill="#1C274C"></path> <path opacity="0.5" d="M10.958 22H13.044C14.6926 22 15.517 22 16.0802 21.5132C16.6435 21.0264 16.7629 20.2107 17.0018 18.5794L18.501 8.33936H5.50098L7.00019 18.5794C7.23902 20.2107 7.35843 21.0264 7.92171 21.5132C8.48499 22 9.30932 22 10.958 22Z" fill="#1C274C"></path> <path d="M6.76914 17H17.2332L17.9652 12H6.03711L6.76914 17Z" fill="#1C274C"></path> </g></svg>
+</button>
+<button class="emoji-tab" data-cat="travel" role="tab" aria-selected="false" title="Viajes" aria-label="Viajes">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12.0006 16C6.2407 16 5.22032 10.2595 5.03956 5.70647C4.98928 4.43998 4.96414 3.80673 5.43985 3.22083C5.91557 2.63494 6.48494 2.53887 7.62367 2.34674C8.74773 2.15709 10.2171 2 12.0006 2C13.7842 2 15.2536 2.15709 16.3776 2.34674C17.5163 2.53887 18.0857 2.63494 18.5614 3.22083C19.0371 3.80673 19.012 4.43998 18.9617 5.70647C18.781 10.2595 17.7606 16 12.0006 16Z" fill="#1C274C"></path> <path d="M17.6404 12.422L20.4569 10.8572C21.2093 10.4392 21.5855 10.2302 21.7927 9.87809C21.9999 9.52598 21.9999 9.09561 21.9999 8.23487L21.9999 8.16234C22 7.11873 22 6.59692 21.7168 6.20408C21.4337 5.81124 20.9387 5.64623 19.9486 5.31621L19 5L18.9831 5.08464C18.9784 5.27391 18.9702 5.48006 18.9612 5.70645C18.8729 7.93085 18.5842 10.4387 17.6404 12.422Z" fill="#1C274C"></path> <path d="M5.03907 5.70647C5.12739 7.93096 5.41612 10.4389 6.36008 12.4223L3.54305 10.8572C2.79063 10.4392 2.41442 10.2302 2.20723 9.87809C2.00004 9.52598 2.00003 9.09561 2 8.23487L2 8.16234C1.99997 7.11874 1.99996 6.59692 2.2831 6.20408C2.56624 5.81124 3.06126 5.64623 4.05132 5.31621L4.99994 5L5.01728 5.08671C5.02196 5.27541 5.03011 5.4809 5.03907 5.70647Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M5.25 22C5.25 21.5858 5.58579 21.25 6 21.25H18C18.4142 21.25 18.75 21.5858 18.75 22C18.75 22.4142 18.4142 22.75 18 22.75H6C5.58579 22.75 5.25 22.4142 5.25 22Z" fill="#1C274C"></path> <path opacity="0.5" d="M15.4582 21.25H8.54297L8.83979 19.5002C8.93327 19.0327 9.34368 18.6963 9.82037 18.6963H14.1808C14.6574 18.6963 15.0679 19.0327 15.1613 19.5002L15.4582 21.25Z" fill="#1C274C"></path> <path d="M12.0002 16.0002C11.7406 16.0002 11.4907 15.9885 11.25 15.9658V18.6963H12.75V15.9658C12.5094 15.9885 12.2596 16.0002 12.0002 16.0002Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M12.787 5.80711C13.0673 5.9232 13.25 6.19668 13.25 6.50002V10.5C13.25 10.9142 12.9142 11.25 12.5 11.25C12.0858 11.25 11.75 10.9142 11.75 10.5V8.31068L11.5303 8.53035C11.2374 8.82325 10.7626 8.82325 10.4697 8.53035C10.1768 8.23746 10.1768 7.76259 10.4697 7.46969L11.9697 5.96969C12.1842 5.75519 12.5068 5.69103 12.787 5.80711Z" fill="#1C274C"></path> </g></svg>
+</button>
+<button class="emoji-tab" data-cat="activities" role="tab" aria-selected="false" title="Actividades" aria-label="Actividades">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M10.926 2.36021C11.2794 2.57626 11.3907 3.03789 11.1747 3.3913C11.0179 3.64775 11.0572 3.97821 11.2697 4.19075L11.3676 4.28863C11.9563 4.87729 12.1733 5.74206 11.9324 6.53894C11.8126 6.93543 11.394 7.1597 10.9975 7.03985C10.601 6.91999 10.3768 6.50141 10.4966 6.10492C10.5775 5.83734 10.5046 5.54695 10.3069 5.34929L10.2091 5.25141C9.50654 4.54889 9.37666 3.45659 9.89487 2.60892C10.1109 2.25551 10.5725 2.14416 10.926 2.36021Z" fill="#1C274C"></path> <path d="M19.9743 7.04681C19.8358 7.10014 19.7131 7.22283 19.4678 7.46822C19.2224 7.71362 19.0997 7.83631 19.0463 7.97472C18.9839 8.1367 18.9839 8.31609 19.0463 8.47807C19.0997 8.61649 19.2224 8.73918 19.4678 8.98457C19.7131 9.22996 19.8358 9.35266 19.9743 9.40599C20.1362 9.4684 20.3156 9.4684 20.4776 9.40599C20.616 9.35266 20.7387 9.22996 20.9841 8.98457C21.2295 8.73918 21.3522 8.61649 21.4055 8.47807C21.4679 8.31609 21.4679 8.1367 21.4055 7.97472C21.3522 7.83631 21.2295 7.71362 20.9841 7.46822C20.7387 7.22283 20.616 7.10014 20.4776 7.04681C20.3156 6.9844 20.1362 6.9844 19.9743 7.04681Z" fill="#1C274C"></path> <path d="M21.4077 12.5596C21.046 12.4015 20.6253 12.4679 20.33 12.7298C19.5207 13.4474 18.3431 13.5667 17.4064 13.0259L17.1935 12.903C16.8348 12.6959 16.7119 12.2372 16.919 11.8785C17.1261 11.5198 17.5848 11.3968 17.9435 11.604L18.1564 11.7268C18.5339 11.9448 19.0086 11.8967 19.3348 11.6075C20.0676 10.9577 21.1112 10.7929 22.0086 11.1852L22.3001 11.3127C22.6796 11.4786 22.8528 11.9208 22.6868 12.3003C22.5209 12.6799 22.0787 12.853 21.6992 12.6871L21.4077 12.5596Z" fill="#1C274C"></path> <path opacity="0.7" d="M13.561 4.39648C13.7621 4.19542 13.8626 4.09489 13.9788 4.05804C14.0772 4.02688 14.1827 4.02688 14.281 4.05804C14.3973 4.09489 14.4978 4.19542 14.6989 4.39648C14.8999 4.59753 15.0004 4.69806 15.0373 4.8143C15.0685 4.91262 15.0685 5.01817 15.0373 5.11648C15.0004 5.23272 14.8999 5.33325 14.6989 5.5343C14.4978 5.73536 14.3973 5.83589 14.281 5.87274C14.1827 5.90391 14.0772 5.90391 13.9788 5.87274C13.8626 5.83589 13.7621 5.73536 13.561 5.53431C13.36 5.33325 13.2594 5.23272 13.2226 5.11648C13.1914 5.01817 13.1914 4.91262 13.2226 4.8143C13.2594 4.69806 13.36 4.59753 13.561 4.39648Z" fill="#1C274C"></path> <path opacity="0.7" d="M19.0575 15.3134C19.267 15.1039 19.6066 15.1039 19.816 15.3134C20.0255 15.5228 20.0255 15.8624 19.816 16.0719C19.6066 16.2814 19.267 16.2814 19.0575 16.0719C18.848 15.8624 18.848 15.5228 19.0575 15.3134Z" fill="#1C274C"></path> <g opacity="0.5"> <path d="M6.92663 3.94079C7.1361 3.73132 7.47572 3.73132 7.68519 3.94079C7.89466 4.15026 7.89466 4.48988 7.68519 4.69935C7.47572 4.90882 7.1361 4.90882 6.92663 4.69935C6.71716 4.48988 6.71716 4.15026 6.92663 3.94079Z" fill="#1C274C"></path> <path d="M17.6887 4.72163C18.0949 4.80287 18.3583 5.19799 18.2771 5.60416L18.1331 6.32409C17.9349 7.31491 17.221 8.12357 16.2625 8.4431C15.8145 8.59241 15.481 8.97028 15.3884 9.43326L15.2444 10.1532C15.1631 10.5594 14.768 10.8228 14.3618 10.7415C13.9557 10.6603 13.6923 10.2652 13.7735 9.85903L13.9175 9.13909C14.1156 8.14828 14.8295 7.33961 15.7881 7.02008C16.236 6.87077 16.5696 6.4929 16.6622 6.02992L16.8062 5.30998C16.8874 4.90381 17.2825 4.6404 17.6887 4.72163Z" fill="#1C274C"></path> </g> <path opacity="0.2" d="M17.4999 9.74157C17.7093 9.53211 18.049 9.53211 18.2584 9.74157C18.4679 9.95104 18.4679 10.2907 18.2584 10.5001C18.049 10.7096 17.7093 10.7096 17.4999 10.5001C17.2904 10.2907 17.2904 9.95104 17.4999 9.74157Z" fill="#1C274C"></path> <path opacity="0.5" d="M4.01207 15.7618L5.70156 10.6933C6.46758 8.39525 6.85059 7.24623 7.75684 7.03229C8.6631 6.81835 9.51953 7.67478 11.2324 9.38764L14.6114 12.7666C16.3242 14.4795 17.1807 15.3359 16.9667 16.2422C16.7528 17.1484 15.6038 17.5314 13.3057 18.2975L8.23724 19.987L8.23723 19.987C5.47182 20.9088 4.08912 21.3697 3.35924 20.6398C2.62936 19.9099 3.09026 18.5272 4.01207 15.7618Z" fill="#1C274C"></path> <path d="M8.8001 7.50424L8.85072 7.25922C8.45761 7.02857 8.111 6.94867 7.75679 7.03229C7.61235 7.06638 7.4812 7.12423 7.35967 7.2067L8.05611 7.35058C7.57757 7.25172 7.41498 7.21808 7.35967 7.2067C7.34804 7.2146 7.3364 7.22279 7.32494 7.23114L7.31964 7.25736C7.31242 7.29328 7.30199 7.34575 7.28885 7.41325C7.26258 7.54824 7.22547 7.74345 7.18165 7.98662C7.09406 8.47264 6.97937 9.15184 6.87078 9.92573C6.65564 11.4589 6.45638 13.4179 6.55904 14.9834C6.62115 15.9306 6.81822 17.1057 6.9941 18.0238C7.08286 18.4872 7.16784 18.8933 7.23066 19.1838C7.26209 19.3291 7.28803 19.4457 7.30619 19.5264L7.32733 19.6195L7.333 19.6441L7.33493 19.6525C7.33494 19.6526 7.33512 19.6533 8.0656 19.4833L7.33493 19.6525L7.47191 20.2412C7.71447 20.1612 7.96933 20.0762 8.23717 19.987L8.90132 19.7656L8.79453 19.3066L8.78944 19.2845L8.76953 19.1968C8.75221 19.1199 8.7272 19.0075 8.69676 18.8667C8.63584 18.585 8.55336 18.1909 8.46732 17.7416C8.29357 16.8346 8.11155 15.7351 8.05582 14.8852C7.96377 13.4814 8.1436 11.6495 8.35623 10.1342C8.46152 9.38377 8.57288 8.72427 8.65787 8.25265C8.70034 8.017 8.73615 7.82867 8.76123 7.69981C8.77376 7.63539 8.78361 7.58587 8.79026 7.55277L8.79777 7.51563L8.7996 7.50665L8.8001 7.50424Z" fill="#1C274C"></path> <path d="M13.0393 18.3863L11.6162 18.8606L11.5238 18.5826L12.2356 18.3461C11.5238 18.5826 11.5239 18.5827 11.5238 18.5826L11.5229 18.5798L11.5209 18.5738L11.5138 18.552C11.5077 18.5333 11.499 18.5064 11.4881 18.472C11.4663 18.4031 11.4354 18.3042 11.3986 18.1811C11.325 17.9354 11.227 17.5917 11.1288 17.1985C10.9367 16.4293 10.7274 15.407 10.7274 14.5552C10.7274 13.7034 10.9367 12.6811 11.1288 11.9119C11.227 11.5187 11.325 11.175 11.3986 10.9293C11.4354 10.8062 11.4663 10.7073 11.4881 10.6384C11.499 10.604 11.5077 10.5771 11.5138 10.5584L11.5209 10.5366L11.5229 10.5305L11.5235 10.5287C11.5235 10.5287 11.5238 10.5278 12.2356 10.7643L11.5238 10.5278L11.7355 9.89084L12.9224 11.0777C12.921 11.0824 12.9194 11.0872 12.9178 11.0922C12.8982 11.154 12.8698 11.245 12.8356 11.3594C12.767 11.5886 12.6755 11.9095 12.5841 12.2753C12.3971 13.0241 12.2274 13.8973 12.2274 14.5552C12.2274 15.2131 12.3971 16.0863 12.5841 16.8351C12.6755 17.2009 12.767 17.5218 12.8356 17.751C12.8698 17.8654 12.8982 17.9564 12.9178 18.0182C12.9276 18.0491 12.9352 18.0727 12.9403 18.0881L12.9458 18.1052L12.9471 18.109L13.0393 18.3863Z" fill="#1C274C"></path> </g></svg>
+</button>
+<button class="emoji-tab" data-cat="sports" role="tab" aria-selected="false" title="Deportes" aria-label="Deportes">
+      <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M13.4525 8.39737C15.1812 6.92813 16.5396 5.18645 17.1247 3.44812L17.1351 3.41699C18.5508 4.26236 19.7768 5.47026 20.6598 6.99965C21.5426 8.52866 21.9757 10.1939 22.0001 11.8422C20.0045 11.4109 17.8139 11.7412 15.7443 12.5213C15.4235 11.6576 15.0594 10.8344 14.6498 10.125C14.3136 9.54268 13.9035 8.96187 13.4525 8.39737Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M3.33931 16.9997C4.22245 18.5293 5.44869 19.7374 6.86469 20.5827L6.86513 20.5814C7.68322 18.1134 10.065 15.6355 12.8569 13.9367C13.3429 13.6409 13.8473 13.3652 14.3647 13.1148C14.0626 12.2923 13.7245 11.5222 13.3508 10.875C13.0527 10.3586 12.6827 9.83536 12.2695 9.31938C11.9235 9.56655 11.5679 9.80234 11.2053 10.025C8.44759 11.7181 5.09262 12.7682 2.14358 12.1874L1.99902 12.1589C2.02377 13.8066 2.45687 15.4712 3.33931 16.9997Z" fill="#1C274C"></path> <g opacity="0.5"> <path d="M16.2258 13.9425C18.1134 13.2236 20.0374 12.9473 21.7027 13.3127L21.9074 13.3576C21.7856 14.2418 21.5463 15.1071 21.1961 15.9286C20.4717 17.6278 19.2729 19.1396 17.6585 20.2451L17.6461 20.166C17.6158 19.9748 17.5705 19.699 17.5099 19.3578C17.3887 18.6757 17.2059 17.7295 16.9592 16.672C16.7602 15.8192 16.5166 14.8803 16.2258 13.9425Z" fill="#1C274C"></path> <path d="M8.31858 3.45405C8.06654 3.25473 7.86131 3.09745 7.71833 2.98945L7.69597 2.97258C9.45842 2.13001 11.3642 1.84893 13.1953 2.07088C14.0827 2.17844 14.9525 2.40412 15.7799 2.74129L15.703 2.96973C15.2258 4.38768 14.0529 5.92038 12.4746 7.26043C11.7442 6.46537 10.9739 5.7288 10.2721 5.09932C9.51489 4.42018 8.82226 3.85238 8.31858 3.45405Z" fill="#1C274C"></path> <path d="M10.4204 8.74678C7.83379 10.3349 4.87003 11.1956 2.43341 10.7157L2.09082 10.6483C2.4601 7.95488 3.91941 5.43745 6.28139 3.7952L6.60934 4.03361L6.61138 4.0351L6.62071 4.04194L6.65975 4.07072C6.69459 4.09652 6.74671 4.13536 6.81422 4.18635C6.94924 4.28834 7.14564 4.43883 7.38813 4.63059C7.87349 5.01443 8.54147 5.56206 9.27053 6.21597C9.93034 6.80777 10.6282 7.47615 11.2825 8.18057C11.0033 8.37645 10.7155 8.5656 10.4204 8.74678Z" fill="#1C274C"></path> <path d="M16.2047 20.6626L16.2066 20.6755L16.2071 20.6791L16.2596 21.0475C13.6547 22.2776 10.7413 22.2853 8.22086 21.2588L8.28893 21.0535C8.95247 19.0517 11.0084 16.8174 13.6366 15.2182C14.0314 14.9779 14.4347 14.7547 14.8433 14.5507C15.0955 15.3805 15.314 16.2223 15.4984 17.0128C15.7377 18.0383 15.9153 18.9575 16.033 19.6201C16.0918 19.9512 16.1356 20.2176 16.1645 20.4004C16.179 20.4919 16.1898 20.5624 16.1968 20.6096L16.2047 20.6626Z" fill="#1C274C"></path> </g> </g></svg>
+    </button>
+<button class="emoji-tab" data-cat="weather" role="tab" aria-selected="false" title="Clima" aria-label="Clima">
+<svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M15.9999 4C15.9999 5.10457 15.1045 6 13.9999 6C12.8953 6 11.9999 5.10457 11.9999 4C11.9999 2.89543 12.8953 2 13.9999 2C15.1045 2 15.9999 2.89543 15.9999 4Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M10.9189 8.50596C10.0124 7.78435 8.67576 8.04212 8.10263 9.04908C7.54784 10.0238 7.96027 11.2644 8.98823 11.713L12.0789 13.0616C13.4091 13.6421 14.0213 15.1873 13.4496 16.5213L12.6893 18.2954C12.5261 18.6762 12.0852 18.8525 11.7045 18.6894C11.3237 18.5262 11.1474 18.0853 11.3105 17.7046L12.0709 15.9304C12.3178 15.3544 12.0534 14.6871 11.479 14.4364L8.38831 13.0878C6.54352 12.2828 5.80336 10.0564 6.799 8.30709C7.82756 6.49997 10.2263 6.03738 11.8531 7.3324L14.0114 9.05057C14.1736 9.1797 14.3748 9.25 14.5822 9.25H18.4999C18.9141 9.25 19.2499 9.58579 19.2499 10C19.2499 10.4142 18.9141 10.75 18.4999 10.75H14.5822C14.0355 10.75 13.5049 10.5646 13.0772 10.2241L10.9189 8.50596Z" fill="#1C274C"></path> <g opacity="0.5"> <path fill-rule="evenodd" clip-rule="evenodd" d="M18 14.25C15.9289 14.25 14.25 15.9289 14.25 18C14.25 20.0711 15.9289 21.75 18 21.75C20.0711 21.75 21.75 20.0711 21.75 18C21.75 15.9289 20.0711 14.25 18 14.25ZM18 15.75C16.7574 15.75 15.75 16.7574 15.75 18C15.75 19.2426 16.7574 20.25 18 20.25C19.2426 20.25 20.25 19.2426 20.25 18C20.25 16.7574 19.2426 15.75 18 15.75Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M6 14.25C3.92893 14.25 2.25 15.9289 2.25 18C2.25 20.0711 3.92893 21.75 6 21.75C8.07107 21.75 9.75 20.0711 9.75 18C9.75 15.9289 8.07107 14.25 6 14.25ZM6 15.75C4.75736 15.75 3.75 16.7574 3.75 18C3.75 19.2426 4.75736 20.25 6 20.25C7.24264 20.25 8.25 19.2426 8.25 18C8.25 16.7574 7.24264 15.75 6 15.75Z" fill="#1C274C"></path> </g> </g></svg>
+</button>
+<button class="emoji-tab" data-cat="flags" role="tab" aria-selected="false" title="Banderas" aria-label="Banderas">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M22 12.75V10.75C22 6.97876 22 5.09315 20.8284 3.92157C19.7358 2.82894 17.1523 2.75532 13.75 2.75036C13.75 2.33614 13.4142 2 13 2C12.5858 2 12.25 2.33579 12.25 2.75L12.25 20.75C12.25 21.1642 12.5858 21.5 13 21.5C13.4142 21.5 13.75 21.1642 13.75 20.75C17.1523 20.745 19.7358 20.6711 20.8284 19.5784C22 18.4069 22 16.5212 22 12.75Z" fill="#1C274C"></path> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M11.6591 2.75C11.6591 3.16421 11.3233 3.5 10.9091 3.5H10C9.5638 3.5 9.1653 3.50001 8.79757 3.50318C8.38337 3.50675 8.0447 3.17387 8.04112 2.75968C8.03755 2.34548 8.37043 2.00681 8.78463 2.00323C9.15945 2 9.56404 2 9.99785 2L10.9091 2C11.3233 2 11.6591 2.33579 11.6591 2.75ZM11.6591 20.75C11.6591 21.1642 11.3233 21.5 10.9091 21.5H9.9977C9.56395 21.5 9.15941 21.5 8.78463 21.4968C8.37043 21.4932 8.03755 21.1545 8.04112 20.7403C8.0447 20.3261 8.38337 19.9932 8.79757 19.9968C9.1653 20 9.56379 20 10 20H10.9091C11.3233 20 11.6591 20.3358 11.6591 20.75ZM6.62882 2.8046C6.75175 3.20015 6.53075 3.62047 6.1352 3.7434C5.81401 3.84322 5.59048 3.97754 5.40901 4.15901C5.22754 4.34048 5.09322 4.56401 4.9934 4.8852C4.87047 5.28075 4.45015 5.50175 4.0546 5.37882C3.65905 5.25589 3.43805 4.83557 3.56098 4.44002C3.72116 3.92463 3.96876 3.47793 4.34835 3.09835C4.72794 2.71876 5.17463 2.47116 5.69002 2.31098C6.08558 2.18805 6.50589 2.40905 6.62882 2.8046ZM6.62882 20.6954C6.50589 21.091 6.08557 21.312 5.69002 21.189C5.17463 21.0288 4.72794 20.7812 4.34835 20.4017C3.96876 20.0221 3.72116 19.5754 3.56098 19.06C3.43805 18.6644 3.65905 18.2441 4.0546 18.1212C4.45015 17.9983 4.87047 18.2193 4.9934 18.6148C5.09322 18.936 5.22754 19.1595 5.40901 19.341C5.59048 19.5225 5.81401 19.6568 6.1352 19.7566C6.53075 19.8795 6.75175 20.2998 6.62882 20.6954ZM4.00968 6.79112C4.42387 6.79469 4.75675 7.13337 4.75318 7.54756C4.75001 7.9153 4.75 8.31379 4.75 8.75V10.1136C4.75 10.5278 4.41421 10.8636 4 10.8636C3.58579 10.8636 3.25 10.5278 3.25 10.1136L3.25 8.7477C3.25 8.31395 3.25 7.90941 3.25324 7.53462C3.25681 7.12043 3.59548 6.78755 4.00968 6.79112ZM4.00967 16.7089C3.59548 16.7125 3.25681 16.3796 3.25323 15.9654C3.25 15.5906 3.25 15.186 3.25 14.7523L3.25 13.3864C3.25 12.9722 3.58579 12.6364 4 12.6364C4.41421 12.6364 4.75 12.9721 4.75 13.3864L4.75 14.75C4.75 15.1862 4.75001 15.5847 4.75318 15.9524C4.75675 16.3666 4.42387 16.7053 4.00967 16.7089Z" fill="#1C274C"></path> </g></svg>
+
+</button>
+<button class="emoji-tab" data-cat="plants" role="tab" aria-selected="false" title="Plantas" aria-label="Plantas">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M9.25 11C9.25 9.48122 10.4812 8.25 12 8.25C13.5188 8.25 14.75 9.48122 14.75 11C14.75 12.5188 13.5188 13.75 12 13.75C10.4812 13.75 9.25 12.5188 9.25 11Z" fill="#1C274C"></path> <path d="M9.82112 12.6779L4.84452 21.6358C4.64336 21.9979 4.77382 22.4545 5.1359 22.6557C5.49799 22.8568 5.95459 22.7264 6.15575 22.3643L11.0377 13.5768C10.5524 13.3955 10.1321 13.0811 9.82112 12.6779Z" fill="#1C274C"></path> <path d="M12.9626 13.5768L17.8445 22.3643C18.0457 22.7264 18.5023 22.8568 18.8644 22.6557C19.2265 22.4545 19.3569 21.9979 19.1558 21.6358L14.179 12.6777C13.8681 13.0809 13.4478 13.3954 12.9626 13.5768Z" fill="#1C274C"></path> <path d="M12 5.25C11.0335 5.25 10.25 4.4665 10.25 3.5C10.25 2.5335 11.0335 1.75 12 1.75C12.9665 1.75 13.75 2.5335 13.75 3.5C13.75 4.4665 12.9665 5.25 12 5.25Z" fill="#1C274C"></path> <path d="M2.75 7.5C2.75 6.5335 3.5335 5.75 4.5 5.75C5.4665 5.75 6.25 6.5335 6.25 7.5C6.25 8.4665 5.4665 9.25 4.5 9.25C3.5335 9.25 2.75 8.4665 2.75 7.5Z" fill="#1C274C"></path> <path d="M19.5 5.75C18.5335 5.75 17.75 6.5335 17.75 7.5C17.75 8.4665 18.5335 9.25 19.5 9.25C20.4665 9.25 21.25 8.4665 21.25 7.5C21.25 6.5335 20.4665 5.75 19.5 5.75Z" fill="#1C274C"></path> <path d="M19.5 14.25C18.5335 14.25 17.75 15.0335 17.75 16C17.75 16.9665 18.5335 17.75 19.5 17.75C20.4665 17.75 21.25 16.9665 21.25 16C21.25 15.0335 20.4665 14.25 19.5 14.25Z" fill="#1C274C"></path> <path d="M4.5 14.25C3.5335 14.25 2.75 15.0335 2.75 16C2.75 16.9665 3.5335 17.75 4.5 17.75C5.4665 17.75 6.25 16.9665 6.25 16C6.25 15.0335 5.4665 14.25 4.5 14.25Z" fill="#1C274C"></path> <path d="M10.25 19.5C10.25 20.4665 11.0335 21.25 12 21.25C12.9665 21.25 13.75 20.4665 13.75 19.5C13.75 18.5335 12.9665 17.75 12 17.75C11.0335 17.75 10.25 18.5335 10.25 19.5Z" fill="#1C274C"></path> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M10.6366 4.59718C10.3948 4.29705 10.25 3.91539 10.25 3.49992C10.25 3.35257 10.2682 3.20947 10.3025 3.07275C10.2695 3.0895 10.2367 3.10677 10.2041 3.12456L5.40984 5.73873C5.32726 5.78376 5.24682 5.83163 5.16861 5.88219C5.66011 6.08555 6.0388 6.50638 6.18471 7.02472L10.6366 4.59718ZM4.95508 9.19017C4.80997 9.22914 4.65741 9.24992 4.5 9.24992C4.10925 9.24992 3.74842 9.12186 3.45718 8.90541C3.45578 8.94719 3.45508 8.98909 3.45508 9.03109V13.9687C3.45508 14.1694 3.4711 14.3676 3.50223 14.562C3.78526 14.3653 4.12916 14.2499 4.5 14.2499C4.66724 14.2499 4.82901 14.2734 4.98218 14.3172C4.96429 14.203 4.95508 14.0865 4.95508 13.9687V9.19017ZM6.24997 16.0107C6.24668 16.5574 5.99273 17.0446 5.59726 17.3633L10.2041 19.8753C10.2367 19.893 10.2695 19.9103 10.3025 19.9271C10.2682 19.7904 10.25 19.6473 10.25 19.4999C10.25 19.0844 10.3948 18.7028 10.6367 18.4026L6.24997 16.0107ZM13.3629 18.4021C13.605 18.7023 13.75 19.0842 13.75 19.4999C13.75 19.647 13.7319 19.7898 13.6977 19.9263C13.7302 19.9098 13.7625 19.8928 13.7945 19.8753L18.4022 17.3628C18.0068 17.044 17.7531 16.5566 17.75 16.0099L13.3629 18.4021ZM19.0164 14.3176C19.17 14.2735 19.3322 14.2499 19.5 14.2499C19.8703 14.2499 20.2137 14.3649 20.4965 14.5612C20.5276 14.3671 20.5435 14.1691 20.5435 13.9687V9.03109C20.5435 8.98942 20.5428 8.94787 20.5415 8.90642C20.2505 9.12225 19.8901 9.24992 19.5 9.24992C19.3421 9.24992 19.1891 9.22901 19.0435 9.18979V13.9687C19.0435 14.0867 19.0343 14.2032 19.0164 14.3176ZM17.8151 7.02537C17.9608 6.50703 18.3392 6.08612 18.8305 5.88254C18.7522 5.83185 18.6715 5.78386 18.5888 5.73873L13.7945 3.12456C13.7625 3.10706 13.7302 3.09006 13.6977 3.07356C13.7319 3.21003 13.75 3.35286 13.75 3.49992C13.75 3.91563 13.605 4.29749 13.3629 4.59771L17.8151 7.02537Z" fill="#1C274C"></path> </g></svg>
+
+</button>
+<button class="emoji-tab" data-cat="office" role="tab" aria-selected="false" title="Oficina" aria-label="Oficina">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12 17.9998C16.142 18.0343 19.5937 14.0798 19.5603 9.8043C19.5268 5.52875 16.142 2.03476 12 2.00026C7.858 1.96576 4.52734 5.4038 4.56077 9.67936C4.59419 13.9549 7.858 17.9653 12 17.9998Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M11.75 5.99395C11.7534 5.57975 12.0919 5.24668 12.5061 5.25002C14.5591 5.26659 16.2334 6.94088 16.25 8.99395C16.2533 9.40815 15.9203 9.74663 15.5061 9.74998C15.0919 9.75332 14.7534 9.42025 14.75 9.00605C14.7401 7.77194 13.7281 6.75993 12.4939 6.74998C12.0797 6.74663 11.7467 6.40815 11.75 5.99395Z" fill="#1C274C"></path> <path d="M13.1801 17.9012C12.7949 17.9692 12.4007 18.0032 12 17.9999C11.6006 17.9966 11.2094 17.9563 10.8284 17.8823L10.8104 17.9225C10.6581 18.196 10.5819 18.3328 10.5489 18.4382C10.3559 19.0555 10.7534 19.6996 11.4067 19.8281C11.5182 19.85 11.6788 19.85 12 19.85C12.3211 19.85 12.4818 19.85 12.5933 19.8281C13.2466 19.6996 13.6441 19.0555 13.4511 18.4382C13.4181 18.3328 13.342 18.196 13.1896 17.9225L13.1801 17.9012Z" fill="#1C274C"></path> <path opacity="0.5" d="M11.25 19.7861C11.3004 19.8035 11.3526 19.8177 11.4067 19.8283C11.5182 19.8502 11.6788 19.8502 12 19.8502C12.3211 19.8502 12.4818 19.8502 12.5933 19.8283C12.6474 19.8177 12.6996 19.8035 12.75 19.7861V21.2502C12.75 21.6644 12.4142 22.0002 12 22.0002C11.5858 22.0002 11.25 21.6644 11.25 21.2502V19.7861Z" fill="#1C274C"></path> </g></svg>
+</button>
+<button class="emoji-tab" data-cat="tech" role="tab" aria-selected="false" title="Tech" aria-label="Tech">
+  <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M3.00244 12.2665C2.6221 12.4854 2.322 12.8248 2.15224 13.2346C2 13.6022 2 14.0681 2 15C2 15.9319 2 16.3978 2.15224 16.7654C2.35523 17.2554 2.74458 17.6448 3.23463 17.8478C3.48702 17.9523 3.78581 17.9851 4.25 17.9953V20C4.25 20.4142 4.58579 20.75 5 20.75C5.41421 20.75 5.75 20.4142 5.75 20V18H18.25V20C18.25 20.4142 18.5858 20.75 19 20.75C19.4142 20.75 19.75 20.4142 19.75 20V17.9953C20.2142 17.9851 20.513 17.9523 20.7654 17.8478C21.2554 17.6448 21.6448 17.2554 21.8478 16.7654C22 16.3978 22 15.9319 22 15C22 14.0681 22 13.6022 21.8478 13.2346C21.678 12.8248 21.3779 12.4854 20.9976 12.2666L19.25 12.0001L19 12H5L4.75003 12.0001L3.00244 12.2665Z" fill="#1C274C"></path> <path opacity="0.5" d="M10.9976 4H12.9976C16.7688 4 18.6544 4 19.826 5.17157C20.8485 6.19404 20.9786 7.76038 20.9952 10.6494V12.2662L19.25 12.0001H4.75003L3.00244 12.2665L3 12.2679V10.6494C3.01656 7.76038 3.14669 6.19404 4.16916 5.17157C5.34073 4 7.22635 4 10.9976 4Z" fill="#1C274C"></path> <path d="M19 10.5C19 9.31352 18.9981 8.51653 18.919 7.92202C18.8435 7.35407 18.7129 7.11099 18.5543 6.9506C18.3956 6.79022 18.1552 6.65825 17.5934 6.58189C17.0054 6.50196 16.2171 6.5 15.0435 6.5H12.913V10.5L19 10.5Z" fill="#1C274C"></path> <path d="M11.087 10.5V6.5H8.95652C7.78294 6.5 6.99461 6.50196 6.40656 6.58189C5.84479 6.65825 5.60435 6.79022 5.44571 6.9506C5.28706 7.11099 5.15653 7.35407 5.081 7.92202C5.00194 8.51653 5 9.31352 5 10.5L11.087 10.5Z" fill="#1C274C"></path> </g></svg>
+</button>
+</div>
+        <div class="emoji-pane">
+          <div class="emoji-grid" id="emojiGrid"></div>
+        </div>
+      </div>
+    
+      <input type="file" id="photoInput" name="photos" accept="image/*" multiple style="display:none; max-width:100%; height:auto;"/>
+</form>
+
+    <!-- Panel lateral (oculto) -->
+    <aside id="panel" class="side-panel" aria-label="Información del grupo" aria-hidden="true">
+      <div class="panel-header">
+        <img id="panelGroupAvatar" class="panel-avatar-img" alt="Avatar del grupo"
+             src="/app/grupos/<%= subject.id %>/avatar/view?ts=<%= Date.now() %>">
+        <div class="panel-title"><%= groupName %></div>
+        <button id="btnClosePanel" class="panel-close" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="panel-body" id="panelBody" style="overflow:auto; padding:12px 12px 24px 12px; max-width:100%; height:auto;">
+        <div class="reset-box"><p class="text-xs text-slate-500"> Los miembros y mensajes del grupo serán reseteados el <%= nextResetText %> a las 23:59.</p> </strong></div>
+
+      <div class="panel-body" id="panelBody">
+        <!-- Herramientas centradas -->
+        <div class="panel-tools">
+          <button id="toolSearch" class="tool-btn" title="Buscar en el chat" aria-label="Buscar">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" stroke="#111827" stroke-width="2"/>
+              <path d="M20 20L16.65 16.65" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </button>
+          <button id="toolShare" class="tool-btn" title="Compartir grupo" aria-label="Compartir">
+            <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M13.9546 5.18341L18.9324 9.60815C19.863 10.4353 20.3283 10.8489 20.4998 11.3373C20.6503 11.7662 20.6503 12.2335 20.4998 12.6624C20.3283 13.1508 19.863 13.5644 18.9324 14.3916L13.9546 18.8163C13.5323 19.1917 13.3211 19.3794 13.1418 19.3861C12.986 19.3919 12.8364 19.3247 12.7372 19.2044C12.6231 19.0659 12.6231 18.7834 12.6231 18.2184V15.4284C10.195 15.4284 7.63044 16.2083 5.75782 17.5926C4.78293 18.3133 4.29546 18.6737 4.1098 18.6595C3.92883 18.6456 3.81398 18.575 3.72008 18.4196C3.62374 18.2603 3.70883 17.7624 3.879 16.7666C4.98397 10.3004 9.43394 8.57129 12.6231 8.57129V5.78134C12.6231 5.21632 12.6231 4.93381 12.7372 4.79531C12.8364 4.67498 12.986 4.6078 13.1418 4.61363C13.3211 4.62034 13.5323 4.80803 13.9546 5.18341Z" fill="#1C274C"></path> </g></svg>
+          </button>
+          <button id="toolLeave" class="tool-btn" title="Abandonar grupo" aria-label="Abandonar">
+            <svg viewBox="-6.48 -6.48 36.96 36.96" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12 20C7.58172 20 4 16.4183 4 12C4 7.58172 7.58172 4 12 4V20Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M16.4697 8.46967C16.1768 8.76256 16.1768 9.23744 16.4697 9.53033L18.1893 11.25H10C9.58579 11.25 9.25 11.5858 9.25 12C9.25 12.4142 9.58579 12.75 10 12.75H18.1893L16.4697 14.4697C16.1768 14.7626 16.1768 15.2374 16.4697 15.5303C16.7626 15.8232 17.2374 15.8232 17.5303 15.5303L20.5303 12.5303C20.8232 12.2374 20.8232 11.7626 20.5303 11.4697L17.5303 8.46967C17.2374 8.17678 16.7626 8.17678 16.4697 8.46967Z" fill="#1C274C"></path> </g></svg>
+          </button>
+        </div>
+
+       <h3 class="text-sm uppercase tracking-wide text-slate-500 px-2 mb-2">Miembros</h3>
+        <div id="memberList">
+          <% if (Array.isArray(members) && members.length) { %>
+            <% members.forEach(function(u){ 
+               const init = (u.name && u.name[0] ? u.name[0] : 'U').toUpperCase();
+            %>
+              <div class="member-card" data-userid="<%= u.id %>">
+                <div class="member-avatar" data-userid="<%= u.id %>">
+                  <img src="/public/avatars/<%= u.id %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+                  <span class="initial"><%= init %></span>
+                </div>
+                <div class="member-info">
+                  <div class="name"><%= u.name %></div>
+                  <div class="meta"><%= (u.career || 'Carrera') %> · Plan <%= (u.plan || '-') %></div>
+                </div>
+                <div class="member-menu">
+                  <button class="member-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Menú">⋯</button>
+                  <div class="member-menu-content" role="menu" aria-hidden="true">
+                    <div class="member-menu-item js-help" role="menuitem">Ayuda</div>
+                    <% if (user && user.role === 'admin') { %>
+                      <div class="member-menu-item js-kick" role="menuitem" data-userid="<%= u.id %>">Quitar del grupo</div>
+                    <% } %>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          <% } else { %>
+            <div class="text-sm text-slate-500 px-2">Cargando miembros…</div>
+          <% } %>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Modal eliminar mensaje -->
+<div id="modalBackdrop" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <h3 id="modalTitle">¿Estás seguro que deseas eliminar el mensaje?</h3>
+    <p>Esta acción no se puede deshacer. El mensaje será reemplazado por “Este mensaje fue eliminado por su creador.”</p>
+    <div class="actions">
+      <button class="btn" id="btnCancelDel">Cancelar</button>
+      <button class="btn btn-danger" id="btnConfirmDel">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal abandonar grupo -->
+<div id="leaveBackdrop" class="modal-backdrop" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="leaveTitle">
+    <h3 id="leaveTitle">¿Querés abandonar el grupo?</h3>
+    <p>Si abandonás, dejará de aparecer en “Mis grupos”. Podés volver a unirte cuando quieras.</p>
+    <div class="actions">
+      <button class="btn" id="btnCancelLeave">Cancelar</button>
+      <button class="btn btn-danger" id="btnConfirmLeave">Sí, abandonar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Editor Avatar Emoji -->
+<div id="emojiModal" class="fix-modal" hidden>
+  <div class="backdrop"></div>
+  <div class="panel">
+    <div class="col left">
+      <div class="preview">
+        <div id="prevCircle"></div>
+        <div id="prevEmoji"></div>
+      </div>
+      <div class="actions">
+        <button id="btnCancel" class="btn ghost">Cancelar</button>
+        <button id="btnPublish" class="btn primary">Publicar</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="col right">
+      <div class="tabs">
+        <button class="tbtn is-active" data-tab="emoji">Emoji</button>
+        <button class="tbtn" data-tab="color">Color</button>
+      </div>
+      <div class="content">
+        <div id="tabEmoji" class="pane">
+          <div class="emoji-grid-edit" id="emojiGridEdit"></div>
+        </div>
+        <div id="tabColor" class="pane" hidden>
+          <div class="color-grid" id="colorGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Bloquear scroll global
+  (function lockPageScroll(){
+    const html = document.documentElement, body = document.body;
+    const prevHtmlOv = html.style.overflow, prevBodyOv = body.style.overflow;
+    html.classList.add('chat-no-scroll'); body.classList.add('chat-no-scroll');
+    window.addEventListener('pagehide', restore, { once:true });
+    window.addEventListener('beforeunload', restore, { once:true });
+    function restore(){
+      html.classList.remove('chat-no-scroll'); body.classList.remove('chat-no-scroll');
+      html.style.overflow = prevHtmlOv; body.style.overflow = prevBodyOv;
+    }
+  })();
+
+
+  window.__IS_ADMIN__ = <%- JSON.stringify(user && user.role === 'admin') %>;
+  const subjectId = <%- JSON.stringify(subject.id) %>;
+  const chatBody  = document.getElementById('chatBody');
+  function setAvatarFallback(img){ if(!img) return; img.addEventListener('error', ()=>{ img.classList.add('error'); }); }
+  setAvatarFallback(document.getElementById('chatGroupAvatar'));
+  setAvatarFallback(document.getElementById('panelGroupAvatar'));
+  const meId      = <%- JSON.stringify(user.id) %>;
+
+  /* Panel lateral */
+  const panel = document.getElementById('panel');
+  const btnTogglePanel = document.getElementById('btnTogglePanel');
+  const btnClosePanel  = document.getElementById('btnClosePanel');
+  function togglePanel(){
+    const open = panel.classList.toggle('open');
+    panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    btnTogglePanel.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  btnTogglePanel.addEventListener('click', togglePanel);
+  btnClosePanel.addEventListener('click', togglePanel);
+
+  /* Header kebab */
+  const headerKebab = document.getElementById('headerKebab');
+  const headerMenu  = document.getElementById('headerMenu');
+  headerKebab.addEventListener('click', (ev)=>{
+    ev.stopPropagation();
+    const open = headerMenu.classList.toggle('open');
+    headerKebab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    headerMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+  });
+  document.addEventListener('click', (e)=>{
+    if (!headerMenu.contains(e.target) && e.target !== headerKebab) {
+      headerMenu.classList.remove('open');
+      headerMenu.setAttribute('aria-hidden','true');
+      headerKebab.setAttribute('aria-expanded','false');
+    }
+  });
+  document.getElementById('menuShare').addEventListener('click', async ()=>{ await shareGroup(); headerMenu.classList.remove('open'); });
+  document.getElementById('menuCopy').addEventListener('click', async ()=>{ await copyLink(); headerMenu.classList.remove('open'); });
+  document.getElementById('menuLeave').addEventListener('click', openLeaveModal);
+
+  async function shareGroup(){
+    const url = location.href;
+    try{
+      if (navigator.share) { await navigator.share({ title: <%- JSON.stringify(groupName) %>, url }); }
+      else { await navigator.clipboard.writeText(url); alert('Enlace copiado al portapapeles.'); }
+    }catch(e){}
+  }
+  async function copyLink(){
+    try{ await navigator.clipboard.writeText(location.href); alert('Enlace copiado.'); }catch(e){}
+  }
+
+  /* Modal salir del grupo */
+  const leaveBackdrop  = document.getElementById('leaveBackdrop');
+  const btnCancelLeave = document.getElementById('btnCancelLeave');
+  const btnConfirmLeave= document.getElementById('btnConfirmLeave');
+  function openLeaveModal(){
+    leaveBackdrop.classList.add('open');
+    leaveBackdrop.setAttribute('aria-hidden','false');
+  }
+  function closeLeaveModal(){
+    leaveBackdrop.classList.remove('open');
+    leaveBackdrop.setAttribute('aria-hidden','true');
+  }
+  btnCancelLeave.addEventListener('click', closeLeaveModal);
+  btnConfirmLeave.addEventListener('click', async ()=>{
+    try{
+      const res = await fetch(`/app/grupos/${subjectId}/salir`, { method: 'POST' });
+      const j = await res.json();
+      if (j && j.ok) location.href = '/app/grupos';
+      else alert(j && j.error ? j.error : 'No se pudo salir del grupo.');
+    }catch(e){ alert('Error de red.'); }
+    closeLeaveModal();
+  });
+
+  /* SSE */
+  function fmt(ts){
+    const m = String(ts || '').match(/(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]} - ${m[4]}:${m[5]}` : String(ts || '');
+  }
+  function createRow(m){
+    const mine = Number(m.user_id) === Number(meId);
+    const who  = mine ? <%- JSON.stringify(user.name) %> : (m.user_name || 'Usuario');
+    const init = (who && who[0] ? who[0] : 'U').toUpperCase();
+
+    const row = document.createElement('div');
+    row.className = 'row ' + (mine ? 'me' : 'other');
+    row.dataset.msgid = m.id;
+
+    // === Checkbox de selección para admin (único) ===
+    if (window.__IS_ADMIN__) {
+      const sel = document.createElement('input');
+      sel.type = 'checkbox';
+      sel.className = 'msg-select';
+      sel.dataset.msgid = m.id;
+      // Posición a la derecha del renglón (no tapa la burbuja)
+      sel.style.position = 'absolute';
+      sel.style.top = '4px';
+      sel.style.right = '4px';
+      sel.style.width = '16px';
+      sel.style.height = '16px';
+      row.appendChild(sel);
+    }
+
+    if (!mine) {
+      const av = document.createElement('div');
+      av.className = 'msg-avatar';
+      av.dataset.userid = m.user_id;
+      av.innerHTML = `<img src="/public/avatars/${m.user_id}.png" alt="Avatar"><span class="initial">${init}</span>`;
+      row.appendChild(av);
+      setTimeout(()=>{ av.querySelector('img').onerror = () => av.setAttribute('data-fallback','1'); });
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const head = document.createElement('div');
+    head.className = 'bubble-head';
+
+    if (mine) {
+      const rowMenu = document.createElement('button');
+      rowMenu.className = 'row-menu js-menu';
+      rowMenu.setAttribute('aria-label','Más opciones');
+      rowMenu.textContent = '⋯';
+      row.appendChild(rowMenu);
+    }
+
+    const whoEl = document.createElement('span');
+    whoEl.className = 'who';
+    whoEl.textContent = who;
+    head.appendChild(whoEl);
+
+    bubble.appendChild(head);
+
+    if (m.attachment_type === 'image' && m.attachment_url) {
+      const wrap = document.createElement('div');
+      wrap.className = 'image-wrap';
+      const img = document.createElement('img');
+      img.src = m.attachment_url; img.alt = 'Imagen';
+      wrap.appendChild(img);
+      bubble.appendChild(wrap);
+      if (m.text) {
+        const caption = document.createElement('div');
+        caption.className = 'text'; caption.textContent = m.text || '';
+        bubble.appendChild(caption);
+      }
+    } else {
+      const textEl = document.createElement('div');
+      textEl.className = 'text';
+      textEl.textContent = m.text || '';
+      bubble.appendChild(textEl);
+    }
+
+    if (mine) {
+      const menu = document.createElement('div');
+      menu.className = 'ctx-menu';
+      menu.setAttribute('role','menu');
+      menu.innerHTML = `<div class="ctx-item js-copy" role="menuitem">Copiar</div>
+                        <div class="ctx-item danger js-delete" role="menuitem">Eliminar</div>`;
+      bubble.appendChild(menu);
+    }
+
+    row.appendChild(bubble);
+
+    if (mine) {
+      const av = document.createElement('div');
+      av.className = 'msg-avatar';
+      av.dataset.userid = m.user_id;
+      av.innerHTML = `<img src="/public/avatars/${m.user_id}.png" alt="Avatar"><span class="initial">${init}</span>`;
+      row.appendChild(av);
+      setTimeout(()=>{ av.querySelector('img').onerror = () => av.setAttribute('data-fallback','1'); });
+    }
+
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp';
+    stamp.textContent = fmt(m.created_at);
+    row.appendChild(stamp);
+
+    return row;
+  }
+
+  const es = new EventSource(`/app/grupos/${subjectId}/stream`);
+  es.addEventListener('history', (ev)=>{
+    try{
+      const arr = JSON.parse(ev.data || '[]');
+      chatBody.innerHTML = '';
+      arr.forEach(m => chatBody.appendChild(createRow(m)));
+      chatBody.scrollTop = chatBody.scrollHeight;
+      applySearchCurrent();
+    }catch(e){}
+  });
+  es.addEventListener('message', (ev)=>{
+    try{
+      const obj = JSON.parse(ev.data || '{}');
+      if(!obj) return;
+      if (obj.type === 'message' && obj.payload) {
+        chatBody.appendChild(createRow(obj.payload));
+        chatBody.scrollTop = chatBody.scrollHeight;
+        applySearchCurrent();
+      } else if (obj.type === 'update' && obj.payload) {
+        const id = String(obj.payload.id);
+        const row = chatBody.querySelector(`[data-msgid="${id}"]`);
+        if (row) {
+          const textEl = row.querySelector('.text');
+          if (textEl) textEl.textContent = obj.payload.text || 'Este mensaje fue eliminado por su creador.';
+          const stamp = row.querySelector('.stamp');
+          if (stamp) stamp.textContent = fmt(obj.payload.created_at || new Date().toISOString().slice(0,16).replace('T',' '));
+        }
+        applySearchCurrent();
+
+      } else if (obj.type === 'message' && obj.payload && obj.payload.kind === 'messages-deleted') {
+        const ids = Array.isArray(obj.payload.ids) ? obj.payload.ids : [];
+        ids.forEach(id=>{
+          const el = document.querySelector(`.row[data-msgid="${id}"]`);
+          if (el) el.remove();
+        });
+
+              } else if (obj.type === 'message' && obj.payload && obj.payload.kind === 'messages-deleted') {
+        const ids = Array.isArray(obj.payload.ids) ? obj.payload.ids : [];
+        ids.forEach(id => {
+          const el = document.querySelector(`.row[data-msgid="${id}"]`);
+          if (el) el.remove();
+        });
+        applySearchCurrent();
+
+      } else if (obj.type === 'avatar' && obj.payload) {
+        // refrescar avatar si cambia desde otro cliente
+        const img = document.getElementById('chatGroupAvatar');
+        if (img) img.src = `/app/grupos/${subjectId}/avatar/view?ts=${Date.now()}`;
+        const pimg = document.getElementById('panelGroupAvatar');
+        if (pimg) pimg.src = `/app/grupos/${subjectId}/avatar/view?ts=${Date.now()}`;
+      }
+    }catch(e){}
+  });
+
+  /* Envío */
+  const form    = document.getElementById('composer');
+  const msgText = document.getElementById('msgText');
+  const sendBtn = document.getElementById('sendBtn');
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const text = (msgText.value || '').trim();
+    if(!text) return;
+    sendBtn.disabled = true;
+    try{
+      const res = await fetch(`/app/grupos/${subjectId}/messages`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({ text })
+      });
+      const j = await res.json();
+      if(j && j.ok){
+        msgText.value = '';
+      } else {
+        alert(j && j.error ? j.error : 'No se pudo enviar el mensaje.');
+      }
+    }catch(e){ alert('Error de red.'); }
+    sendBtn.disabled = false;
+    msgText.focus();
+  });
+
+  /* ===== Emoji picker con pestañas e íconos ===== */
+  const emojiBtn   = document.getElementById('emojiBtn');
+  const emojiPicker= document.getElementById('emojiPicker');
+  const emojiGrid  = document.getElementById('emojiGrid');
+  const tabButtons = Array.from(document.querySelectorAll('.emoji-tab'));
+  const EMOJI_CATEGORIES = {
+    faces: [
+      "😀","😁","😂","🤣","😃","😄","😅","😉","😊","🙂","🙃","😇","🥰","😍","😘","😗","😙","😚","😋","😛","😜","🤪","🤨","🫠","🤔","🤫","🤗","😐","😑","😶","🙄","😏","😴","🤤","🤓","🫡","😎","🥳","😤","😭","😡","🤯","😬","😕","😔","😌","😮","🤩","😵","😱","🤒","🤕","🤧","🤮","🤢","🥵","🥶",
+      "🤠","😇","🫢","🫣","🫡","😈","👿","👻","💀","☠️","👽","🤖","🫥","😶‍🌫️","😵‍💫","🤠","🥹","🥲","🫤","🤥","🫨","🤭","😯","😲","🤫","🤭","🫢","😳","😩","😫","🥱","😖","😣","😞","😟","😢","😥","😰","😨","😧","😦","😲","😳","🥺","🙁","☹️","😣","😩","😤"
+    ],
+    gestures: [
+      "👍","👎","👏","🙏","👌","✌️","🤞","🤟","🤘","👋","💪","🫶","🤝","✊","👊","🤙","☝️","👆","👇","👉","👈","🫵","🙌","👐","✍️","🖖","🤲",
+      "🫷","🫸","🫱","🫲","🫳","🫴","👆🏻","👆🏼","👆🏽","👆🏾","👆🏿","👇🏻","👇🏼","👇🏽","👇🏾","👇🏿","🖐️","🤚","✋","🫰","🤏","👈🏻","👉🏻","👏🏻","🤝🏻","🖖🏻","🤙🏻","💅","🫵🏻","🤚🏻","🙌🏻","🫱🏻‍🫲🏿","👊🏻","🫶🏻","🫡","🤜","🤛"
+    ],
+    animals: [
+      "🐶","🐱","🐭","🐹","🐰","🦊","🐻","🐼","🐨","🐯","🦁","🐮","🐷","🐸","🐵","🦉","🦄","🐔","🐧","🐦","🐤","🐣","🐥","🦆","🦅","🦇","🐺","🦢","🐙","🐠","🐟","🐬","🐳","🐋","🦈","🐊","🦭","🦒","🦓","🦬","🦘","🐫","🦥","🦫",
+      "🐌","🪱","🐞","🐜","🐝","🪲","🦋","🐛","🦂","🕷️","🕸️","🐢","🦎","🐍","🐇","🦫","🦨","🦦","🦔","🐿️","🐉","🐲","🦕","🦖","🐡","🐚","🪸","🦭","🦈","🪼","🪻","🦋","🐝","🪳","🪰"
+    ],
+    objects: [
+      "💡","📚","📘","📙","📗","📕","📝","🧮","🧪","🧬","⚙️","🧭","🧰","🧱","📈","📊","💻","🖥️","⌨️","🖊️","🖍️","📎","📌","🧷","🧾","🎯","🏆","🔬","🔭","🎲","🎮","🧩","🤖","🚀","🌎","⭐","☕️","🍎","🍩","🪫","🔋","💾","📡","📱","🖨️",
+      "🖋️","🖌️","✒️","✏️","🗝️","🔑","🔒","🔓","🧯","🪞","🪟","🪑","🛏️","🛋️","🚪","🪜","🧴","🪣","🧽","🧹","🧺","🧻","🪠","🧼","🪥","🩹","🩺","🧠","🫀","🫁","🧫","🧠","🧠","🎛️","🎚️","🖲️","📀","💿","📷","📹","🎥"
+    ],
+    symbols: [
+      "❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","✨","💥","💯","✅","❌","⚠️","❗","❓","♻️","🔒","🔓","🔑","🔔","🔕","🚫","⭕","🔵","🟢","🟣","🟡","🟠","⚪","⚫","➕","➖","✳️","✴️","🆕","🆒","🆗",
+      "💢","💤","💫","💬","🗨️","🗯️","💭","🕉️","☮️","✝️","☪️","🕎","🔯","☯️","☸️","♈","♉","♊","♋","♌","♍","♎","♏","♐","♑","♒","♓","🆘","🚸","🚭","🚱","🚷","🔞","🛑","🆔","🈁","🈯","🉑","🔰"
+    ],
+    foods: [
+      "🍎","🍊","🍋","🍌","🍉","🍇","🍓","🫐","🍒","🍑","🥭","🍍","🥥","🥝","🍅","🍆","🥑","🥦","🥬","🥕","🌽","🥔","🧄","🧅","🍞","🥐","🥖","🥨","🧀","🥚","🥞","🧇","🥓","🥩","🍗","🍖","🌭","🍔","🍟","🍕","🥪","🌮","🌯","🥙","🥗","🍝","🍜","🍣","🍱","🍤","🍰","🧁","🍪","🍩","🍫",
+      "🍿","🍢","🍡","🍧","🍨","🍦","🥧","🥠","🥮","🍛","🍚","🍙","🍘","🍥","🥟","🍢","🥡","🧆","🍲","🫕","🫓","🫔","🍯","🍼","🥤","🧃","🍵","🍶","🍺","🍻","🍷","🥂","🥃","🫖","🍸","🍹","🧋","🥛"
+    ],
+    travel: [
+      "✈️","🚗","🚕","🚌","🚎","🚓","🚑","🚒","🚚","🚲","🛵","🏍️","🚆","🚇","🚉","🚝","🚢","⛵","🛶","🚁","🚀","🛩️","🛰️","🗺️","🧭","🗽","🗼","🏰","🏯","🏝️","🏜️","🏔️","🏕️","🏖️","🏟️","🎢","🎡","🎠",
+      "🚤","🛳️","🚠","🚟","🚡","🛣️","🛤️","🛫","🛬","🛞","🏗️","🏙️","🌆","🌃","🏘️","🏠","🏡","🏚️","🏢","🏣","🏤","🏥","🏦","🏨","🏪","🏫","🏛️","🕍","⛪","🕌","🛕","🕋","⛩️","🏞️","🌄","🌅","🌇"
+    ],
+    activities: [
+      "🎉","🎊","🎈","🎃","🎄","🎁","🎀","🎨","🎭","🎪","🎤","🎧","🎼","🎹","🥁","🎷","🎺","🎸","🎻","🎮","🧩","♟️","🀄","🧵","🧶","🪁","🔭","🧪","🧬","📸","🎥","📽️","🎬","🎯","🎳","🎲",
+      "🕹️","🧗‍♀️","🧘‍♂️","🏇","🎣","🎽","🏹","🥌","🛷","🎿","🎯","🎱","🎳","🪀","🪁","🧩","🎰","🪩","🎢","🎡","🎠","🎆","🎇","🧨","🎍","🎎","🎏","🎐","🎑","🪷","🧧"
+    ],
+    sports: [
+      "⚽","🏀","🏈","⚾","🎾","🏐","🏉","🥏","🎱","⛳","🥅","🏓","🏸","🥊","🥋","🥇","🥈","🥉","🏆","⛷️","🏂","🏋️‍♀️","🚴","🚵","🏊","🤽","🤺","🤼","🤸","⛹️","🧗","🛼","🛹","⛸️",
+      "🏒","🏑","🥍","🏏","🎯","🎽","🥌","🪃","🏹","🛶","🛷","🎿","⛷️","🏂","🏇","🏉","🏈","🏀","🏐","⚾","⚽","🥅","🥏"
+    ],
+    weather: [
+      "☀️","🌤️","⛅","🌥️","☁️","🌦️","🌧️","⛈️","🌩️","🌨️","❄️","🌪️","🌫️","🌈","💧","💦","🌊","🔥","💨","🌀",
+      "🌙","🌕","🌖","🌗","🌘","🌑","🌒","🌓","🌔","🌙","🌚","🌝","🌞","⭐","🌟","💫","🌠","☄️","🌡️","🌋","🪐","🌌"
+    ],
+    flags: [
+      "🏳️","🏴","🏁","🚩","🏳️‍🌈","🏳️","🇦🇷","🇧🇷","🇺🇸","🇪🇸","🇲🇽","🇺🇾","🇨🇱","🇵🇾","🇧🇴","🇵🇪","🇨🇴","🇻🇪","🇫🇷","🇩🇪","🇮🇹","🇬🇧","🇯🇵","🇨🇳","🇰🇷","🇮🇳",
+      "🇨🇦","🇦🇺","🇳🇿","🇵🇹","🇳🇴","🇸🇪","🇫🇮","🇨🇭","🇦🇹","🇳🇱","🇧🇪","🇮🇪","🇮🇸","🇸🇬","🇮🇩","🇲🇾","🇹🇭","🇵🇭","🇻🇳","🇸🇦","🇪🇬","🇿🇦","🇳🇬","🇲🇦","🇮🇱"
+    ],
+    plants: [
+      "🌵","🎄","🌲","🌳","🌴","🌱","🌿","☘️","🍀","🎍","🎋","🍃","🍂","🍁","🌾","💐","🌷","🌹","🥀","🌺","🌸","🌼","🌻",
+      "🌹","🌷","🌻","🌼","🌸","🌺","💮","🏵️","🪷","🪻","🪴","🌱","🌿","☘️","🍀","🎍","🎋","🍃","🍂","🍁","🌾","🪵","🪹","🪺"
+    ],
+    office: [
+      "📝","📃","📄","📑","📊","📈","📉","📂","📁","🗂️","🗃️","🗄️","📦","🧾","📮","📬","📫","📪","✉️","📧","📨","📯","📎","🖇️","📌","📍","✂️","🖊️","🖋️","✒️","🖌️","🖍️","🧷","🧹","🗑️",
+      "📠","📇","📋","🧾","🗒️","🗓️","📅","📆","🗳️","🖊️","🖋️","✏️","🖌️","🖍️","🪶","🖋️","📎","🖇️","📏","📐","🧮","📠","🧾","📦","🗃️","📁","📂","🗄️"
+    ],
+    tech: [
+      "🖥️","💻","⌨️","🖱️","🖲️","💽","💾","💿","📀","📼","📷","📹","🎥","📡","🕹️","📱","📲","🔌","🔋","🔦","🧯","🧰","⚙️","🪛","🧲",
+      "🪫","📞","☎️","📟","📠","📺","📻","🎙️","🎚️","🎛️","🖲️","💡","🪫","🔋","🔌","💻","🖥️","🖨️","🧮","🧱","📟","🪙","📠","📸","🛰️","📡","💽"
+    ]
+  };
+
+  function renderEmojiGrid(cat){
+    const list = EMOJI_CATEGORIES[cat] || [];
+    emojiGrid.innerHTML = '';
+    list.forEach(e => {
+      const d = document.createElement('div');
+      d.className = 'emoji';
+      d.textContent = e;
+      emojiGrid.appendChild(d);
+    });
+  }
+
+  function setActiveTab(cat){
+    tabButtons.forEach(b => {
+      const on = (b.dataset.cat === cat);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    renderEmojiGrid(cat);
+  }
+
+  function toggleEmoji(){
+    const open = emojiPicker.classList.toggle('open');
+    emojiBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    emojiPicker.setAttribute('aria-hidden', open ? 'false' : 'true');
+    if (open) setActiveTab(document.querySelector('.emoji-tab[aria-selected="true"]')?.dataset.cat || 'faces');
+  }
+
+  emojiBtn.addEventListener('click', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleEmoji(); });
+  document.addEventListener('click', (e)=>{
+    if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+      emojiPicker.classList.remove('open');
+      emojiPicker.setAttribute('aria-hidden','true');
+      emojiBtn.setAttribute('aria-expanded','false');
+    }
+  });
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      setActiveTab(btn.dataset.cat);
+    });
+  
+  // Horizontal scroll with mouse wheel on emoji tabs
+  const emojiTabsEl = document.querySelector('.emoji-tabs');
+  if (emojiTabsEl){
+    emojiTabsEl.addEventListener('wheel', (ev)=>{
+      // If vertical scroll dominates, translate to horizontal
+      if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)){
+        emojiTabsEl.scrollLeft += ev.deltaY;
+        ev.preventDefault();
+      }
+    }, { passive: false });
+  }
+});
+
+  function insertAtCursor(input, text){
+    const start = input.selectionStart ?? input.value.length;
+    const end   = input.selectionEnd   ?? input.value.length;
+    const before = input.value.slice(0, start);
+    const after  = input.value.slice(end);
+    input.value = before + text + after;
+    const pos = start + text.length;
+    input.setSelectionRange(pos, pos);
+    input.focus();
+  }
+  emojiGrid.addEventListener('click', (e)=>{
+    const el = e.target.closest('.emoji');
+    if (!el) return;
+    insertAtCursor(msgText, el.textContent || '');
+  });
+
+  /* Menú contextual (copiar / eliminar) */
+  let openMenu = null;
+  document.addEventListener('click', (ev)=>{
+    if (openMenu && !openMenu.contains(ev.target) && !ev.target.classList.contains('js-menu')) {
+      openMenu.classList.remove('open'); openMenu = null;
+    }
+  });
+  chatBody.addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest('.js-menu');
+    if (btn) {
+      const row = btn.closest('.row');
+      const bubble = row ? row.querySelector('.bubble') : btn.closest('.bubble');
+      const menu = bubble.querySelector('.ctx-menu');
+      if (openMenu && openMenu !== menu) openMenu.classList.remove('open');
+      menu.classList.toggle('open');
+      openMenu = menu.classList.contains('open') ? menu : null;
+      return;
+    }
+    const copyItem = ev.target.closest('.js-copy');
+    if (copyItem) {
+      const bubble = copyItem.closest('.bubble');
+      const text = bubble.querySelector('.text')?.textContent || '';
+      try { await navigator.clipboard.writeText(text); } catch {}
+      bubble.querySelector('.ctx-menu')?.classList.remove('open');
+      openMenu = null;
+      return;
+    }
+    const delItem = ev.target.closest('.js-delete');
+    if (delItem) {
+      const row = delItem.closest('.row');
+      const msgId = row?.dataset?.msgid;
+      if (!msgId) return;
+      showDeleteModal(msgId, row);
+      delItem.closest('.ctx-menu')?.classList.remove('open');
+      openMenu = null;
+    }
+  });
+
+  /* Modal eliminar mensaje */
+  const backdrop = document.getElementById('modalBackdrop');
+  const btnCancelDel = document.getElementById('btnCancelDel');
+  const btnConfirmDel = document.getElementById('btnConfirmDel');
+  let pendingDelete = { id: null, row: null };
+  function showDeleteModal(id, row){
+    pendingDelete = { id, row };
+    backdrop.classList.add('open');
+    backdrop.setAttribute('aria-hidden','false');
+  }
+  function hideDeleteModal(){
+    backdrop.classList.remove('open');
+    backdrop.setAttribute('aria-hidden','true');
+    pendingDelete = { id: null, row: null };
+  }
+  btnCancelDel.addEventListener('click', hideDeleteModal);
+  btnConfirmDel.addEventListener('click', async ()=>{
+    const id = pendingDelete.id;
+    const row = pendingDelete.row;
+    if (!id || !row) return hideDeleteModal();
+    try{
+      const res = await fetch(`/app/grupos/${subjectId}/messages/${id}/delete`, { method: 'POST' });
+      const j = await res.json();
+      if (j && j.ok) {
+        const textEl = row.querySelector('.text');
+        if (textEl) textEl.textContent = 'Este mensaje fue eliminado por su creador.';
+        const stamp = row.querySelector('.stamp');
+        if (stamp) {
+          const now = new Date();
+          const pad = n => (n<10?('0'+n):n);
+          stamp.textContent = `${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} - ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+        }
+        applySearchCurrent();
+      } else {
+        alert(j && j.error ? j.error : 'No se pudo eliminar el mensaje.');
+      }
+    }catch(e){ alert('Error de red.'); }
+    hideDeleteModal();
+  });
+
+  (function(){
+  // Mostrar sólo si es admin
+  if (!(<%- JSON.stringify(Boolean(user && user.role === 'admin')) %>)) return;
+
+  const selected = new Set();
+  const chatBody = document.getElementById('chatBody');
+
+  // Delegado: marca y desmarca mensajes
+  chatBody.addEventListener('change', (e)=>{
+    const box = e.target.closest('.msg-admin-check');
+    if (!box) return;
+    const row = box.closest('.row');
+    const id  = row?.dataset?.msgid;
+    if (!id) return;
+    if (box.checked) selected.add(Number(id)); else selected.delete(Number(id));
+  });
+
+  // Basurero de header (el que agregamos junto al fullscreen)
+  const btn = document.getElementById('btnBulkDelete');
+  if (btn) {
+    btn.addEventListener('click', async ()=>{
+      if (!selected.size) { alert('No hay mensajes seleccionados.'); return; }
+      if (!confirm('¿Eliminar los mensajes seleccionados? Esta acción es permanente.')) return;
+
+      const ids = Array.from(selected);
+      try{
+        const res = await fetch('/app/grupos/<%= subject.id %>/messages/batch-delete', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        if (!res.ok) throw res;
+        await res.json();
+
+        // Remover del DOM
+        ids.forEach(id=>{
+          const el = document.querySelector(`.row[data-msgid="${id}"]`);
+          if (el) el.remove();
+          selected.delete(id);
+        });
+      }catch(err){
+        let msg = 'No se pudieron eliminar los mensajes';
+        try { const j = await err.json(); if (j && j.error) msg = j.error; } catch(_){}
+        alert(msg);
+      }
+    });
+    }
+  })();
+
+
+  /* Menú por miembro (Ayuda) */
+  /* Menú por miembro (Ayuda + Quitar del grupo) */
+  const memberList = document.getElementById('memberList');
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.member-menu-btn');
+    if (btn) {
+      const wrap = btn.parentElement;
+      const menu = wrap.querySelector('.member-menu-content');
+      const open = menu.classList.toggle('open');
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      menu.setAttribute('aria-hidden', open ? 'false' : 'true');
+      return;
+    }
+
+    // Cerrar otros menús abiertos si se hace clic fuera
+    document.querySelectorAll('.member-menu-content.open').forEach(el=>{
+      if (!el.contains(e.target) && !el.previousElementSibling?.contains(e.target)) {
+        el.classList.remove('open'); 
+        el.setAttribute('aria-hidden','true');
+        el.previousElementSibling?.setAttribute('aria-expanded','false');
+      }
+    });
+
+    // --- Ayuda ---
+    const help = e.target.closest('.js-help');
+    if (help) {
+      alert('En breve podrás contactar soporte para este grupo.');
+      help.closest('.member-menu-content')?.classList.remove('open');
+      return;
+    }
+
+    // --- Quitar del grupo (solo admin) ---
+    const kick = e.target.closest('.js-kick');
+    if (kick) {
+      if (!window.__IS_ADMIN__) return; // defensa adicional en UI
+      const card = kick.closest('.member-card');
+      const uid  = card?.dataset.userid;
+      if (!uid) return;
+      if (!confirm('¿Quitar a este miembro del grupo?')) return;
+
+      fetch(`/app/grupos/${subjectId}/miembros/${uid}/quitar`, { method: 'POST' })
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(() => {
+          // eliminar visualmente al miembro
+          card.remove();
+        })
+        .catch(async (err) => {
+          let msg = 'No se pudo quitar al miembro';
+          try { 
+            const j = await err.json(); 
+            if (j && j.error) msg = j.error; 
+          } catch (_){}
+          alert(msg);
+        })
+        .finally(() => {
+          kick.closest('.member-menu-content')?.classList.remove('open');
+        });
+      return;
+    }
+  });
+  // Carga miembros si no vinieron (con avatar imagen + fallback inicial)
+  if (memberList && memberList.querySelector('.text-sm')) {
+    fetch(`/app/grupos/${subjectId}/members.json`)
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j || !Array.isArray(j.members)) return;
+        memberList.innerHTML = '';
+        j.members.forEach(u => {
+          const name = u.name || 'Usuario';
+          const init = (name && name[0] ? name[0] : 'U').toUpperCase();
+          const career = u.career || 'Carrera';
+          const plan = (u.plan != null ? u.plan : '-');
+          const card = document.createElement('div');
+          card.className = 'member-card';
+          card.dataset.userid = u.id;
+          card.innerHTML = `
+            <div class="member-avatar" data-userid="${u.id}">
+              <img src="/public/avatars/${u.id}.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial">${init}</span>
+            </div>
+            <div class="member-info">
+              <div class="name">${name}</div>
+              <div class="meta">${career} · Plan ${plan}</div>
+            </div>
+            <div class="member-menu">
+              <button class="member-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Menú">⋯</button>
+              <div class="member-menu-content" role="menu" aria-hidden="true">
+                <div class="member-menu-item js-help" role="menuitem">Ayuda</div>
+                ${ window.__IS_ADMIN__ ? `<div class="member-menu-item js-kick" role="menuitem" data-userid="${u.id}">Quitar del grupo</div>` : '' }
+              </div>
+            </div>
+          `;
+          memberList.appendChild(card);
+        });
+      })
+      .catch(() => {});
+  }
+
+  /* Buscador mini */
+  const searchOverlay = document.getElementById('searchOverlay');
+  const findInput  = document.getElementById('findInput');
+  const findPrev   = document.getElementById('findPrev');
+  const findNext   = document.getElementById('findNext');
+  const findClose  = document.getElementById('findClose');
+  const findCount  = document.getElementById('findCount');
+
+  let matches = [];
+  let active  = -1;
+  let lastQ   = '';
+
+  function openSearch(){
+    searchOverlay.classList.add('open');
+    searchOverlay.setAttribute('aria-hidden','false');
+    findInput.focus();
+    findInput.select();
+  }
+  function closeSearch(){
+    searchOverlay.classList.remove('open');
+    searchOverlay.setAttribute('aria-hidden','true');
+    clearHighlights();
+  }
+  findClose.addEventListener('click', closeSearch);
+  // Panel tools bindings
+  const toolSearch = document.getElementById('toolSearch');
+  const toolShare  = document.getElementById('toolShare');
+  const toolLeave  = document.getElementById('toolLeave');
+  toolSearch?.addEventListener('click',(e)=>{ e.preventDefault(); if (panel.classList.contains('open')) togglePanel(); openSearch(); });
+  toolShare?.addEventListener('click', (e)=>{ e.preventDefault(); shareGroup(); });
+  toolLeave?.addEventListener('click', (e)=>{ e.preventDefault(); openLeaveModal(); });
+  findClose.addEventListener('click', closeSearch);
+  function escapeHTML(s){ return s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+  function clearHighlights(){
+    chatBody.querySelectorAll('.row .text').forEach(t=>{
+      if (t.dataset.rawText) {
+        t.innerHTML = escapeHTML(t.dataset.rawText);
+      } else {
+        t.textContent = t.textContent;
+      }
+      t.closest('.row')?.classList.remove('current-match');
+      delete t.dataset.rawText;
+    });
+    matches = [];
+    active = -1;
+    findCount.textContent = '0/0';
+  }
+  function highlightText(el, q){
+    const raw = el.textContent || '';
+    el.dataset.rawText = raw;
+    if (!q) { el.innerHTML = escapeHTML(raw); return; }
+    const parts = raw.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\\]\\\\]/g,'\\$&')})`,'ig'));
+    el.innerHTML = parts.map(p => p.toLowerCase() === q.toLowerCase()
+      ? `<mark class="hl">${escapeHTML(p)}</mark>`
+      : escapeHTML(p)
+    ).join('');
+  }
+  function collectMatches(q){
+    matches = [];
+    chatBody.querySelectorAll('.row .text').forEach(t=>{
+      const raw = t.textContent || '';
+      if (!q) return;
+      if (raw.toLowerCase().includes(q.toLowerCase())) {
+        matches.push({ row: t.closest('.row'), elText: t });
+      }
+    });
+  }
+  function updateCount(){
+    const total = matches.length;
+    const pos = total ? (active + 1) : 0;
+    findCount.textContent = `${pos}/${total}`;
+  }
+  function scrollToActive(){
+    if (active < 0 || active >= matches.length) return;
+    const { row } = matches[active];
+    chatBody.querySelectorAll('.row.current-match').forEach(r=>r.classList.remove('current-match'));
+    row.classList.add('current-match');
+    const top = row.offsetTop - 24;
+    chatBody.scrollTo({ top, behavior: 'smooth' });
+  }
+  function applySearch(q){
+    clearHighlights();
+    if (!q) return;
+    chatBody.querySelectorAll('.row .text').forEach(t=> highlightText(t, q));
+    collectMatches(q);
+    active = matches.length ? 0 : -1;
+    updateCount();
+    scrollToActive();
+  }
+  function applySearchCurrent(){
+    if (!searchOverlay.classList.contains('open')) return;
+    applySearch(lastQ);
+  }
+  findInput.addEventListener('input', ()=>{
+    lastQ = findInput.value.trim();
+    applySearch(lastQ);
+  });
+  findInput.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (e.shiftKey) gotoPrev(); else gotoNext();
+    } else if (e.key === 'Escape') {
+      closeSearch();
+    }
+  });
+  function gotoNext(){ if (!matches.length) return; active = (active + 1) % matches.length; updateCount(); scrollToActive(); }
+  function gotoPrev(){ if (!matches.length) return; active = (active - 1 + matches.length) % matches.length; updateCount(); scrollToActive(); }
+  findNext.addEventListener('click', gotoNext);
+  findPrev.addEventListener('click', gotoPrev);
+
+  // Atajo Ctrl/Cmd+F
+  document.addEventListener('keydown', (e)=>{
+    const isCmd = e.metaKey || e.ctrlKey;
+    if (isCmd && e.key.toLowerCase() === 'f') {
+      e.preventDefault();
+      openSearch();
+    }
+  });
+
+  /* ======= Editor Avatar (Emoji + Color) ======= */
+  const avatarImg = document.getElementById('chatGroupAvatar');
+  const panelAvatarImg = document.getElementById('panelGroupAvatar');
+  const btnEditAvatar = document.getElementById('btnEditAvatar');
+  const modal = document.getElementById('emojiModal');
+  const btnCancel = document.getElementById('btnCancel');
+  const btnPublish = document.getElementById('btnPublish');
+  const prevCircle = document.getElementById('prevCircle');
+  const prevEmoji = document.getElementById('prevEmoji');
+
+  const tabBtns = Array.from(document.querySelectorAll('.tbtn'));
+  const paneEmoji = document.getElementById('tabEmoji');
+  const paneColor = document.getElementById('tabColor');
+
+  const EMOJIS_EDIT = "😀😄😁😎😍🥳🤓🧠📚📘📙📗📕📝🧮🧪🧬⚙️💡🧭🧰🧱📈📊💻🖥️⌨️🖊️🖍️📎📌🧷🧾🎯🏆🔬🔭🎲🎮🧩🤖🚀🌎⭐☕🍎🍩🦉🦊🐼🐧".split('');
+  const COLORS = ["#E5E7EB","#F8C160","#F59E0B","#10B981","#3B82F6","#6366F1","#EC4899","#EF4444","#22D3EE","#84CC16","#A78BFA","#FB7185","#111827","#D1D5DB","#F1F5F9"];
+
+  // Inicial de selección local
+  let selEmoji = "";
+  let selColor = "#E5E7EB";
+
+  function openAvatarModal(e){
+    e?.stopPropagation();
+    prevEmoji.textContent = selEmoji;
+    prevCircle.style.background = selColor;
+    modal.hidden = false;
+  }
+  function closeAvatarModal(){
+    modal.hidden = true;
+  }
+  btnEditAvatar?.addEventListener('click', openAvatarModal);
+  document.querySelector('#emojiModal .backdrop').addEventListener('click', closeAvatarModal);
+  btnCancel.addEventListener('click', closeAvatarModal);
+
+  // Tabs
+  tabBtns.forEach(b=>{
+    b.addEventListener('click', ()=>{
+      tabBtns.forEach(x=>x.classList.remove('is-active'));
+      b.classList.add('is-active');
+      const t = b.dataset.tab;
+      paneEmoji.hidden = t!=='emoji';
+      paneColor.hidden = t!=='color';
+    });
+  });
+
+  // Grillas
+  const emojiGridEdit = document.getElementById('emojiGridEdit');
+  const colorGrid = document.getElementById('colorGrid');
+  emojiGridEdit.innerHTML = '';
+  EMOJIS_EDIT.forEach(e=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = e;
+    btn.addEventListener('click', ()=>{ selEmoji = e; prevEmoji.textContent = selEmoji; });
+    emojiGridEdit.appendChild(btn);
+  });
+  colorGrid.innerHTML = '';
+  COLORS.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.background = c;
+    btn.addEventListener('click', ()=>{ selColor = c; prevCircle.style.background = selColor; });
+    colorGrid.appendChild(btn);
+  });
+
+  // Publicar cambios
+  btnPublish.addEventListener('click', async ()=>{
+    try{
+      const r = await fetch(`/app/grupos/${subjectId}/avatar/emoji`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ emoji: selEmoji, bg: selColor })
+      });
+      const j = await r.json();
+      if (j && j.ok) {
+        const bust = `?ts=${Date.now()}`;
+        if (avatarImg) avatarImg.src = `/app/grupos/${subjectId}/avatar/view${bust}`;
+        if (panelAvatarImg) panelAvatarImg.src = `/app/grupos/${subjectId}/avatar/view${bust}`;
+        // También refrescar tarjetas si existieran en DOM
+        document.querySelectorAll(`.avatar img[src^="/app/grupos/${subjectId}/avatar/view"]`).forEach(im=>{
+          im.src = `/app/grupos/${subjectId}/avatar/view${bust}`;
+        });
+        closeAvatarModal();
+      } else {
+        alert(j && j.error ? j.error : 'No se pudo guardar.');
+      }
+    }catch{ alert('Error de red.'); }
+  });
+
+</script>
+
+<script>
+// Init attach & fullscreen once DOM is ready AND styles are applied
+(function initOnce(){
+  if (window.__chatInitDone) return;
+  function ready(fn){ if (document.readyState !== 'loading') fn(); else document.addEventListener('DOMContentLoaded', fn); }
+  ready(function(){
+    try{
+      const chatCard   = document.querySelector('.chat-card');
+      const chatBody   = document.getElementById('chatBody');
+      const attachBtn  = document.getElementById('attachBtn');
+      const photoInput = document.getElementById('photoInput');
+      const fsBtn      = document.getElementById('btnFullscreen');
+      const MAX_PHOTOS = 5;
+      if (!chatCard || !chatBody || !attachBtn || !photoInput || !fsBtn) return;
+
+      // ---- Attach menu (append to body)
+      let attachMenu = document.getElementById('attachMenu');
+      if (!attachMenu){
+        attachMenu = document.createElement('div');
+        attachMenu.id = 'attachMenu';
+        attachMenu.className = 'attach-menu';
+        attachMenu.setAttribute('aria-hidden', 'true');
+        attachMenu.innerHTML = `
+            <div class="attach-item" data-type="photos">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path opacity="0.5" d="M11.1822 15.3618L6.89249 11.0721C6.03628 10.2159 4.66286 10.1702 3.75159 10.9675L2.751 11.8623C2.73407 11.8751 2.7002 11.9607 2.7002 12.2004C2.7002 17.3366 6.86395 21.5004 12.0002 21.5004C15.2197 21.5004 18.057 19.8645 19.7264 17.3786L19.609 17.2612L17.7765 15.599C16.7369 14.6634 15.1888 14.5702 14.0446 15.3744L13.7464 15.5839C12.9512 16.1428 11.8694 16.0491 11.1822 15.3618Z" fill="#1C274C"></path> 
+                <path d="M15 11C16.1046 11 17 10.1046 17 9C17 7.89543 16.1046 7 15 7C13.8954 7 13 7.89543 13 9C13 10.1046 13.8954 11 15 11Z" fill="#1C274C"></path> 
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M1.25 12C1.25 6.06294 6.06294 1.25 12 1.25C17.9371 1.25 22.75 6.06294 22.75 12C22.75 17.9371 17.9371 22.75 12 22.75C6.06294 22.75 1.25 17.9371 1.25 12ZM20.9794 9.76985C21.1886 10.5446 21.3002 11.3595 21.3002 12.2004C21.3002 17.3366 17.1364 21.5004 12.0002 21.5004C6.86395 21.5004 2.7002 17.3366 2.7002 12.2004C2.7002 11.3658 2.81014 10.5568 3.01634 9.78724C4.00808 5.74714 7.65403 2.75 12 2.75C16.3397 2.75 19.9814 5.73854 20.9794 9.76985Z" fill="#1C274C"></path> 
+              </svg> 
+              Fotos
+            </div>
+
+            <div class="attach-item" data-type="videos">
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M15.3276 7.54199H8.67239C5.29758 7.54199 3.61017 7.54199 2.66232 8.52882C1.71447 9.51565 1.93748 11.0403 2.38351 14.0895L2.80648 16.9811C3.15626 19.3723 3.33115 20.5679 4.22834 21.2839C5.12553 21.9999 6.4488 21.9999 9.09534 21.9999H14.9046C17.5512 21.9999 18.8745 21.9999 19.7717 21.2839C20.6689 20.5679 20.8437 19.3723 21.1935 16.9811L21.6165 14.0895C22.0625 11.0403 22.2855 9.51564 21.3377 8.52882C20.3898 7.54199 18.7024 7.54199 15.3276 7.54199ZM14.5812 15.7942C15.1396 15.448 15.1396 14.5519 14.5812 14.2057L11.2096 12.1156C10.6669 11.7792 10 12.2171 10 12.9098V17.0901C10 17.7828 10.6669 18.2207 11.2096 17.8843L14.5812 15.7942Z" fill="#1C274C"></path> 
+                <path opacity="0.4" d="M8.50956 2.00001H15.4897C15.7221 1.99995 15.9004 1.99991 16.0562 2.01515C17.164 2.12352 18.0708 2.78958 18.4553 3.68678H5.54395C5.92846 2.78958 6.83521 2.12352 7.94303 2.01515C8.09884 1.99991 8.27708 1.99995 8.50956 2.00001Z" fill="#1C274C"></path> 
+                <path opacity="0.7" d="M6.3102 4.72266C4.91958 4.72266 3.77931 5.56241 3.39878 6.67645C3.39085 6.69967 3.38325 6.72302 3.37598 6.74647C3.77413 6.6259 4.18849 6.54713 4.60796 6.49336C5.68833 6.35485 7.05367 6.35492 8.6397 6.35501H15.5318C17.1178 6.35492 18.4832 6.35485 19.5635 6.49336C19.983 6.54713 20.3974 6.6259 20.7955 6.74647C20.7883 6.72302 20.7806 6.69967 20.7727 6.67645C20.3922 5.56241 19.2519 4.72266 17.8613 4.72266H6.3102Z" fill="#1C274C"></path> 
+              </svg> 
+              Videos
+            </div>
+
+            <div class="attach-item" data-type="docs">
+              <svg viewBox="0 0 24.00 24.00" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" fill-rule="evenodd" clip-rule="evenodd" d="M2.63303 16H21.367C21.4471 15.2813 21.5232 14.4732 21.609 13.5616L21.8382 11.1263C22.0182 9.2137 22.1082 8.25739 21.781 7.86207C21.604 7.64823 21.3633 7.5172 21.106 7.4946C20.6303 7.45282 20.0329 8.1329 18.8381 9.49307C18.2202 10.1965 17.9113 10.5482 17.5666 10.6027C17.3757 10.6328 17.1811 10.6018 17.0047 10.5131C16.6865 10.3529 16.4743 9.91812 16.0499 9.04851L13.8131 4.46485C13.0112 2.82162 12.6102 2 12 2C11.3898 2 10.9888 2.82162 10.1869 4.46485L7.95007 9.04852C7.5257 9.91811 7.31351 10.3529 6.99526 10.5131C6.81892 10.6018 6.62434 10.6328 6.43337 10.6027C6.08872 10.5482 5.77977 10.1965 5.16187 9.49307C3.96708 8.1329 3.36968 7.45282 2.89399 7.4946C2.63666 7.5172 2.39598 7.64823 2.21899 7.86207C1.8918 8.25739 1.9818 9.2137 2.16181 11.1263L2.391 13.5616C2.4768 14.4732 2.55286 15.2813 2.63303 16Z" fill="#1C274C"></path> <path d="M13.3597 22C16.9046 22 18.6771 22 19.8597 20.7902C20.7736 19.8553 21.094 18.4447 21.3667 16H2.63281C2.90553 18.4447 3.22594 19.8553 4.13987 20.7902C5.32249 22 7.09495 22 10.6399 22H13.3597Z" fill="#1C274C"></path> </g></svg>
+              Documentos
+            </div>
+          `;
+        document.body.appendChild(attachMenu);
+      }
+
+      function positionMenu(){
+        const rect = attachBtn.getBoundingClientRect();
+        const menuRect = attachMenu.getBoundingClientRect();
+        const gap = 10;
+        let top  = rect.top - menuRect.height - gap;
+        let left = rect.right - menuRect.width;
+        left = Math.max(8, Math.min(left, window.innerWidth - menuRect.width - 8));
+        top  = Math.max(8, Math.min(top,  window.innerHeight - menuRect.height - 8));
+        attachMenu.style.top  = Math.round(top)  + 'px';
+        attachMenu.style.left = Math.round(left) + 'px';
+      }
+      function openMenu(){
+        attachMenu.style.display = 'flex';
+        attachMenu.classList.add('open');
+        attachMenu.setAttribute('aria-hidden', 'false');
+        positionMenu();
+      }
+      function closeMenu(){
+        attachMenu.classList.remove('open');
+        attachMenu.setAttribute('aria-hidden', 'true');
+        attachMenu.style.display = 'none';
+      }
+
+      attachBtn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        if (attachMenu.classList.contains('open')) closeMenu(); else openMenu();
+      });
+      document.addEventListener('click', function(e){
+        if (!attachMenu.classList.contains('open')) return;
+        if (!attachMenu.contains(e.target) && !attachBtn.contains(e.target)) closeMenu();
+      }, true);
+      window.addEventListener('scroll', function(){ if (attachMenu.classList.contains('open')) positionMenu(); }, true);
+      window.addEventListener('resize', function(){ if (attachMenu.classList.contains('open')) positionMenu(); }, true);
+
+      attachMenu.addEventListener('click', function(e){
+        const it = e.target.closest('.attach-item');
+        if (!it) return;
+        const t = it.dataset.type;
+        if (t === 'photos')  alert('Pronto habilitamos fotos 😉');
+        else if (t === 'videos')  alert('Pronto habilitamos Videos 😉');
+        else if (t === 'docs')    alert('Pronto habilitamos Documentos 😉');
+        closeMenu();
+      });
+
+      photoInput.addEventListener('change', async function(){
+        const files = Array.from(photoInput.files || []);
+        if (!files.length) return;
+        if (files.length > MAX_PHOTOS) alert('Podés subir hasta ' + MAX_PHOTOS + ' fotos por vez. Se enviarán las primeras ' + MAX_PHOTOS + '.');
+        try{
+          const fd = new FormData();
+          files.slice(0, MAX_PHOTOS).forEach(f => fd.append('photos', f));
+          const res = await fetch('/app/grupos/' + String(subjectId) + '/upload', { method:'POST', body: fd });
+          const j = await res.json().catch(()=>null);
+          if (!j || !j.ok) { alert((j && j.error) || 'No se pudo subir'); return; }
+          chatBody.scrollTop = chatBody.scrollHeight;
+        }catch(err){
+          alert('Error de red subiendo foto');
+        } finally {
+          photoInput.value = '';
+        }
+      });
+
+      // ---- Fullscreen toggle
+      function isFullscreen(){
+        return !!(document.fullscreenElement || document.webkitFullscreenElement || chatCard.classList.contains('chat-fs'));
+      }
+      function enterFs(){
+        if (chatCard.requestFullscreen) return chatCard.requestFullscreen().catch(()=>fallback());
+        if (chatCard.webkitRequestFullscreen) { chatCard.webkitRequestFullscreen(); return; }
+        fallback();
+      }
+      function exitFs(){
+        if (document.exitFullscreen) return document.exitFullscreen().catch(()=>unfallback());
+        if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); return; }
+        unfallback();
+      }
+      function fallback(){
+        chatCard.classList.add('chat-fs');
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+      }
+      function unfallback(){
+        chatCard.classList.remove('chat-fs');
+        document.documentElement.style.overflow = '';
+        document.body.style.overflow = '';
+      }
+      function syncFsBtn(){
+        const pressed = isFullscreen();
+        fsBtn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
+      }
+
+      fsBtn.addEventListener('click', function(e){
+        e.preventDefault(); e.stopPropagation();
+        if (isFullscreen()) exitFs(); else enterFs();
+      });
+      document.addEventListener('fullscreenchange', syncFsBtn);
+      document.addEventListener('webkitfullscreenchange', syncFsBtn);
+      document.addEventListener('keydown', function(e){
+        if (e.key === 'Escape' && isFullscreen()) { exitFs(); }
+      });
+
+      syncFsBtn();
+      window.__chatInitDone = true;
+    }catch(err){
+      console.error('chat init error', err);
+    }
+  });
+})();
+
+// ===== Borrado múltiple para Admin =====
+(function(){
+  const chatBody     = document.getElementById('chatBody');
+  const trashBtn     = document.getElementById('btnBulkDelete'); // tu botón del basurero en el header
+  const subjectId    = <%= JSON.stringify(subject.id) %>;
+
+  if (!trashBtn) return; // si no hay botón, salimos (no admin o no agregado)
+
+  trashBtn.addEventListener('click', async function(e){
+    e.preventDefault();
+
+    // 1) reunir seleccionados (SOLO dentro del chatBody)
+    const checks = Array.from(chatBody.querySelectorAll('input.msg-select:checked'));
+    const ids = checks
+      .map(cb => cb.dataset.msgid)
+      .filter(Boolean);
+
+    if (!ids.length) {
+      alert('No hay mensajes seleccionados');
+      return;
+    }
+
+    // 2) confirmar (opcional)
+    if (!confirm(`¿Eliminar ${ids.length} mensaje(s) seleccionados? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    try{
+      // 3) llamar API (ajustá la ruta si tu backend usa otra)
+      const res = await fetch(`/app/grupos/${subjectId}/messages/bulk-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids })
+      });
+      const j = await res.json();
+
+      if (!j || !j.ok) {
+        alert((j && j.error) || 'No se pudieron eliminar los mensajes.');
+        return;
+      }
+
+      // 4) sacar del DOM
+      ids.forEach(id => {
+        const row = chatBody.querySelector(`.row[data-msgid="${id}"]`);
+        if (row) row.remove();
+      });
+    } catch(err){
+      console.error(err);
+      alert('Error de red.');
+    }
+  });
+
+  // (opcional) atajo teclado: Ctrl/Cmd + Backspace para borrar
+  document.addEventListener('keydown', function(e){
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.key === 'Backspace') {
+      trashBtn?.click();
+    }
+  });
+})();
+
+</script>
+    
+
+
+<style>
+/* === Emoji picker iOS glass & layout overrides (v2) === */
+.emoji-picker{
+  /* original 360px + 5px */
+  width: 365px;
+  max-width: min(92vw, 365px);
+  display: none; /* oculto por defecto */
+  position: absolute; /* respetar posicionamiento previo */
+  bottom: 60px; right: 64px;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.6);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(15,23,42,.18);
+  z-index: 1000;
+
+  height: 260px; /* altura fija del submenu general */
+}
+.emoji-picker.open{ display: flex; }
+
+/* Pane arriba y tabs abajo */
+.emoji-picker .emoji-pane{ order: 1; flex: 1; min-height: 148px; 
+  flex: 1 1 auto;
+}
+.emoji-picker .emoji-tabs{ order: 2; 
+  margin-top: auto;
+  margin-bottom: 1px;
+}
+
+/* Tabs con estética iOS y scroll horizontal oculto */
+.emoji-tabs{
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.45);
+  border: 1px solid rgba(255,255,255,0.55);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  margin-top: auto;
+  margin-bottom: 1px;
+}
+.emoji-tabs::-webkit-scrollbar{ display: none; }
+
+.emoji-tab{
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.65);
+  transition: transform .18s cubic-bezier(.2,.8,.2,1), background .18s, box-shadow .18s;
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 20px rgba(15,23,42,.08);
+}
+.emoji-tab[aria-selected="true"]{
+  background: rgba(255,255,255,0.9);
+  box-shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 10px 24px rgba(15,23,42,.12);
+  transform: translateY(-1px);
+}
+.emoji-tab:hover{ transform: translateY(-1px); }
+
+/* Grid y pane: permitir scroll con rueda pero ocultar barras */
+.emoji-pane{
+  overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.emoji-pane::-webkit-scrollbar{ display: none; }
+
+.emoji-grid{
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  padding: 8px 4px 2px;
+}
+.emoji-grid button{
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.7);
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 8px 20px rgba(15,23,42,.05);
+  transition: transform .15s ease, background .15s ease;
+  font-size: 20px;
+  line-height: 1;
+}
+.emoji-grid button:hover{ transform: translateY(-1px); }
+</style>
+
+
+

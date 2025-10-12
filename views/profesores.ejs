@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Profesores — <%= carrera %> / <%= plan %></title>
+<link rel="preconnect" href="https://ui-avatars.com">
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b;
+    --bg-1:#F7FAFE; --bg-2:#EEF5FD; --bg-3:#E9F1FB;
+    --glass-2: rgba(255,255,255,.60);
+    --stroke:  rgba(255,255,255,.75);
+    --shadow: 0 12px 28px rgba(15,23,42,.10);
+
+    --accent:#F8C160;       /* Naranja */
+    --star:#F8C160;
+    --range-track:#FFE9C9;  --range-fill:#F8C160; --range-thumb:#FFFFFF;
+
+    --overlay-bg: rgba(15,23,42,.55);
+  }
+  html,body{margin:0; color:var(--ink); font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;}
+  body{
+    background:
+      radial-gradient(1200px 900px at 18% 8%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.55) 50%, transparent 70%),
+      radial-gradient(900px 700px at 88% 20%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.35) 55%, transparent 75%),
+      linear-gradient(180deg,#F7FAFE 0%,#EEF5FD 55%,#E9F1FB 100%),
+      repeating-linear-gradient(45deg, rgba(183,201,227,.08) 0 1px, transparent 1px 22px),
+      repeating-linear-gradient(-45deg, rgba(183,201,227,.06) 0 1px, transparent 1px 22px);
+    background-attachment: fixed;
+  }
+  .wrap{max-width:1200px; margin:22px auto 48px; padding:0 16px;}
+
+  /* ===== Toolbar ===== */
+  .toolbar{ display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .search-wrap{ position:relative; margin-left:auto; }
+  .search-ios{
+    height:38px; width:16rem; max-width:100%;
+    padding-left:40px; padding-right:12px; border-radius:9999px;
+    background: var(--glass-2);
+    border:1px solid var(--stroke);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 6px 16px rgba(15,23,42,.06);
+    backdrop-filter: blur(14px) saturate(140%); color:#334155; font-size:14px;
+  }
+  .search-icon{ position:absolute; left:12px; top:50%; transform:translateY(-50%); color:#9aa4b2; }
+
+  /* ===== Selector 0–5★ ===== */
+  .seg-wrap{ display:inline-block; padding:2px; border-radius:9999px; background: rgba(255,255,255,.7); border:1px solid rgba(255,255,255,.9); box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 10px 20px rgba(15,23,42,.06); }
+  #segStars{ position:relative; border-radius:9999px; }
+  #segThumb{
+    position:absolute; top:50%; transform:translateY(-50%);
+    left:0; width:0; height:26px; border-radius:9999px;
+    background: var(--accent); border:1px solid #fff;
+    box-shadow: 0 10px 20px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.95);
+    transition: left .25s cubic-bezier(.2,.8,.2,1), width .25s cubic-bezier(.2,.8,.2,1);
+    pointer-events:none;
+  }
+  .seg-group{ position:relative; display:flex; gap:7px; }
+  .seg-btn{ position:relative; z-index:1; display:inline-flex; align-items:center; justify-content:center; min-width:74px; height:28px; padding:0 10px; border-radius:9999px; text-decoration:none; color:#53565c; font-weight:500; font-size:13px; }
+
+  /* ===== Top “Mejores del mes” (matriz + halo) ===== */
+  .top-card{
+    margin-top:12px; position:relative; overflow:visible;
+    border-radius:24px; padding:12px 16px; min-height:240px;
+    display:grid; grid-template-columns: 1fr 320px; gap:16px; align-items:center;
+    border:1px solid rgba(255,255,255,.65);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.85),
+                0 0 0 2px var(--halo-color,#EAEDFF),
+                0 0 18px 6px var(--halo-color,#EAEDFF);
+    animation: haloShift 8s linear infinite;
+  }
+  @keyframes haloShift{ 0%{--halo-color:#ffb5ed3f} 33%{--halo-color:#F3EAE7} 66%{--halo-color:#EFE3EA} 100%{--halo-color:#FAE4C7}}
+  .top-bg{
+    position:absolute; inset:0; z-index:0; border-radius:24px; overflow:hidden;
+    background:
+      radial-gradient(340px 220px at 15% 25%, #a8b5ff3d 0%, rgba(234,237,255,0) 70%),
+      radial-gradient(360px 240px at 45% 20%, #ffb5ed3f 0%, rgba(248,236,245,0) 72%),
+      radial-gradient(380px 260px at 80% 25%, #ffd59b 0%, rgba(255,243,226,0) 70%),
+      radial-gradient(340px 220px at 20% 70%, #ffefd9 0%, rgba(255,243,226,0) 70%),
+      radial-gradient(360px 240px at 55% 75%, #EAEDFF 0%, rgba(234,237,255,0) 72%),
+      radial-gradient(380px 260px at 88% 72%, #cf94ffd7 0%, rgba(248,236,245,0) 68%),
+      linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0) 26%, rgba(255, 255, 255, 0) 46%, rgba(255,255,255,.25) 70%);
+  }
+  .top-left{ position:relative; z-index:1; display:flex; flex-direction:column; justify-content:center; }
+  .top-title{ font-size:19px; font-weight:900; margin:2px 0 19px; margin-left:32px; color: #000000b4;}
+  .best-list{
+    display:flex; gap:28px; align-items:flex-start; overflow:hidden;
+    justify-content:flex-start; margin-left:32px;
+  }
+  .best{ display:flex; flex-direction:column; align-items:center; }
+  .best .ph{ width:88px; height:88px; border-radius:999px; overflow:hidden; background:rgba(255,255,255,.75); border:5px solid #ffffff; }
+  .best img{ width:100%; height:100%; object-fit:cover; }
+  .best .name{ font-weight:900; font-size:13px; margin-top:8px; }
+  .best .stars{ display:flex; gap:2px; margin-top:6px; }
+
+  /* ===== Estrellas ===== */
+  .star{ width:16px; height:16px; color:var(--star); display:block; }
+  .star-18{ width:18px; height:18px; color:var(--star); }
+  .star-24{ width:24px; height:24px; color:var(--star); }
+
+  /* ===== Trofeo + confeti ===== */
+  .trophy-side{ position:relative; z-index:1; align-self:stretch; display:flex; align-items:center; justify-content:center; }
+  .trophy-wrap{ position:relative; display:inline-block; overflow:visible; }
+  .trophy-wrap canvas.confetti-canvas{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:220%; height:160%; z-index:1; pointer-events:none; }
+  .trophy-wrap img{ position:relative; z-index:2; display:block; width:100%; max-width:200px; filter: drop-shadow(0 8px 16px rgba(0,0,0,.10)); }
+
+  /* ===== Encabezado sección y paginación ===== */
+  .section-head{ display:flex; justify-content:space-between; align-items:center; margin:10px 6px 4px; }
+  .section-title{ font-size:18px; font-weight:800; }
+  .pager{ display:flex; gap:8px; align-items:center; }
+  .ios-btn{ height:26px; min-width:26px; padding:0 10px; border-radius:9999px; display:inline-flex; align-items:center; justify-content:center; background: var(--glass-2); border:1px solid var(--stroke); box-shadow: inset 0 1px 0 rgba(255,255,255,.85); font-weight:700; font-size:12px; }
+  .ios-chip{ height:26px; padding:0 10px; border-radius:9999px; display:inline-flex; align-items:center; justify-content:center; background: rgba(255,255,255,.9); border:1px solid var(--stroke); box-shadow: inset 0 1px 0 rgba(255,255,255,.95); font-weight:700; font-size:12px; }
+  .ios-muted{ font-size:12px; color:#64748b; }
+
+  /* ===== Grid profesores ===== */
+  .grid{ display:grid; gap:18px; grid-template-columns: repeat(5, minmax(0,1fr)); }
+  .prof{
+    width: 156px;   /* ancho deseado */
+    height: 210px;  /* alto deseado */
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(255,255,255,.25);
+    border-radius: 30px;
+    box-shadow: 0 10px 24px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.95);
+    padding:12px; text-align:center; transition:.18s; cursor:pointer;
+    position:relative;
+  }
+  .prof:hover{ transform:translateY(-2px); border-color:rgba(15,23,42,.12); }
+  .photo-wrap{ width:88px; height:88px; border-radius:999px; margin:2px auto 8px; overflow:hidden; border:3px solid #fff; background:rgba(255,255,255,.95); }
+  .nm{ display:block; font-weight:800; margin-top:2px; font-size:13px; }
+  .mini-stars{ display:flex; gap:4px; justify-content:center; margin:6px 0 6px; }
+  .mini-stars svg{ width:20px; height:20px; }
+
+  .mini-comment{ margin-top:4px; font-size:12px; color:#475569; line-height:1.35; display:inline-block; }
+  .mini-comment::before, .mini-comment::after{ content:'"'; opacity:.85; }
+
+  /* ===== Modal detalle + calificar (iOS pro) ===== */
+  .detail-back{ position:fixed; inset:0; z-index:9998; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.45); backdrop-filter: blur(6px); }
+  .detail-shell{ position:relative; overflow:visible; height:min(82vh, 720px); display:flex; align-items:stretch; }
+
+  .panel-left{
+    width:min(620px, 92vw);
+    height:100%;
+    background:linear-gradient(180deg,rgba(255, 255, 255, 0.6),rgba(255,255,255,.40));
+    border:1px solid rgba(15,23,42,.06);
+    border-radius:24px;
+    box-shadow:0 24px 50px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.95);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+
+  .pl-head{
+    display:grid;
+    grid-template-columns: 96px 1fr auto;
+    grid-template-areas: 'avatar info metrics';
+    align-items:center; column-gap:10px;
+    padding:14px 16px;
+    border-bottom:1px solid rgba(15,23,42,.06);
+    background: linear-gradient(180deg, rgba(248, 192, 96, 0) 0%, rgba(255,255,255,.25) 100%);
+    position: relative;
+    padding-right: 56px;
+  }
+
+  .pl-info{ grid-area: info; display:flex; flex-direction:column; justify-content:center; gap:4px; margin-left:2px; }
+  .pl-name{ font-size: 20px; font-weight:900; letter-spacing:-.02em; }
+  .pl-stars{ display:flex; gap:0px; align-items:center; margin-top:-5px; }
+  .pl-stars svg{ width: 12px; height: 12px; color:var(--star); }
+
+  .pl-metrics-inline{
+    grid-area: metrics; display:flex; align-items:center; justify-content:flex-start; margin:0 0 0 8px; gap:8px;
+  }
+  .metric{
+    background: transparent; border: none; box-shadow: none; border-radius: 0; padding: 0;
+    display:flex; flex-direction:column; align-items:center; gap:6px; min-width:86px;
+  }
+  .metric-label{ font-size:11px; font-weight:700; color:#6b7280; }
+  .metric-value{ font-size:28px; line-height:1; font-weight:900; color:#0f172a; }
+  .metric-icon{ width:16px; height:16px; }
+
+  /* Avatar circular + FAB calificar pegado abajo/derecha */
+  .pl-avatar-box{ grid-area: avatar; position:relative; width:96px; height:96px; }
+  .pl-avatar{ width:96px; height:96px; border-radius:999px; border:3px solid #fff; overflow:hidden; box-shadow:0 8px 20px rgba(15,23,42,.10); }
+  .pl-avatar img{ width:100%; height:100%; object-fit:cover; }
+
+  /* FAB visible dentro del avatar-box */
+  .pl-avatar-box .ios-fab-rate{
+    display:inline-flex;
+    position:absolute; right:-6px; bottom:-6px;
+    width:38px; height:38px; border-radius:9999px;
+    background:#fff; border:1px solid rgba(15,23,42,.10);
+    box-shadow:0 10px 24px rgba(15,23,42,.18);
+    align-items:center; justify-content:center; cursor:pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+    z-index:5;
+  }
+  .pl-avatar-box .ios-fab-rate:hover{ transform: translateY(-1px); box-shadow:0 14px 30px rgba(15,23,42,.22); }
+  .pl-avatar-box .ios-fab-rate svg{ width:18px; height:18px; display:block; stroke:#0F172A; }
+
+  .pl-comments{ padding:14px; overflow:auto; height:100%; background:linear-gradient(180deg, #fff 0%, #fdfdfd 100%); }
+  .c-title{ font-size:18px; font-weight:900; margin:0 0 8px; letter-spacing:-.01em; }
+  .c-row{
+    display:flex; gap:10px; align-items:flex-start; padding:12px 14px; background:#fff;
+    border:1px solid rgba(15,23,42,.08); border-radius:16px; margin:10px 0;
+    box-shadow: 0 1px 0 rgba(255,255,255,.9), 0 6px 18px rgba(15,23,42,.06);
+  }
+  .c-avatar{ width:40px; height:40px; border-radius:999px; overflow:hidden; border:3px solid #fff; flex:0 0 40px; }
+  .c-user{ font-weight:800; }
+  .c-text{ color:#1f2937; margin-top:2px; }
+
+  /* ===== Panel calificar oculto por defecto (aparece al click en la estrella) ===== */
+  .panel-rate{
+    position:absolute; top:0; right:0;
+    width:min(360px, 86vw); height:100%;
+    background:linear-gradient(180deg,#fff,rgba(255,255,255,.98));
+    border-left:1px solid rgba(15,23,42,.08);
+    border-radius:0 20px 20px 0;
+    box-shadow:-8px 0 24px rgba(15,23,42,.12);
+    padding:16px;
+    opacity:0;
+    transform: translateX(100%);
+    display:none; flex-direction:column;
+    z-index:10;
+  }
+  .panel-rate.open{
+    display:flex;
+    animation: slideInRight .3s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .panel-rate.closing{
+    animation: slideOutRight .3s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  @keyframes slideInRight{ 0%{ opacity:0; transform: translateX(100%); } 100%{ opacity:1; transform: translateX(0); } }
+  @keyframes slideOutRight{ 0%{ opacity:1; transform: translateX(0); } 100%{ opacity:0; transform: translateX(100%); } }
+
+  .rate-title{ font-weight:900; margin:2px 0 10px; font-size:16px; letter-spacing:-.01em; }
+  .rate-prof-head{ display:flex; align-items:center; gap:10px; justify-content:flex-start; margin:4px 0 12px; }
+  .rate-prof-avatar{ width:40px; height:40px; border-radius:9999px; overflow:hidden; border:2px solid #fff; box-shadow:0 4px 10px rgba(15,23,42,.12); }
+  .rate-prof-name{ font-weight:800; font-size:15px; color:#0f172a; }
+  .rate-body{ flex:1; display:flex; align-items:stretch; }
+  .rate-inner{ width:100%; }
+  .rate-stars{ display:flex; gap:10px; margin:6px 0 12px; justify-content:center; }
+  .rate-stars button{ background:none; border:0; padding:0; cursor:pointer; }
+  .rate-stars svg{ width:30px; height:30px; color:var(--star); }
+  .rate-text{
+    width:100%; min-height:140px;
+    border:1px solid rgba(15,23,42,.06);
+    border-radius:14px; padding:12px;
+    background:#fff; color:#0f172a; font-size:14px; resize:none; outline:none;
+  }
+  .range-row{ margin:12px 0; }
+  .range-row label{ display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:6px; }
+  input[type="range"]{
+    -webkit-appearance:none; appearance:none; width:100%; height:10px; border-radius:999px;
+    background: linear-gradient(90deg, var(--range-fill) 50%, var(--range-track) 50%); outline: none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:22px; height:22px; border-radius:50%;
+    background:#fff; border:2px solid var(--range-fill);
+    box-shadow:0 6px 14px rgba(248,193,96,.45);
+    margin-top:-5px;
+  }
+  input[type="range"]::-moz-range-thumb{
+    width:22px; height:22px; border-radius:50%;
+    background:#fff; border:2px solid var(--range-fill);
+    box-shadow:0 6px 14px rgba(248,193,96,.45);
+  }
+  .btn-ios{ height:42px; padding:0 18px; border-radius:12px; font-weight:800; font-size:14px; border:1px solid transparent; }
+  .rate-actions{ margin-top:auto; display:flex; justify-content:space-between; gap:12px; }
+  .rate-actions .btn-ios{
+    height:48px; min-width:140px; padding:0 22px;
+    font-size:15px; font-weight:800; border-radius:14px;
+    display:inline-flex; align-items:center; justify-content:center; line-height:1; box-shadow:none !important;
+  }
+  .btn-cancel{ background:#334155; color:#fff; border-color:#334155; }
+  .btn-send{   background:#F8C160; color:#fff; border-color:#F8C160; }
+
+  @media (max-width: 960px){
+    .grid{ grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .top-card{ grid-template-columns: 1fr; text-align:center; min-height:220px; }
+    .top-title{ margin-left:0; }
+    .best-list{ margin-left:0; justify-content:center; }
+    .detail-shell{ height:auto; }
+    .panel-rate{ width:100%; height:auto; right:0; }
+  }
+  @media (max-width: 800px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (max-width: 640px){ .grid{ grid-template-columns: repeat(2, minmax(0,1fr)); } .search-ios{ width:100%; } }
+
+  /* ===== Sección métricas estilo iOS glass (compat) ===== */
+  .pl-metrics{ display:flex; justify-content:center; gap:18px; padding:20px 16px; background: rgba(255,255,255,.55); backdrop-filter: blur(18px) saturate(180%); -webkit-backdrop-filter: blur(18px) saturate(180%); border-bottom:1px solid rgba(15,23,42,.08); }
+
+  /* Botón cerrar del panel (visible ahora que es modal lateral) */
+  .btn-close-rate {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 9999px;
+    background: #0f172a;
+    color: #fff;
+    border: 0;
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 14px rgba(0,0,0,.25);
+    transition: background .2s;
+  }
+  .btn-close-rate:hover { background: #334155; }
+
+  /* Tutorial overlay */
+  #tutorialOverlay, #prof-tutorial-overlay{ position:fixed; inset:0; z-index:10000; display:none; }
+  #tutorialOverlay .backdrop, #prof-tutorial-overlay .pt-backdrop{
+    position:absolute; inset:0; background:var(--overlay-bg); backdrop-filter: blur(4px);
+  }
+  #tutorialOverlay .stage, #pt-stage{ position:absolute; inset:0; pointer-events:none; }
+  #tutorialStage path, #pt-stage path, .arrow-path{
+    fill:none; stroke:#fff !important; stroke-width:3 !important; stroke-linecap:round !important; stroke-linejoin:round !important;
+    marker-end:url(#arrowHeadWhite) !important; filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); opacity:.98;
+  }
+  #tutorialOverlay .card, #pt-card{
+    position:absolute; max-width:320px; background:#fff; color:#0f172a; border-radius:16px; border:1px solid rgba(15,23,42,.08);
+    box-shadow: 0 18px 40px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.95);
+    padding:14px; font-size:14px; line-height:1.35; pointer-events:auto;
+  }
+  #tutorialOverlay .close-x, #pt-close{
+    position:absolute; right:18px; top:18px; width:28px; height:28px; border-radius:9999px; background:#0f172a; color:#fff; border:0; cursor:pointer; font-weight:900;
+    display:flex; align-items:center; justify-content:center; box-shadow:0 10px 20px rgba(0,0,0,.25);
+  }
+
+  /* Mobile baseline */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:50; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+<body>
+  <!-- Defs SVG -->
+  <svg width="0" height="0" style="position:absolute; max-width:100%; height:auto;">
+    <defs>
+      <symbol id="star-solid" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2.5l3 6.1 6.7 1-4.9 4.8 1.2 6.8-6-3.2-6 3.2 1.2-6.8L2.3 9.6l6.7-1L12 2.5z"/>
+      </symbol>
+      <symbol id="icon-rate" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 1.75c-5.65 0-10.25 4.6-10.25 10.25S6.35 22.25 12 22.25 22.25 17.65 22.25 12 17.65 1.75 12 1.75zm3.23 6.02c.26 0 .5.1.69.29l.97.97c.38.38.38 1 0 1.38l-5.7 5.7-2.31.36c-.54.08-1-.38-.92-.92l.36-2.31 5.7-5.7c.18-.19.43-.29.69-.29zm-5.8 7.31l1.62-.25-1.37-1.37-.25 1.62z"/>
+      </symbol>
+      <marker id="arrowHeadWhite" markerWidth="12" markerHeight="12" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L12,6 L0,12 z" fill="#fff"></path>
+      </marker>
+    </defs>
+  </svg>
+
+  <% /* Admin: crear profesor (SIN id) */ %>
+  <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+    <form action="/app/profesores" method="POST"
+          class="flex items-center gap-2 mb-3"
+          style="display:flex;align-items:center;gap:8px;margin:10px 6px 6px; max-width:100%; height:auto;">
+      <span style="font-weight:700;color:#334155; max-width:100%; height:auto;">Admin · Nuevo profesor</span>
+      <!-- NOMBRE (backend acepta name o nombre) -->
+      <input name="nombre"    placeholder="Nombre y Apellido"    required
+            style="border:1px solid rgba(15,23,42,.12);padding:6px 8px;border-radius:10px; max-width:100%; height:auto;">
+      <!-- MATERIAS/TEXTO (alineado con backend: subjects_text) -->
+      <input name="subjects_text"   placeholder="Materias (opcional)"
+            style="border:1px solid rgba(15,23,42,.12);padding:6px 8px;border-radius:10px;min-; max-width:100%; height:auto;">
+      <!-- FOTO -->
+      <input name="photo_url" placeholder="URL foto (opcional)"
+            style="border:1px solid rgba(15,23,42,.12);padding:6px 8px;border-radius:10px;min-; max-width:100%; height:auto;">
+      <!-- CARRERA/PLAN ocultos para que quede asociada al filtro actual -->
+      <input type="hidden" name="carrera" value="<%= carrera %>">
+      <input type="hidden" name="plan" value="<%= plan %>">
+      <button type="submit"
+              style="height:36px;padding:0 14px;border-radius:12px;font-weight:800;background:#0F172A;color:#fff;border:0; max-width:100%; height:auto;">
+        Crear
+      </button>
+    </form>
+  <% } %>
+  
+  <div class="wrap">
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="seg-wrap">
+        <div id="segStars">
+          <div id="segThumb"></div>
+          <div class="seg-group">
+            <% var starsQ = (typeof stars !== 'undefined' && !Number.isNaN(parseInt(stars,10))) ? String(parseInt(stars,10)) : null; %>
+            <% ['0','1','2','3','4','5'].forEach(function(v){ var active = (starsQ===v) || (!starsQ && v==='0'); %>
+              <a href="/app/profesores?stars=<%= v %>" class="seg-btn" data-active="<%= active ? 'true':'false' %>" id="seg-<%= v %>star"><%= v==='0' ? '-' : v %> ★</a>
+            <% }); %>
+          </div>
+        </div>
+      </div>
+
+      <form class="search-wrap" action="/app/profesores" method="get">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input id="searchProf" class="search-ios" name="q" value="<%= q||'' %>" placeholder="Buscar profesor"/>
+
+        <% /* preserva el filtro de estrellas si está activo */ %>
+        <% if (typeof stars!=='undefined' && stars!=='') { %>
+          <input type="hidden" name="stars" value="<%= stars %>">
+        <% } %>
+      </form>
+
+    </div>
+
+    <!-- Top del mes -->
+    <% var _topMes = (Array.isArray(topMes)? topMes.slice(0,5) : []); %>
+    <% if (_topMes.length) { %>
+      <div class="top-card" id="topCard">
+        <div class="top-bg" aria-hidden="true"></div>
+        <div class="top-left">
+          <div class="top-title">Los 5 mejores profesores del mes</div>
+          <div class="best-list" id="topList">
+            <% _topMes.forEach(function(p){ var avg = Number(p.monthAvg||0); var rn = Math.round(avg); %>
+              <div class="best prof-click"
+                   data-id="<%= p.id || (p.nombre||'').toLowerCase() %>"
+                   data-name="<%= p.nombre %>"
+                   data-avg="<%= avg %>"
+                   data-avatar="<%= p.avatar %>"
+                   data-comments='<%- JSON.stringify((Array.isArray(p.ratings)? p.ratings : []).map(function(r){return {stars:r.stars, comment:r.comment, ts:r.ts};})) %>'>
+                <div class="ph"><img src="<%= p.avatar %>" alt="<%= p.nombre %>"/></div>
+                <div class="name"><%= p.nombre.split(' ')[0] %></div>
+                <div class="stars">
+                  <% for (var i=1;i<=5;i++){ %>
+                    <svg class="star" viewBox="0 0 24 24" aria-hidden="true"><use href="#star-solid" style="opacity:<%= i<=rn ? 1 : .35 %>; max-width:100%; height:auto;"></use></svg>
+                  <% } %>
+                </div>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+        <div class="trophy-side" aria-hidden="true">
+          <div class="trophy-wrap">
+            <canvas class="confetti-canvas" id="confettiCanvas"></canvas>
+            <img id="trophyImg" src="https://www.dropbox.com/scl/fi/8x0r7dmo095x0svqc14c3/Trofeo-Completo.png?rlkey=2emyt9o1t8axemw2w83baosnc&raw=1" alt="Trofeo del mes" loading="lazy"/>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Lista inferior -->
+    <div class="section-head">
+      <div class="section-title">Los profesores</div>
+      <div class="pager">
+        <span class="ios-muted">Total <%= total %></span>
+        <% var prev = Math.max(1,(page||1)-1); var next = Math.min(totalPages||1,(page||1)+1); %>
+        <a class="ios-btn" href="/app/profesores?<% if(typeof stars!=='undefined' && stars!==''){ %>stars=<%= stars %>&<% } %><% if(typeof q!=='undefined' && q){ %>q=<%= encodeURIComponent(q) %>&<% } %>page=<%= prev %>" aria-label="Anterior">‹</a>
+        <span class="ios-chip" aria-current="page"><%= page %>/<%= totalPages %></span>
+        <a class="ios-btn" href="/app/profesores?<% if(typeof stars!=='undefined' && stars!==''){ %>stars=<%= stars %>&<% } %><% if(typeof q!=='undefined' && q){ %>q=<%= encodeURIComponent(q) %>&<% } %>page=<%= next %>" aria-label="Siguiente">›</a>
+      </div>
+    </div>
+
+    <div id="profGrid" class="grid">
+      <% (Array.isArray(profesores) ? profesores : []).forEach(function(p){
+           var avg = Number(p.avg || 0);
+           var rounded = Math.round(avg);
+           var _ratings = Array.isArray(p.ratings) ? p.ratings : [];
+           var _rc = _ratings.length ? _ratings[Math.floor(Math.random()*_ratings.length)].comment : null;
+           var rawComment = _rc ? _rc : '— Sin comentarios aún —';
+      %>
+        <div class="prof prof-click"
+             data-id="<%= p.id %>"
+             data-name="<%= p.name || p.nombre %>"
+             data-avg="<%= avg %>"
+             data-avatar="<%= p.photo_url || p.avatar || ('https://ui-avatars.com/api/?name='+encodeURIComponent(p.name||p.nombre)) %>"
+             data-corre="<%= (p.metrics && p.metrics.corre!=null)? p.metrics.corre : '' %>"
+             data-clases="<%= (p.metrics && p.metrics.clases!=null)? p.metrics.clases : '' %>"
+             data-onda="<%= (p.metrics && p.metrics.onda!=null)? p.metrics.onda : '' %>"
+             data-comments='<%- JSON.stringify(_ratings.map(function(r){return {stars:r.stars, comment:r.comment, ts:r.ts};})) %>'>
+
+          <% /* Admin: eliminar */ %>
+          <% if (typeof isAdmin !== 'undefined' && isAdmin) { %>
+            <form action="/app/profesores/<%= p.id %>/delete" method="POST"
+                  onsubmit="return confirm('¿Eliminar <%= (p.name||p.nombre) %>?');"
+                  style="position:absolute;top:8px;right:8px; max-width:100%; height:auto;">
+              <button type="submit"
+                      style="height:28px;padding:0 10px;border-radius:9999px;font-weight:800;font-size:12px;color:#fff;background:#ef4444;border:0; max-width:100%; height:auto;">
+                Eliminar
+              </button>
+            </form>
+          <% } %>
+
+          <div class="photo-wrap"><img src="<%= p.photo_url || p.avatar || ('https://ui-avatars.com/api/?name='+encodeURIComponent(p.name||p.nombre)) %>" alt="<%= p.name || p.nombre %>"/></div>
+          <div class="nm"><%= p.name || p.nombre %></div>
+          <div class="mini-stars" title="Promedio: <%= avg.toFixed(2) %>">
+            <% for (var i=1;i<=5;i++){ %>
+              <svg class="star-24" viewBox="0 0 24 24" aria-hidden="true"><use href="#star-solid" style="opacity:<%= i<=rounded ? 1 : .35 %>; max-width:100%; height:auto;"></use></svg>
+            <% } %>
+          </div>
+          <div class="mini-comment" aria-label="Comentario destacado"><%= (rawComment||'').toString().replace(/^"+|"+$/g,'') %></div>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+
+  <!-- DETALLE + CALIFICAR -->
+  <div id="detailBack" class="detail-back" role="dialog" aria-modal="true">
+    <div class="detail-shell" id="detailShell">
+      <!-- Panel principal (izquierda) -->
+      <div class="panel-left" id="panelLeft">
+        <div class="pl-head">
+          <!-- Avatar circular con FAB Calificar pegado abajo/derecha -->
+          <div class="pl-avatar-box">
+            <div class="pl-avatar"><img id="plAvatar" src="" alt=""/></div>
+            <!-- Botón que abre/cierra el panel derecho -->
+            <button class="ios-fab-rate" id="btnOpenRate" type="button" title="Calificar" aria-label="Calificar">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 2l2.95 5.98 6.6.96-4.77 4.65 1.13 6.58L12 17.77l-5.91 3.4 1.13-6.58L2.45 8.94l6.6-.96L12 2z" fill="currentColor"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="pl-info">
+            <div class="pl-name" id="plName">Profesor/a</div>
+            <div class="pl-stars" id="plStars"></div>
+          </div>
+
+          <div class="pl-metrics-inline cursor-pointer">
+          <div class="metric">
+                        <div class="metric-label">Corrección</div>
+            <div class="metric-value" id="mCorre">–/10</div>
+                        <div class="metric-icon">
+              <!-- SVG lápiz -->
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M13.1092 13.5C12.4699 12.9552 11.5297 12.9552 10.8905 13.5C10.6165 13.7334 10.276 13.8745 9.91719 13.9031C9.07997 13.97 8.41515 14.6348 8.34834 15.472C8.31971 15.8308 8.17863 16.1714 7.94519 16.4453C7.40043 17.0845 7.40043 18.0247 7.94519 18.664C8.17863 18.9379 8.31971 19.2785 8.34834 19.6373C8.41515 20.4745 9.07997 21.1393 9.91719 21.2061C10.276 21.2347 10.6165 21.3758 10.8905 21.6093C11.5297 22.154 12.4699 22.154 13.1092 21.6093C13.3831 21.3758 13.7237 21.2347 14.0824 21.2061C14.9197 21.1393 15.5845 20.4745 15.6513 19.6373C15.6799 19.2785 15.821 18.9379 16.0544 18.664C16.5992 18.0247 16.5992 17.0845 16.0544 16.4453C15.821 16.1714 15.6799 15.8308 15.6513 15.472C15.5845 14.6348 14.9197 13.97 14.0824 13.9031C13.7237 13.8745 13.3831 13.7334 13.1092 13.5ZM14.0117 17.1031C14.3146 16.8205 14.3309 16.3459 14.0483 16.0431C13.7657 15.7403 13.2911 15.7239 12.9883 16.0065L11.3571 17.5289L11.0117 17.2065C10.7089 16.9239 10.2343 16.9403 9.95171 17.2431C9.66909 17.5459 9.68545 18.0205 9.98826 18.3031L10.8454 19.1031C11.1336 19.372 11.5807 19.372 11.8689 19.1031L14.0117 17.1031Z" fill="#1C274D"></path> <path opacity="0.5" d="M2 12V8C2 5.17157 2 3.75736 2.87868 2.87868C3.75736 2 5.17157 2 8 2H16C18.8284 2 20.2426 2 21.1213 2.87868C22 3.75736 22 5.17157 22 8V12C22 14.8284 22 16.2426 21.1213 17.1213C20.2855 17.9571 18.9652 17.9979 16.4042 17.9999C16.5467 17.4702 16.4302 16.8862 16.0544 16.4453C15.821 16.1714 15.6799 15.8308 15.6513 15.472C15.5845 14.6348 14.9197 13.97 14.0824 13.9031C13.7237 13.8745 13.3831 13.7334 13.1092 13.5C12.4699 12.9552 11.5297 12.9552 10.8905 13.5C10.6165 13.7334 10.276 13.8745 9.91719 13.9031C9.07997 13.97 8.41515 14.6348 8.34834 15.472C8.31971 15.8308 8.17863 16.1714 7.94519 16.4453C7.56948 16.8862 7.4529 17.4702 7.59543 17.9999C5.03465 17.9979 3.71443 17.9571 2.87868 17.1213C2 16.2426 2 14.8284 2 12Z" fill="#1C274D"></path> <path d="M8.25 6C8.25 5.58579 8.58579 5.25 9 5.25H15C15.4142 5.25 15.75 5.58579 15.75 6C15.75 6.41421 15.4142 6.75 15 6.75H9C8.58579 6.75 8.25 6.41421 8.25 6Z" fill="#1C274D"></path> <path d="M7 8.75C6.58579 8.75 6.25 9.08579 6.25 9.5C6.25 9.91421 6.58579 10.25 7 10.25H17C17.4142 10.25 17.75 9.91421 17.75 9.5C17.75 9.08579 17.4142 8.75 17 8.75H7Z" fill="#1C274D"></path> </g></svg>
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">Clases</div>
+            <div class="metric-value" id="mClases">–/10</div>
+             <div class="metric-icon">
+              <!-- SVG: Libro -->
+              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12 21C16.4183 21 20 17.6439 20 13.504C20 9.76257 17.9654 6.83811 16.562 5.44436C16.3017 5.18584 15.8683 5.30006 15.7212 5.63288C14.9742 7.3229 13.4178 9.75607 11.4286 9.75607C10.1975 9.92086 8.31688 8.86844 9.83483 3.64868C9.97151 3.17868 9.46972 2.80113 9.08645 3.11539C6.9046 4.90436 4 8.51143 4 13.504C4 17.6439 7.58172 21 12 21Z" fill="#1C274C"></path> <path d="M4.4766 16.0587C6.08562 13.6138 8.85435 12 12 12C15.1457 12 17.9144 13.6138 19.5234 16.0587C19.8318 15.2614 20 14.4011 20 13.504C20 9.76257 17.9654 6.83811 16.562 5.44436C16.3017 5.18584 15.8683 5.30006 15.7212 5.63288C14.9742 7.3229 13.4178 9.75607 11.4286 9.75607C10.1975 9.92086 8.31688 8.86844 9.83483 3.64868C9.97151 3.17868 9.46972 2.80113 9.08645 3.11539C6.9046 4.90436 4 8.51143 4 13.504C4 14.4011 4.16818 15.2614 4.4766 16.0587Z" fill="#1C274C"></path> </g></svg>
+            </div>
+          </div>
+
+          <div class="metric">
+              <div class="metric-label">Buena Onda</div>
+             <div class="metric-value" id="mOnda">–/10</div>
+            <div class="metric-icon">
+              <!-- SVG: Smiley -->
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.5" d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" fill="#1C274C"></path> <path d="M14.8978 11.2237C15.4313 11.0808 15.6899 10.3162 15.4755 9.51599C15.2611 8.71579 14.6548 8.18298 14.1213 8.32592C13.5879 8.46886 13.3292 9.23343 13.5436 10.0336C13.7581 10.8338 14.3643 11.3666 14.8978 11.2237Z" fill="#1C274C"></path> <path d="M9.10238 12.7767C9.63585 12.6337 9.89449 11.8692 9.68008 11.069C9.46567 10.2688 8.85939 9.73596 8.32592 9.8789C7.79246 10.0218 7.53381 10.7864 7.74823 11.5866C7.96264 12.3868 8.56892 12.9196 9.10238 12.7767Z" fill="#1C274C"></path> <path d="M8.18524 15.751C8.28594 15.3492 8.69329 15.1052 9.09507 15.2059C10.2254 15.4892 11.5234 15.4927 12.8411 15.1396C14.1589 14.7865 15.2813 14.1345 16.1185 13.324C16.4161 13.0359 16.8909 13.0436 17.179 13.3412C17.4671 13.6388 17.4594 14.1136 17.1618 14.4017C16.8143 14.7381 16.4298 15.0495 16.0129 15.3304L16.1709 15.6523C16.5396 16.4034 16.2225 17.3108 15.4663 17.6688C14.7251 18.0197 13.8395 17.7102 13.4781 16.9741L13.2819 16.5742L13.2294 16.5885C11.674 17.0052 10.1168 17.0083 8.73039 16.6609C8.32861 16.5602 8.08453 16.1528 8.18524 15.751Z" fill="#1C274C"></path> </g></svg>
+            </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pl-comments" id="dComments"></div>
+      </div>
+
+      <!-- Panel calificar (derecha, oculto por defecto) -->
+      <div class="panel-rate" id="panelRate">
+        <button class="btn-close-rate" id="rateCloseX" aria-label="Cerrar">×</button>
+        <div class="rate-title">Calificar</div>
+        <div class="rate-prof-head" id="rateProfHead">
+          <div class="rate-prof-avatar"><img id="rateProfAvatar" src="" alt=""/></div>
+          <div class="rate-prof-name" id="rateProfName">Profesor/a</div>
+        </div>
+
+        <div class="rate-body">
+          <div class="rate-inner">
+            <div class="rate-stars" id="rateStars">
+              <% for(var i=1;i<=5;i++){ %>
+                <button type="button" data-star="<%= i %>" aria-label="<%= i %> estrellas">
+                  <svg><use href="#star-solid" style="opacity:.35; max-width:100%; height:auto;"></use></svg>
+                </button>
+              <% } %>
+            </div>
+
+            <textarea id="rateText" class="rate-text" placeholder="Escribí tu comentario…"></textarea>
+
+            <div class="range-row"><label>Corrección <span id="vCorre">5/10</span></label><input id="rCorre" type="range" min="1" max="10" value="5"></div>
+            <div class="range-row"><label>Clases <span id="vClases">5/10</span></label><input id="rClases" type="range" min="1" max="10" value="5"></div>
+            <div class="range-row"><label>Buena onda <span id="vOnda">5/10</span></label><input id="rOnda" type="range" min="1" max="10" value="5"></div>
+          </div>
+        </div>
+
+        <div class="rate-actions">
+          <button class="btn-ios btn-cancel" id="rateCancel">Cancelar</button>
+          <button class="btn-ios btn-send" id="rateSend">Enviar</button>
+        </div>
+        <input type="hidden" id="activeProfId" value="">
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERLAY TUTORIAL (fallback local) -->
+  <div id="tutorialOverlay">
+    <div class="backdrop" id="tutorialBackdrop"></div>
+    <svg class="stage" id="tutorialStage"></svg>
+    <button id="tutorialClose" class="close-x" aria-label="Cerrar">×</button>
+    <div class="card" id="tipCard"></div>
+  </div>
+
+  <script>
+  /* ===== Thumb del selector ===== */
+  (function(){
+    var seg   = document.getElementById('segStars');
+    var thumb = document.getElementById('segThumb');
+    var btns  = Array.prototype.slice.call(seg.querySelectorAll('.seg-btn'));
+    function active(){ for(var i=0;i<btns.length;i++){ if(btns[i].getAttribute('data-active')==='true') return btns[i]; } return btns[0]; }
+    function move(el){
+      var rs = seg.getBoundingClientRect(), rb = el.getBoundingClientRect();
+      thumb.style.left  = (rb.left - rs.left + 2) + 'px';
+      thumb.style.width = rb.width + 'px';
+      thumb.style.height= el.offsetHeight + 'px';
+    }
+    window.addEventListener('DOMContentLoaded', function(){ move(active()); });
+    window.addEventListener('resize', function(){ move(active()); });
+  })();
+
+  /* ===== Buscar ===== */
+  (function(){
+    var form = document.querySelector('.search-wrap');
+    var input = document.getElementById('searchProf');
+    if(!form || !input) return;
+    var t;
+    input.addEventListener('input', function(){
+      clearTimeout(t);
+      t = setTimeout(function(){ form.submit(); }, 350);
+    });
+  })();
+
+  /* ===== Modal + Carga de detalle ===== */
+  (function(){
+    var back      = document.getElementById('detailBack');
+    var shell     = document.getElementById('detailShell');
+    var panelLeft = document.getElementById('panelLeft');
+    var panelRate = document.getElementById('panelRate');
+
+    var avatarEl  = document.getElementById('plAvatar');
+    var nameEl    = document.getElementById('plName');
+    var starsEl   = document.getElementById('plStars');
+    var mCorre    = document.getElementById('mCorre');
+    var mClases   = document.getElementById('mClases');
+    var mOnda     = document.getElementById('mOnda');
+    var commentsEl= document.getElementById('dComments');
+    var activeProf= document.getElementById('activeProfId');
+
+    var rateProfAvatar = document.getElementById('rateProfAvatar');
+    var rateProfName   = document.getElementById('rateProfName');
+
+    function renderStars(container, value){
+      container.innerHTML = '';
+      var rn = Math.round(Number(value||0));
+      for(var i=1;i<=5;i++){
+        var s = document.createElementNS('http://www.w3.org/2000/svg','svg');
+        s.setAttribute('viewBox','0 0 24 24'); s.setAttribute('class','star');
+        s.style.width='16px'; s.style.height='16px'; s.style.color='var(--star)';
+        var use = document.createElementNS('http://www.w3.org/2000/svg','use');
+        use.setAttributeNS('http://www.w3.org/1999/xlink','href','#star-solid');
+        use.style.opacity = (i<=rn) ? 1 : .35;
+        s.appendChild(use); container.appendChild(s);
+      }
+    }
+    function anonAvatar(i){ var letter = String.fromCharCode(65 + (i%26)); return 'https://ui-avatars.com/api/?name=' + encodeURIComponent('anonymus '+letter) + '&background=E6EEF8&color=233044&bold=true'; }
+    function renderComments(list){
+      commentsEl.innerHTML = '';
+      if (!Array.isArray(list) || list.length===0){
+        var empty = document.createElement('div'); empty.className='c-row'; empty.textContent='— Sin comentarios aún —'; commentsEl.appendChild(empty); return;
+      }
+      var copy = list.slice().sort(function(a,b){ return (b.ts||0)-(a.ts||0); });
+      for(var i=0;i<copy.length;i++){
+        var c = copy[i];
+        var row = document.createElement('div'); row.className='c-row';
+        var av = document.createElement('div'); av.className='c-avatar';
+        var img = document.createElement('img'); img.src = anonAvatar(i); img.alt='anonymus'; av.appendChild(img);
+        var col = document.createElement('div');
+        var name = document.createElement('div'); name.className='c-user'; name.textContent='anonymus';
+        var text = document.createElement('div'); text.className='c-text'; text.textContent=(c.comment||'').replace(/^"+|"+$/g,'').trim();
+        col.appendChild(name); col.appendChild(text); row.appendChild(av); row.appendChild(col); commentsEl.appendChild(row);
+      }
+    }
+
+    function openDetailFrom(el){
+      var nm = el.getAttribute('data-name') || 'Profesor/a';
+      var av = el.getAttribute('data-avatar') || '';
+      var avg= parseFloat(el.getAttribute('data-avg') || '0');
+      var comments = []; try{ comments = JSON.parse(el.getAttribute('data-comments') || '[]'); }catch(_){}
+      avatarEl.src = av; avatarEl.alt = nm; nameEl.textContent = nm; renderStars(starsEl, avg);
+      var v1 = el.getAttribute('data-corre'); mCorre.textContent = v1 ? (v1 + '/10') : '–/10';
+      var v2 = el.getAttribute('data-clases'); mClases.textContent= v2 ? (v2 + '/10') : '–/10';
+      var v3 = el.getAttribute('data-onda'); mOnda.textContent  = v3 ? (v3 + '/10') : '–/10';
+      renderComments(comments); activeProf.value = el.getAttribute('data-id') || '';
+
+      rateProfAvatar.src = av; rateProfAvatar.alt = nm;
+      rateProfName.textContent = nm;
+
+      back.style.display='flex';
+    }
+
+    var clickable = document.querySelectorAll('.prof-click');
+    for (var i = 0; i < clickable.length; i++) {
+      clickable[i].addEventListener('click', function (e) {
+        if (this.closest('#topList')) return;
+        if (e.target.closest && e.target.closest('a')) return;
+        openDetailFrom(this);
+      });
+    }
+
+    function openRate(){
+      var pr = panelRate;
+      pr.classList.remove('closing');
+      pr.style.display='flex';
+      pr.offsetWidth; // forzar reflow
+      pr.classList.add('open');
+      var txt = document.getElementById('rateText'); if(txt) txt.focus();
+    }
+    function closeRate(){
+      var pr = panelRate;
+      var onEnd = function(){
+        pr.removeEventListener('animationend', onEnd);
+        pr.style.display='none';
+        pr.classList.remove('closing');
+      };
+      pr.classList.remove('open');
+      pr.classList.add('closing');
+      pr.addEventListener('animationend', onEnd);
+    }
+
+    // Abrir/cerrar con el FAB
+    var btn = document.getElementById('btnOpenRate');
+    if(btn){ btn.addEventListener('click', function(){
+      var isOpen = (panelRate.style.display==='flex' && panelRate.classList.contains('open'));
+      if(isOpen){ closeRate(); } else { openRate(); }
+    }); }
+
+    // Botón X dentro del panel
+    var closeX = document.getElementById('rateCloseX');
+    if(closeX){ closeX.addEventListener('click', closeRate); }
+
+    // Cerrar modal general
+    back.addEventListener('click', function(e){ if(e.target===back){ back.style.display='none'; }});
+    document.addEventListener('keydown', function(e){
+      if(e.key==='Escape'){
+        if(panelRate.classList.contains('open')){ closeRate(); }
+        else if(back.style.display==='flex'){ back.style.display='none'; }
+      }
+    });
+  })();
+
+  /* ===== Envío calificar ===== */
+  (function(){
+    var starBtns = Array.prototype.slice.call(document.querySelectorAll('#rateStars button'));
+    var comment  = document.getElementById('rateText');
+    var rCorre   = document.getElementById('rCorre'); var rClases = document.getElementById('rClases'); var rOnda = document.getElementById('rOnda');
+    var vCorre   = document.getElementById('vCorre'); var vClases = document.getElementById('vClases'); var vOnda = document.getElementById('vOnda');
+    var send     = document.getElementById('rateSend'); var cancel = document.getElementById('rateCancel');
+    var activeProf= document.getElementById('activeProfId');
+    var currentStars = 0;
+
+    function paint(n){ currentStars=n; for(var i=0;i<starBtns.length;i++){ var use=starBtns[i].querySelector('use'); use.style.opacity=(i<n)?1:.35; } }
+    for(var i=0;i<starBtns.length;i++){
+      (function(btn){
+        btn.addEventListener('mouseenter', function(){ paint(parseInt(btn.getAttribute('data-star'),10)); });
+        btn.addEventListener('click', function(){ paint(parseInt(btn.getAttribute('data-star'),10)); });
+      })(starBtns[i]);
+    }
+
+    function setRangeBg(r){
+      var min=parseInt(r.min||'0',10),max=parseInt(r.max||'100',10),val=parseInt(r.value||'0',10);
+      var pct=((val-min)*100)/(max-min);
+      r.style.background='linear-gradient(90deg, var(--range-fill) '+pct+'%, var(--range-track) '+pct+'%)';
+    }
+    var rCorre = document.getElementById('rCorre'), rClases = document.getElementById('rClases'), rOnda = document.getElementById('rOnda');
+    [rCorre,rClases,rOnda].forEach(function(r){ setRangeBg(r); r.addEventListener('input', function(){ setRangeBg(r); }); });
+
+    var vCorre = document.getElementById('vCorre'), vClases = document.getElementById('vClases'), vOnda = document.getElementById('vOnda');
+    function upd(inp,lab){ lab.textContent = inp.value + '/10'; }
+    rCorre.addEventListener('input', function(){ upd(rCorre,vCorre); }); upd(rCorre,vCorre);
+    rClases.addEventListener('input', function(){ upd(rClases,vClases); }); upd(rClases,vClases);
+    rOnda.addEventListener('input', function(){ upd(rOnda,vOnda); }); upd(rOnda,vOnda);
+
+    function resetForm(){
+      paint(0); comment.value='';
+      rCorre.value=5; rClases.value=5; rOnda.value=5; [rCorre,rClases,rOnda].forEach(setRangeBg);
+      vCorre.textContent='5/10'; vClases.textContent='5/10'; vOnda.textContent='5/10';
+    }
+
+    cancel.addEventListener('click', function(){
+      // cierra el panel si está abierto
+      var pr = document.getElementById('panelRate');
+      if(pr && pr.classList.contains('open')){
+        pr.classList.remove('open'); pr.classList.add('closing');
+        pr.addEventListener('animationend', function onEnd(){ pr.removeEventListener('animationend', onEnd); pr.style.display='none'; pr.classList.remove('closing'); });
+      }
+      resetForm();
+    });
+
+    async function submitRating(){
+      var profId = activeProf.value; if(!profId){ alert('No se identificó el profesor.'); return; }
+      var payload = {
+        stars: Math.max(0,Math.min(5,currentStars)),
+        comment:(comment.value||'').trim(),
+        corre:parseInt(rCorre.value,10),
+        clases:parseInt(rClases.value,10),
+        onda:parseInt(rOnda.value,10),
+        overwrite:true
+      };
+      try{
+        // Alineado con el backend real: POST /app/profesores/:id/review
+        var res = await fetch('/app/profesores/'+encodeURIComponent(profId)+'/review',{
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload), credentials:'include'
+        });
+        if(!res.ok){ var t=await res.text(); throw new Error(t||'Error al enviar calificación'); }
+        cancel.click();
+      }catch(err){ alert(err.message||String(err)); }
+    }
+    send.addEventListener('click', submitRating);
+  })();
+
+  /* ===== Confeti ===== */
+  (function(){
+    var canvas = document.getElementById('confettiCanvas'); if(!canvas) return;
+    var ctx = canvas.getContext('2d'); var img = document.getElementById('trophyImg');
+    function resize(){
+      if(!img) return;
+      var r=img.getBoundingClientRect();
+      canvas.width = Math.max(1, Math.floor(r.width*2.2));
+      canvas.height= Math.max(1, Math.floor(r.height*1.6));
+    }
+    window.addEventListener('resize', resize, {passive:true});
+    var COLORS=['#FFC83A','#F8C160','#FFD27A','#FFF3B0','#FFB84D','#FFE2A8'];
+    function explode(){
+      resize(); var W=canvas.width,H=canvas.height,cx=W*0.5,cy=H*0.5,N=160;
+      var parts=Array.from({length:N}).map(function(){ var a=Math.random()*Math.PI*2,s=2.2+Math.random()*4.8; return{ x:cx,y:cy,vx:Math.cos(a)*s,vy:Math.sin(a)*s,w:5+Math.random()*6,h:6+Math.random()*10,rot:Math.random()*Math.PI*2,rotSpeed:(Math.random()-0.5)*0.5,color:COLORS[(Math.random()*COLORS.length)|0],life:1100+Math.random()*700,born:performance.now() }; });
+      var start=performance.now();
+      function frame(t){
+        ctx.clearRect(0,0,W,H); var e=t-start;
+        for(var i=0;i<parts.length;i++){
+          var p=parts[i];
+          p.x+=p.vx; p.y+=p.vy+0.05*e/1000; p.rot+=p.rotSpeed;
+          var alpha=Math.max(0,1-(t-p.born)/p.life);
+          ctx.save(); ctx.globalAlpha=alpha; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+          ctx.fillStyle=p.color; ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h); ctx.restore();
+        }
+        if(e<1650){ requestAnimationFrame(frame); }
+      }
+      requestAnimationFrame(frame);
+    }
+    window.addEventListener('DOMContentLoaded', function(){ explode(); setInterval(explode,5000); });
+  })();
+
+  /* ===== Tutorial overlay (fallback local) ===== */
+  (function(){
+    var openBtn = document.getElementById('helpFab') || document.querySelector('a[href="/help"]');
+    var ov  = document.getElementById('tutorialOverlay');
+    var stage = document.getElementById('tutorialStage');
+    var close = document.getElementById('tutorialClose');
+    var back  = document.getElementById('tutorialBackdrop');
+    var card  = document.getElementById('tipCard');
+
+    if(!openBtn || !ov) return;
+
+    function q(sel){ return document.querySelector(sel); }
+    function rect(el){ var r=el.getBoundingClientRect(); return { x:r.left+window.scrollX, y:r.top+window.scrollY, w:r.width, h:r.height, cx:r.left+r.width/2+window.scrollX, cy:r.top+r.height/2+window.scrollY }; }
+    function placeCard(rr){
+      var x = rr.x + Math.max(0, rr.w - 320);
+      var y = rr.y - 110; if(y < 12) y = rr.y + rr.h + 12;
+      card.style.left = x + 'px'; card.style.top = y + 'px';
+    }
+    function drawArrow(fromEl, toRect){
+      var bb = fromEl.getBoundingClientRect();
+      var from = { x: bb.left + bb.width/2 + window.scrollX, y: bb.top + bb.height + window.scrollY };
+      var to   = { x: toRect.cx, y: toRect.y + 8 };
+      var dx = (to.x - from.x), dy = (to.y - from.y);
+      var c1x = from.x + dx*0.1, c1y = from.y + dy*0.6;
+      stage.innerHTML = '';
+      var p = document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('d', 'M'+from.x+','+from.y+' C '+c1x+','+c1y+' '+(to.x-dx*0.15)+','+(to.y-dy*0.2)+' '+to.x+','+to.y);
+      p.setAttribute('fill','none'); p.setAttribute('stroke','#fff'); p.setAttribute('stroke-width','3'); p.setAttribute('marker-end','url(#arrowHeadWhite)');
+      p.style.filter='drop-shadow(0 1px 2px rgba(0,0,0,.5))'; p.style.opacity='.98'; stage.appendChild(p);
+    }
+
+    var steps = [
+      { target: '#segStars', text: '<b>Filtrar por estrellas</b><br/>Usá estos botones para ver profesores según su calificación.' },
+      { target: '#topCard',  text: '<b>Los mejores del mes</b><br/>Acá ves a quienes destacan este mes.' },
+      { target: '#profGrid', text: '<b>Los profesores</b><br/>Tocá cualquiera para ver más detalles y calificar.' }
+    ];
+    var idx = 0;
+
+    function show(i){
+      var s = steps[i]; var target = q(s.target); if(!target) return end();
+      stage.setAttribute('width', document.body.getBoundingClientRect().width);
+      stage.setAttribute('height', document.body.getBoundingClientRect().height);
+      var r = rect(target);
+      card.innerHTML = s.text + '<div style="margin-top:8px;color:#94a3b8;font-size:12px; max-width:100%; height:auto;">Tocá en cualquier lugar para continuar</div>';
+      placeCard(r);
+      drawArrow(card, r);
+    }
+    function open(){ idx = 0; ov.style.display='block'; show(idx); window.addEventListener('resize', onReflow); window.addEventListener('scroll', onReflow, {passive:true}); }
+    function next(){ idx++; if(idx >= steps.length){ end(); } else { show(idx); } }
+    function end(){ ov.style.display='none'; window.removeEventListener('resize', onReflow); window.removeEventListener('scroll', onReflow); }
+    function onReflow(){ if(ov.style.display==='block') show(idx); }
+
+    if(openBtn){
+      openBtn.addEventListener('click', function(e){
+        if (!window.__fabHelpHooked) { e.preventDefault(); e.stopPropagation(); open(); }
+      });
+    }
+
+    var closeBtn = document.getElementById('tutorialClose');
+    if(closeBtn) closeBtn.addEventListener('click', function(){ end(); });
+    var backEl = document.getElementById('tutorialBackdrop');
+    if(backEl) backEl.addEventListener('click', function(){ next(); });
+    var cardEl = document.getElementById('tipCard');
+    if(cardEl) cardEl.addEventListener('click', function(){ next(); });
+  })();
+  </script>
+</body>
+</html>

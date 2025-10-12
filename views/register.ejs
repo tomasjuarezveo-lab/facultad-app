@@ -1,0 +1,517 @@
+﻿<%
+// Fallbacks por si el servidor no envía las listas:
+const _careers = (typeof careerOptions !== 'undefined' && Array.isArray(careerOptions) && careerOptions.length)
+  ? careerOptions
+  : ['Lic. en Administración de Empresas', 'Lic. en Economía', 'Contabilidad', 'Marketing', 'Recursos Humanos', 'Comercio Exterior', 'Finanzas', 'Sistemas'];
+
+const _plans = (typeof planOptions !== 'undefined' && Array.isArray(planOptions) && planOptions.length)
+  ? planOptions
+  : ['7','8','2008','2013','2020','2024'];
+
+const _form = (typeof form !== 'undefined' && form) ? form : {};
+%>
+
+<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <!-- IZQUIERDA VACÍA -->
+    <section class="hidden lg:block"></section>
+
+    <!-- DERECHA: REGISTRO (sin tarjeta) -->
+    <section class="px-6 sm:px-10 lg:pl-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Crear cuenta</h1>
+      <p class="text-sm sm:text-base text-slate-500 mb-6">Elegí tu carrera y plan para ver el material correcto.</p>
+
+      <% if (typeof error !== "undefined" && error) { %>
+        <div class="mb-4 text-sm text-red-600"><%= error %></div>
+      <% } %>
+
+      <form id="registerForm" method="POST" action="/register" class="space-y-3 max-w-md" novalidate>
+        <!-- Nombre y Apellido (en un solo campo) -->
+        <label class="block">
+          <span class="ios-label">Nombre y apellido</span>
+          <input
+            class="ios-input"
+            type="text"
+            name="name"
+            required
+            placeholder="Tu nombre"
+            value="<%= _form.name || '' %>"
+            autocomplete="name"
+          />
+        </label>
+
+        <!-- Email -->
+        <label class="block">
+          <span class="ios-label">Email</span>
+          <input
+            class="ios-input"
+            type="email"
+            name="email"
+            required
+            placeholder="tu@email.com"
+            value="<%= (typeof _form.email !== 'undefined') ? _form.email : '' %>"
+            autocomplete="email"
+          />
+        </label>
+
+        <!-- Contraseña + Repetir contraseña -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block">
+            <span class="ios-label">Contraseña</span>
+            <div class="ios-input-wrap">
+              <input
+                class="ios-input"
+                id="regPw"
+                type="password"
+                name="password"
+                required
+                placeholder="••••••••"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="ios-pw-toggle"
+                data-pw-target="regPw"
+                style="color: orange; max-width:100%; height:auto;"
+              >Mostrar</button>
+            </div>
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Repetir contraseña</span>
+            <div class="ios-input-wrap">
+              <input
+                class="ios-input"
+                id="regPw2"
+                type="password"
+                name="password_repeat"
+                required
+                placeholder="••••••••"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="ios-pw-toggle"
+                data-pw-target="regPw2"
+                style="color: orange; max-width:100%; height:auto;"
+              >Mostrar</button>
+            </div>
+          </label>
+        </div>
+        <p id="pwError" class="text-xs sm:text-sm text-red-600 hidden">Las contraseñas no coinciden.</p>
+
+        <!-- Teléfono -->
+        <label class="block">
+          <span class="ios-label">Número de teléfono</span>
+          <input
+            class="ios-input"
+            type="tel"
+            name="phone"
+            inputmode="tel"
+            placeholder="+54 9 11 1234-5678"
+            value="<%= _form.phone || '' %>"
+            autocomplete="tel"
+          />
+        </label>
+
+        <!-- Carrera y Plan (dropdown custom con scroll si >4 ítems) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label class="block">
+            <span class="ios-label">Carrera</span>
+
+            <!-- Select real (fallback) -->
+            <select class="ios-input native-select" name="career" required aria-hidden="true" tabindex="-1" id="careerSelectNative">
+              <option value="">Elegir…</option>
+              <% _careers.forEach(function(c){ %>
+                <option value="<%= c %>" <%= (_form.career === c) ? 'selected' : '' %>><%= c %></option>
+              <% }) %>
+            </select>
+
+            <!-- Select custom -->
+            <div class="cs-select" data-select="career" id="careerSelectCustom">
+              <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="cs-value"><%= _form.career || 'Elegir…' %></span>
+                <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                </svg>
+              </button>
+              <ul class="cs-menu" role="listbox" tabindex="-1">
+                <li class="cs-option <%= !_form.career ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                <% _careers.forEach(function(c){ %>
+                  <li class="cs-option <%= (_form.career===c)?'is-selected':'' %>" data-value="<%= c %>"><%= c %></li>
+                <% }) %>
+              </ul>
+            </div>
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Plan</span>
+
+            <!-- Select real (fallback) -->
+            <select class="ios-input native-select" name="plan" required aria-hidden="true" tabindex="-1" id="planSelectNative">
+              <option value="">Elegir…</option>
+              <% _plans.forEach(function(p){ const pv = String(p); %>
+                <option value="<%= pv %>" <%= (String(_form.plan||'')===pv)?'selected':'' %>><%= pv %></option>
+              <% }) %>
+            </select>
+
+            <!-- Select custom -->
+            <div class="cs-select" data-select="plan" id="planSelectCustom">
+              <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="cs-value"><%= _form.plan || 'Elegir…' %></span>
+                <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                </svg>
+              </button>
+              <ul class="cs-menu" role="listbox" tabindex="-1">
+                <li class="cs-option <%= !_form.plan ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                <% _plans.forEach(function(p){ const pv = String(p); %>
+                  <li class="cs-option <%= (String(_form.plan||'')===pv)?'is-selected':'' %>" data-value="<%= pv %>"><%= pv %></li>
+                <% }) %>
+              </ul>
+            </div>
+          </label>
+        </div>
+
+        <button class="ios-btn-primary w-full mt-1 bg-[#F8C160]">Crear cuenta</button>
+      </form>
+
+      <div class="mt-6 text-sm text-slate-500">
+        ¿Ya tenés cuenta?
+        <a class="ios-link" href="/login" style="color: orange; max-width:100%; height:auto;">Iniciar sesión</a>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+  // Toggle mostrar/ocultar contraseña
+  document.querySelectorAll('.ios-pw-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-pw-target');
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.textContent = input.type === 'password' ? 'Mostrar' : 'Ocultar';
+    });
+  });
+
+  // Validación de contraseñas iguales (front)
+  const form = document.getElementById('registerForm');
+  const pw1  = document.getElementById('regPw');
+  const pw2  = document.getElementById('regPw2');
+  const pwErr = document.getElementById('pwError');
+
+  function checkPwMatch() {
+    const ok = pw1.value === pw2.value;
+    pwErr.classList.toggle('hidden', ok);
+    return ok;
+  }
+  pw1.addEventListener('input', checkPwMatch);
+  pw2.addEventListener('input', checkPwMatch);
+
+  form.addEventListener('submit', (e) => {
+    if (!checkPwMatch()) {
+      e.preventDefault();
+      pw2.focus();
+    }
+  });
+
+  // ===== Custom Select (Carrera / Plan) + Data dependiente =====
+  (function(){
+    // ---------- Setup base de cs-select ----------
+    function setupCsSelect(root){
+      const trigger = root.querySelector('.cs-trigger');
+      const valueEl = root.querySelector('.cs-value');
+      const menu    = root.querySelector('.cs-menu');
+      let options   = Array.from(root.querySelectorAll('.cs-option'));
+      const native  = root.parentElement.querySelector('select.native-select');
+
+      function setScrollableIfNeeded(){
+        const opts = Array.from(root.querySelectorAll('.cs-option'));
+        const count = opts.length;
+        if (count > 5 || (count >= 5 && opts[0]?.dataset.value === '')) {
+          requestAnimationFrame(()=>{
+            const sample = menu.querySelector('.cs-option');
+            const cs = getComputedStyle(menu);
+            const pt = parseInt(cs.paddingTop || '0', 10);
+            const pb = parseInt(cs.paddingBottom || '0', 10);
+            const h  = sample ? Math.ceil(sample.getBoundingClientRect().height) : 36;
+            const visible = 4;
+            menu.classList.add('is-scrollable');
+            menu.style.maxHeight = (h * visible + pt + pb) + 'px';
+          });
+        } else {
+          menu.classList.remove('is-scrollable');
+          menu.style.maxHeight = '';
+        }
+      }
+
+      function close(){
+        root.classList.remove('is-open');
+        trigger.setAttribute('aria-expanded','false');
+        menu.blur();
+      }
+      function open(){
+        root.classList.add('is-open');
+        trigger.setAttribute('aria-expanded','true');
+        menu.focus({preventScroll:true});
+        setScrollableIfNeeded();
+      }
+      function setVal(val, label){
+        valueEl.textContent = label || val || 'Elegir…';
+        if (native){
+          native.value = val;
+          const ev = new Event('change', { bubbles:true });
+          native.dispatchEvent(ev);
+        }
+      }
+      function select(li){
+        options.forEach(o=>o.classList.remove('is-selected'));
+        li.classList.add('is-selected');
+        setVal(li.getAttribute('data-value'), (li.textContent || '').trim());
+        close();
+      }
+
+      trigger.addEventListener('click', (e)=>{
+        e.preventDefault();
+        root.classList.contains('is-open') ? close() : open();
+      });
+
+      options.forEach(li=> li.addEventListener('click', ()=>select(li)));
+
+      document.addEventListener('click', (e)=>{
+        if (!root.contains(e.target)) close();
+      });
+
+      // Mejor scroll en mobile dentro del menú (no arrastra toda la página)
+      menu.addEventListener('touchmove', (e)=>{ e.stopPropagation(); }, {passive:true});
+      menu.addEventListener('wheel', (e)=>{ e.stopPropagation(); }, {passive:true});
+
+      // Sync inicial desde el select nativo
+      if (native){
+        const current = native.value;
+        const li = options.find(x=>x.getAttribute('data-value')===current) || options[0];
+        if (li) {
+          options.forEach(o=>o.classList.remove('is-selected'));
+          li.classList.add('is-selected');
+          setVal(li.getAttribute('data-value'), (li.textContent || '').trim());
+        }
+      }
+
+      // Exponer helpers para refrescar desde fuera
+      root._csRefresh = function(){
+        options = Array.from(root.querySelectorAll('.cs-option'));
+        setScrollableIfNeeded();
+      };
+      root._csSetValue = setVal;
+
+      setScrollableIfNeeded();
+    }
+
+    // Inicializar ambos selects custom
+    document.querySelectorAll('.cs-select').forEach(setupCsSelect);
+
+    // ---------- Lógica de dependencias Carrera → Plan ----------
+    const nativeCareer = document.getElementById('careerSelectNative');
+    const nativePlan   = document.getElementById('planSelectNative');
+    const customCareer = document.getElementById('careerSelectCustom');
+    const customPlan   = document.getElementById('planSelectCustom');
+
+    let OPTIONS = { careers: <%- JSON.stringify(_careers) %>, plansByCareer: {} };
+    try {
+      // Intentamos cargar mapa carrera→planes del backend (si falla, seguimos con fallback)
+      fetch('/auth/options', { credentials: 'same-origin' })
+        .then(r=>r.ok ? r.json() : Promise.reject())
+        .then(data=>{
+          if (data && data.ok) {
+            OPTIONS.careers = Array.isArray(data.careers) ? data.careers : OPTIONS.careers;
+            OPTIONS.plansByCareer = data.plansByCareer || {};
+            // Refrescar planes si ya hay carrera seleccionada
+            const currentCareer = nativeCareer.value;
+            if (currentCareer) {
+              rebuildPlanOptions(currentCareer, String(<%- JSON.stringify(_form.plan || '') %>));
+            }
+          }
+        })
+        .catch(()=>{ /* fallback silencioso */ });
+    } catch(_) {}
+
+    function getPlansForCareer(career){
+      const map = OPTIONS.plansByCareer || {};
+      const arr = map[career] || [];
+      // fallback: si no hay datos del backend, usamos _plans (del servidor o default)
+      if (!arr.length) return <%- JSON.stringify(_plans.map(String)) %>;
+      return arr.map(p=>String(p));
+    }
+
+    function rebuildPlanOptions(career, prefer){
+      const plans = getPlansForCareer(career);
+      // --- nativo ---
+      nativePlan.innerHTML = '';
+      const optEmpty = document.createElement('option');
+      optEmpty.value = '';
+      optEmpty.textContent = 'Elegir…';
+      nativePlan.appendChild(optEmpty);
+      plans.forEach(p=>{
+        const op = document.createElement('option');
+        op.value = String(p);
+        op.textContent = String(p);
+        nativePlan.appendChild(op);
+      });
+      // seleccionar prefer si existe, si no vacío
+      nativePlan.value = plans.includes(String(prefer)) ? String(prefer) : '';
+
+      // --- custom ---
+      const menu = customPlan.querySelector('.cs-menu');
+      const valEl= customPlan.querySelector('.cs-value');
+      menu.innerHTML = '';
+      const liEmpty = document.createElement('li');
+      liEmpty.className = 'cs-option' + (nativePlan.value==='' ? ' is-selected' : '');
+      liEmpty.dataset.value = '';
+      liEmpty.textContent = 'Elegir…';
+      menu.appendChild(liEmpty);
+      plans.forEach(p=>{
+        const li = document.createElement('li');
+        li.className = 'cs-option' + (String(p)===String(nativePlan.value) ? ' is-selected' : '');
+        li.dataset.value = String(p);
+        li.textContent = String(p);
+        menu.appendChild(li);
+      });
+
+      // Re-enlazar eventos y scroll del custom
+      customPlan._csRefresh && customPlan._csRefresh();
+
+      // Delegación simple para nuevas opciones
+      menu.querySelectorAll('.cs-option').forEach(li=>{
+        li.addEventListener('click', ()=>{
+          menu.querySelectorAll('.cs-option').forEach(o=>o.classList.remove('is-selected'));
+          li.classList.add('is-selected');
+          const v = li.dataset.value || '';
+          nativePlan.value = v;
+          valEl.textContent = v || 'Elegir…';
+        });
+      });
+
+      // Si no quedó seleccionado nada, mostrar "Elegir…"
+      valEl.textContent = nativePlan.value || 'Elegir…';
+    }
+
+    // Al cambiar carrera (nativa o custom), refrescar planes
+    nativeCareer.addEventListener('change', ()=>{
+      rebuildPlanOptions(nativeCareer.value, '');
+    });
+
+    // Cuando se elige desde el custom de carrera, el setupCsSelect ya dispara change en el nativo
+    // gracias a _csSetValue, así que con lo de arriba alcanza.
+
+    // Setup inicial si el form venía con valores
+    (function initialPlanSync(){
+      const currentCareer = nativeCareer.value;
+      const currentPlan   = String(<%- JSON.stringify(_form.plan || '') %>);
+      if (currentCareer) {
+        rebuildPlanOptions(currentCareer, currentPlan);
+      }
+    })();
+  })();
+</script>
+
+<style>
+/* ===== Inputs base (recuadros) ===== */
+.ios-input{
+  width:100%;
+  height:42px;
+  border-radius:12px;
+  border:1px solid rgba(15,23,42,.12);
+  padding:0 12px;
+  background:#F5F8FB;           /* fondo uniforme */
+  color:#0f172a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+}
+.ios-input:focus{
+  outline:none;
+  border-color:#F8C160;
+  box-shadow:0 0 0 3px rgba(248,193,96,.14);
+}
+.ios-label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  margin-bottom:4px;            /* menos margen */
+  color:#0f172a;
+}
+.ios-input-wrap{ position:relative; }
+.ios-pw-toggle{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-weight:700; background:transparent; border:0; cursor:pointer;
+}
+
+/* Ocultamos (visualmente) el select nativo, queda como fallback */
+.native-select{
+  position:absolute !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  width:0; height:0; padding:0; margin:0; border:0;
+}
+
+/* ===== Custom Select (mismo look) ===== */
+.cs-select{ position: relative; display:block; margin-top:4px; }
+.cs-trigger{
+  width:100%; height:42px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 12px;
+  background:#F5F8FB;
+  color:#0F172A;
+  border:1px solid #0000001c;         /* borde negro para el select custom */
+  border-radius:12px;
+  box-shadow:none;
+  cursor:pointer;
+}
+.cs-trigger:focus{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(248,193,96,.16);
+}
+.cs-chevron{ width:18px; height:18px; color:#000; flex:0 0 auto; }
+.cs-value{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* Menú desplegable */
+.cs-menu{
+  position:absolute; left:0; right:0; top: calc(100% + 4px);
+  background:#F5F8FB;
+  color:#0F172A;
+  border:1px solid #0000001c;
+  border-radius:12px;
+  box-shadow: 0 10px 24px rgba(15,23,42,.10);
+  overflow-y: hidden;            /* por defecto SIN scroll */
+  overflow-x: hidden;
+  padding:6px;                   /* compacto */
+  list-style:none; margin:0;
+  z-index: 1000;
+  display:none;
+}
+.cs-select.is-open .cs-menu{ display:block; }
+
+/* Scroll interno sólo si hay muchas opciones */
+.cs-menu.is-scrollable{
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* max-height se setea por JS según 4 ítems visibles */
+}
+
+.cs-option{
+  padding:8px 10px;
+  border-radius:10px;
+  cursor:pointer;
+}
+.cs-option:hover{ background:#E8EEF6; }
+.cs-option.is-selected{
+  background:#FFE9C9;
+  font-weight:700;
+}
+
+/* Compat extra */
+select::-ms-expand{ display:none; }
+</style>

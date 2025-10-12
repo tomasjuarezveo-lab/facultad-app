@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor</title>
+  <style>
+    html, body { margin:0; padding:0; height:100%; }
+    #app { position:fixed; inset:0; display:grid; grid-template-columns:auto 1fr; }
+    #thumbs { width:260px; max-width:35vw; background:#fff; border-right:1px solid #eee; overflow:auto; display:none; }
+    #viewer { background:#fafafa; overflow:auto; }
+    #topbar { position:fixed; top:12px; left:12px; z-index:50; }
+    .btn { padding:8px 10px; border-radius:12px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.08); border:1px solid #eee; cursor:pointer; }
+    .page { display:block; margin:20px auto; background:#fff; box-shadow:0 4px 18px rgba(0,0,0,.08); }
+    .thumb { display:block; margin:12px auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06); cursor:pointer; }
+  </style>
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>
+    // Worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  </script>
+</head>
+<body>
+  <div id="topbar">
+    <button id="toggle" class="btn">☰</button>
+  </div>
+  <div id="app">
+    <div id="thumbs"></div>
+    <div id="viewer"></div>
+  </div>
+
+  <script>
+    const file = "<%= file %>";
+    const thumbs = document.getElementById('thumbs');
+    const viewer = document.getElementById('viewer');
+    const toggle = document.getElementById('toggle');
+    let sidebarOpen = false;
+    toggle.onclick = () => {
+      sidebarOpen = !sidebarOpen;
+      thumbs.style.display = sidebarOpen ? 'block' : 'none';
+      document.getElementById('app').style.gridTemplateColumns = sidebarOpen ? '260px 1fr' : '0 1fr';
+    };
+
+    function renderPage(pdf, pageNum) {
+      return pdf.getPage(pageNum).then(page => {
+        const scale = 1.25;
+        const vp = page.getViewport({ scale });
+        const c = document.createElement('canvas');
+        const ctx = c.getContext('2d');
+        c.width = vp.width; c.height = vp.height;
+        c.className = 'page';
+        viewer.appendChild(c);
+        return page.render({ canvasContext: ctx, viewport: vp }).promise.then(() => c);
+      });
+    }
+
+    function renderThumb(pdf, pageNum, targetCanvas) {
+      return pdf.getPage(pageNum).then(page => {
+        const scale = 0.2;
+        const vp = page.getViewport({ scale });
+        targetCanvas.width = vp.width; targetCanvas.height = vp.height;
+        const ctx = targetCanvas.getContext('2d');
+        return page.render({ canvasContext: ctx, viewport: vp }).promise;
+      });
+    }
+
+    pdfjsLib.getDocument(file).promise.then(async pdf => {
+      // Render pages sequentially
+      for (let n=1; n<=pdf.numPages; n++) {
+        const canvas = await renderPage(pdf, n);
+        canvas.id = 'page_' + n;
+      }
+      // Build thumbnails
+      thumbs.innerHTML = '';
+      for (let n=1; n<=pdf.numPages; n++) {
+        const t = document.createElement('canvas');
+        t.className = 'thumb';
+        t.title = 'Página ' + n;
+        t.onclick = () => {
+          const el = document.getElementById('page_' + n);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        thumbs.appendChild(t);
+        renderThumb(pdf, n, t);
+      }
+    }).catch(err => {
+      viewer.innerHTML = '<div style="padding:20px;color:#888">No se pudo abrir el documento.</div>';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

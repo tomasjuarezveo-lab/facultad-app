@@ -1,0 +1,100 @@
+<!-- views/preguntas-upload.ejs — DB version (SSR + JS fallback) -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title><%= title %> - Admin</title>
+  <style>
+    body{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial; background:#f8fafc; margin:0; }
+    .wrap{ max-width: 960px; margin: 24px auto; padding: 16px; }
+    .card{ background:#fff; border-radius:14px; box-shadow:0 12px 30px rgba(0,0,0,.08); padding:20px; }
+    h1{ margin:0 0 12px; font-size:22px; }
+    .row{ display:flex; gap:14px; margin:10px 0; align-items:center; flex-wrap:wrap; }
+    label{ font-weight:700; font-size:14px; color:#111827; min-width:92px; }
+    select, input[type="file"], .btn{ font-size:14px; padding:10px 12px; border-radius:10px; border:1px solid #e5e7eb; }
+    select{ background:#fff; min-width:260px; }
+    .btn{ background:#111827; color:#fff; border:none; cursor:pointer; }
+    .btn:disabled{ background:#9ca3af; cursor:not-allowed; }
+    .ok{ background:#ecfdf5; color:#065f46; border:1px solid #10b981; padding:10px 12px; border-radius:10px; }
+    .help{ color:#6b7280; font-size:13px; }
+  </style>
+
+  <!-- Injected: Mobile-friendly baseline -->
+<style>
+  /* Baseline mobile improvements (non-breaking) */
+  @media (max-width: 480px){
+    body{ -webkit-text-size-adjust: 100%; }
+    img, video{ max-width:100% !important; height:auto !important; }
+    .stack-mobile{ display:block !important; width:100% !important; }
+    .fluid{ width:100% !important; }
+    .touch-target{ min-height:44px; padding:12px 14px; }
+    .hide-on-mobile{ display:none !important; }
+    .card, .panel, .box{ border-radius:16px !important; }
+    .toolbar, .header, .navbar{ position:sticky; top:0; z-index:50; }
+    table{ display:block; width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .grid{ display:grid; grid-template-columns: 1fr !important; gap:12px; }
+    .container, .content, main{ padding-left:12px !important; padding-right:12px !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Cargar preguntas por Materia y Plan</h1>
+
+      <% if (String((new URLSearchParams((typeof window==='undefined'?'':location.search))).get('ok'))==='1') { %>
+        <p class="ok">¡Listo! Archivo guardado en la carpeta <code>preguntas</code>.</p>
+      <% } %>
+
+      <form id="formUp" method="POST" action="/app/preguntas/upload" enctype="multipart/form-data">
+        <div class="row">
+          <label for="materia">Materia</label>
+          <select id="materia" name="materia" required>
+            <% if (Array.isArray(materias) && materias.length) { %>
+              <option value="">Seleccioná...</option>
+              <% materias.forEach(function(m){ %>
+                <option value="<%= m %>"><%= m %></option>
+              <% }) %>
+            <% } else { %>
+              <option value="">(Cargando...)</option>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="row">
+          <label for="plan">Plan</label>
+          <% let hasPlans = (typeof planes !== 'undefined') && Array.isArray(planes) && planes.length; %>
+          <select id="plan" name="plan" required <%= hasPlans ? '' : 'disabled' %>>
+            <% if (hasPlans) { %>
+              <option value="">Seleccioná...</option>
+              <% planes.forEach(function(p){ %>
+                <option value="<%= p %>"><%= p %></option>
+              <% }) %>
+            <% } else { %>
+              <option value="">(Seleccioná materia primero...)</option>
+            <% } %>
+          </select>
+          <span class="help">(Si tu materia tiene planes específicos se mostrarán; si no, verás los planes globales encontrados en la DB).</span>
+        </div>
+
+        <div class="row">
+          <label for="archivo">Archivo (.txt o .docx)</label>
+          <input id="archivo" name="archivo" type="file" accept=".txt,.docx" required/>
+        </div>
+
+        <div class="row">
+          <button class="btn" type="submit">Subir y guardar</button>
+        </div>
+
+        <p class="help">
+          Formato por bloque (separado por una línea con <code>---</code>):<br/>
+          <code>Pregunta (puede ser multi-línea)<br/>Falsa 1<br/>Falsa 2<br/>Falsa 3<br/>Correcta<br/>---</code>
+        </p>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/preguntas-upload.js"></script>
+</body>
+</html>

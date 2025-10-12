@@ -1,0 +1,88 @@
+﻿<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <!-- IZQUIERDA: INICIO DE SESIÓN (sin tarjeta) -->
+    <section class="px-6 sm:px-10 lg:pr-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">Iniciar sesión</h1>
+      <p class="text-sm sm:text-base text-slate-500 mb-8">Accedé a tu cuenta para ver tu carrera y plan.</p>
+
+      <% if (typeof error !== "undefined" && error) { %>
+        <div class="mb-5 text-sm text-red-600"><%= error %></div>
+      <% } %>
+
+      <form method="POST" action="/login" class="space-y-5 max-w-md">
+        <label class="block">
+          <span class="ios-label">Email</span>
+          <input
+            class="ios-input"
+            type="email"
+            name="email"
+            required
+            placeholder="tu@email.com"
+            value="<%= (typeof email !== 'undefined' && email) ? email : '' %>"
+          />
+        </label>
+
+        <label class="block">
+          <span class="ios-label">Contraseña</span>
+          <div class="ios-input-wrap">
+            <input
+              class="ios-input <%= ((typeof error !== 'undefined') && error) ? 'error' : '' %>"
+              id="loginPw"
+              type="password"
+              name="password"
+              required
+              placeholder="••••••••"
+            />
+            <button type="button" class="ios-pw-toggle" data-pw-target="loginPw" style="color: orange; max-width:100%; height:auto;">Mostrar</button>
+          </div>
+        </label>
+
+
+
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="remember" value="1" <%= ((typeof remember !== 'undefined') && remember) ? 'checked' : '' %> />
+          <span class="text-sm">Mantener sesión iniciada</span>
+        </label>
+
+
+
+
+        <button class="ios-btn-primary w-full mt-1 bg-[#F8C160]">Entrar</button>
+      </form>
+
+      
+                    <p style="margin-top:10px;text-align:center; font-size: 13px; max-width:100%; height:auto;">
+                <a href="/forgot" style="font-weight:700;color:#0202027e;text-decoration:underline; max-width:100%; height:auto;">
+                  Olvidé mi contraseña
+                </a>
+
+      <div class="mt-8 text-sm text-slate-500" style="margin-top: 15px; max-width:100%; height:auto;">
+        ¿No tenés cuenta?
+        <a class="ios-link" href="/register" style="color: orange; max-width:100%; height:auto;">Crear cuenta</a>
+      </div>
+
+
+</p>
+
+    </section>
+
+    <!-- DERECHA VACÍA -->
+    <section class="hidden lg:block"></section>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('loginPw');
+  const btn   = document.querySelector('[data-pw-target="loginPw"]');
+  if (!input || !btn) return;
+
+  btn.addEventListener('click', () => {
+    const isPwd = input.getAttribute('type') === 'password';
+    input.setAttribute('type', isPwd ? 'text' : 'password');
+    btn.textContent = isPwd ? 'Ocultar' : 'Mostrar';
+  });
+});
+</script>

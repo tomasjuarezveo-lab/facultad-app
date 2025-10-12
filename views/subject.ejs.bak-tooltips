@@ -1,0 +1,55 @@
+﻿<!-- Top tabs (floating) -->
+<div class="top-tabs glass card px-2 py-2 flex gap-2 items-center">
+  <% const cats = ['examenes','trabajos','bibliografia','resumenes']; %>
+  <% cats.forEach(c => { %>
+    <a class="tab <%= c===category ? 'bg-black text-white' : 'bg-white' %>" href="/app/materias/<%= subject.id %>?category=<%= c %>">
+      <%= c.charAt(0).toUpperCase() + c.slice(1) %>
+    </a>
+  <% }) %>
+</div>
+
+<!-- Admin upload button (floating, top-right) -->
+<% if (user.role==='admin') { %>
+<div class="top-right-controls glass card p-2">
+  <details>
+    <summary class="btn">＋ Subir</summary>
+    <div class="mt-2 p-3 bg-white rounded shadow">
+      <form method="POST" action="/upload" enctype="multipart/form-data" class="space-y-2">
+        <input type="hidden" name="subject_id" value="<%= subject.id %>" />
+        <input type="hidden" name="category" value="<%= category %>" />
+        <input type="file" name="files" multiple class="block" />
+        <button class="btn w-full">Subir</button>
+      </form>
+    </div>
+  </details>
+</div>
+<% } %>
+
+<!-- Right sidebar (floating, icons only, no title) -->
+<aside class="glass card sidebar-floating">
+  <div class="doc-list">
+    <% docs.forEach((d, i) => { %>
+      <div class="relative">
+        <a class="doc-item-icon" href="/app/materias/<%= subject.id %>?category=<%= category %>&doc=<%= d.id %>" title="<%= d.title %>">
+          <!-- Icono grande (documento) -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+          </svg>
+          <span class="tooltip"><%= d.title || ('Doc ' + (i+1)) %></span>
+        </a>
+        <% if (user.role==='admin') { %>
+          <button class="absolute -top-2 -right-2 text-xs bg-white rounded-full px-2 py-1 shadow"
+                  onclick="renameDoc(<%= d.id %>, '<%- (d.title||'').replace(/'/g, '&#39;') %>', <%= subject.id %>, '<%= category %>')">✏️</button>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</aside>
+
+<!-- Full-screen content viewer -->
+<% if (activeDoc) { %>
+  <iframe src="/pdf-view?file=/uploads/<%= activeDoc.filename %>" class="viewer-iframe"></iframe>
+<% } else { %>
+  <div class="viewer-empty">No hay documentos en esta sección.</div>
+<% } %>
