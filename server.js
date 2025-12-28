@@ -6,7 +6,6 @@ const path            = require('path');
 const fs              = require('fs');
 const fsp             = require('fs/promises'); // para borrado seguro
 const session         = require('express-session');
-const SQLiteStore     = require('connect-sqlite3')(session);
 const passport        = require('passport');
 const LocalStrategy   = require('passport-local').Strategy;
 const bcrypt          = require('bcrypt');
@@ -20,9 +19,8 @@ const { loadQuestionsAnyPlan } = require('./lib/questions');
 const verifyUtil      = require('./routes/verify').util;
 
 // 30 días
-const GLOBAL_GRACE_MS   = 0;                    // ⏱ Sin gracia global: bloqueo inmediato
-const INDIVIDUAL_MS     = 30 * 24 * 60 * 60 * 1000; // ✅ 30 días luego de ingresar código
-
+const GLOBAL_GRACE_MS   = 0;                         // ⏱ Sin gracia global: bloqueo inmediato
+const INDIVIDUAL_MS     = 30 * 24 * 60 * 60 * 1000;  // ✅ 30 días luego de ingresar código
 
 const app = express();
 
@@ -64,8 +62,11 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(expressLayouts);
 app.set('layout', 'layout');
 
-app.use('/public',  express.static(path.join(__dirname, 'public')));
-app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads'))); // uploads dentro de /public
+app.use('/public', express.static(path.join(__dirname, 'public')));
+
+// OJO: con R2, los docs ya NO están en /public/uploads/docs.
+// Dejamos la ruta por compatibilidad (si aún hay assets locales), pero los docs nuevos vienen por URL.
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -73,9 +74,13 @@ app.use(methodOverride('_method'));
 
 /* =========================
    Sesión
-   ========================= */
+   =========================
+   IMPORTANTE (hosting): no usar connect-sqlite3 porque depende de archivo local (sessions.sqlite).
+   En free hosting el disco puede ser efímero. Para dejarlo simple y funcionando:
+   usamos el store por defecto (MemoryStore). Más adelante si querés persistencia real:
+   migramos a un store remoto (DB).
+*/
 app.use(session({
-  store: new SQLiteStore({ db: 'sessions.sqlite', dir: path.join(__dirname) }),
   secret: process.env.SESSION_SECRET || 'supersecreto',
   resave: false,
   saveUninitialized: false,
@@ -128,8 +133,6 @@ function ensureAdmin(req, res, next) {
 /* =========================
    Normalizador de career (autofix)
    ========================= */
-// Usamos la utilidad canónica para que "Contador Público" -> "Contabilidad"
-// y las variantes de Administración -> "Lic. en Administración de Empresas".
 const { normalizeCareer } = require('./utils/careers');
 
 app.use(async (req, res, next) => {
@@ -175,23 +178,25 @@ const verifyRoutes        = require('./routes/verify'); // Panel admin /verify
 app.use(authRoutes({ passport }));
 
 // 🔧 Correlativas se define como "/correlativas" dentro del router y se monta bajo "/app"
-//    para que la URL final sea "/app/correlativas" y respete career/plan del usuario o query.
 app.use('/app', ensureAuth, correlativasRoute);
 
 // Resto de secciones dentro de /app
 app.use('/app', ensureAuth, notificationsRoutes({ ensureAdmin }));
-app.use('/app',              ensureAuth,  appRoutes({ ensureAdmin }));
+app.use('/app', ensureAuth, appRoutes({ ensureAdmin }));
 
 // Admin / uploads / pdf
-app.use('/admin',            ensureAdmin, adminRoutes());
-app.use('/upload',           ensureAdmin, uploadRoutes());
-app.use('/pdf-view',         pdfRoutes());
+app.use('/admin',    ensureAdmin, adminRoutes());
+app.use('/upload',   ensureAdmin, uploadRoutes());
+app.use('/pdf-view', pdfRoutes());
 
 // Grupos (ruta dedicada)
-app.use('/app/grupos',       ensureAuth,  groupsRoutes());
+app.use('/app/grupos', ensureAuth, groupsRoutes());
 
 // Panel de verificación (solo admin)
-app.use('/verify',           ensureAdmin, verifyRoutes()); // Admin-only
+app.use('/verify', ensureAdmin, verifyRoutes()); // Admin-only
+
+// Preguntas Admin (subida de archivos Materia+Plan)
+app.use('/app/preguntas', require('./routes/preguntas')());
 
 // Logout
 function doLogout(req, res) {
@@ -224,7 +229,6 @@ app.post('/logout', (req, res) => doLogout(req, res));
 /* =========================
    API de quizzes
    ========================= */
-
 app.get('/api/quizzes', async (req, res) => {
   try {
     const subjectId = String(req.query.subject_id || '').trim();
@@ -232,20 +236,20 @@ app.get('/api/quizzes', async (req, res) => {
     if (!subjectId) return res.status(400).json({ error: 'Falta subject_id' });
 
     const subj = await get(`SELECT name FROM subjects WHERE id=?`, [subjectId]);
-    if (!subj || !subj.name) return res.json([]); // sin demos
+    if (!subj || !subj.name) return res.json([]);
 
     // Carga TODAS las preguntas de esa materia, combinando todos los planes
     const rawQs = loadQuestionsAnyPlan(subj.name);
     if (!Array.isArray(rawQs) || rawQs.length === 0) return res.json([]);
 
     // Mezclar y recortar
-    const pool = rawQs.slice().sort(()=>Math.random() - 0.5).slice(0, limit);
+    const pool = rawQs.slice().sort(() => Math.random() - 0.5).slice(0, limit);
 
     // Adaptar formato a { text, options, answer:index } y desordenar opciones
     const payload = pool.map(q => {
       const options = Array.isArray(q.choices) ? q.choices.slice() : [];
       const originalCorrectIdx = options.findIndex(opt => String(opt) === String(q.correct));
-      const shuffled = options.map((opt, i) => ({ opt, i })).sort(()=>Math.random() - 0.5);
+      const shuffled = options.map((opt, i) => ({ opt, i })).sort(() => Math.random() - 0.5);
       const newOptions = shuffled.map(x => x.opt);
       const answerIdx = shuffled.findIndex(x => x.i === originalCorrectIdx);
       return { text: q.question || '', options: newOptions, answer: answerIdx };
@@ -280,7 +284,7 @@ app.get('/api/verify/status', ensureAuth, (req, res) => {
     const now = Date.now();
 
     // Ventana GLOBAL (desde que el admin activó)
-    const startedAt  = verifyUtil.getStartedAt() || 0;
+    const startedAt   = verifyUtil.getStartedAt() || 0;
     const globalUntil = startedAt ? (startedAt + GLOBAL_GRACE_MS) : 0;
 
     // Ventana INDIVIDUAL (se setea tras ingresar un código)
@@ -340,8 +344,11 @@ app.get('/', (req, res) => {
 });
 
 /* ==================================================
-   Avatar upload
-   ================================================== */
+   Avatar upload (LOCAL por ahora)
+   ==================================================
+   Nota: En hosting gratuito el disco puede ser efímero.
+   Si querés que el avatar sea 100% persistente, lo migramos a R2 igual que documents.
+*/
 const fs2      = require('fs');
 const path2    = require('path');
 const multer2  = require('multer');
@@ -401,8 +408,11 @@ app.post('/profile/avatar', ensureAuth, (req, res) => {
 });
 
 /* ==================================================
-   BORRADO SEGURO DE SUBJECTS (doc + archivos asociados + cascada dinámica)
-   ================================================== */
+   BORRADO SEGURO DE SUBJECTS
+   ==================================================
+   Con R2, los documentos ya no están en disco local, por lo que el "unlink" local
+   se intenta SOLO si la ruta parece local. Si es una URL o key tipo "docs/..", se ignora.
+*/
 
 // helper: intentar borrar un path absoluto, ignorando ENOENT
 async function safeUnlink(absPath) {
@@ -412,18 +422,26 @@ async function safeUnlink(absPath) {
 
 // normaliza rutas almacenadas (relativas) a candidatas absolutas
 function candidatesFromRel(rel) {
-  const clean = String(rel || '').replace(/^(\.\/|\/)/, '');
-  if (!clean || /^https?:\/\//i.test(clean)) return [];
+  const v = String(rel || '').trim();
+  if (!v) return [];
+  if (/^https?:\/\//i.test(v)) return [];     // URL pública (R2/externo)
+  if (!v.includes('/') && !v.includes('\\')) return []; // probablemente key o dato raro
+
+  // si viene tipo "docs/categoria/...." (key R2), no es un archivo local
+  if (/^docs\//i.test(v)) return [];
+
+  const clean = v.replace(/^(\.\/|\/)/, '');
+  if (!clean) return [];
   return [
     path.resolve(__dirname, clean),
     path.resolve(__dirname, 'public', clean),
   ];
 }
 
-// recoge posibles archivos desde el row de SQLite (flexible con distintos esquemas)
+// recoge posibles archivos desde el row (flexible con distintos esquemas)
 function collectFileRels(doc) {
   const outs = [];
-  for (const k of ['file', 'filepath', 'file_path', 'path', 'local_path', 'rel_path']) {
+  for (const k of ['file', 'filepath', 'file_path', 'path', 'local_path', 'rel_path', 'filename']) {
     if (doc[k]) outs.push(doc[k]);
   }
   for (const key of ['files', 'attachments']) {
@@ -435,7 +453,7 @@ function collectFileRels(doc) {
         for (const it of arr) {
           if (!it) continue;
           if (typeof it === 'string') outs.push(it);
-          else if (typeof it === 'object') outs.push(it.path || it.file || it.rel || it.url || '');
+          else if (typeof it === 'object') outs.push(it.path || it.file || it.rel || it.url || it.filename || '');
         }
       }
     } catch (_) {}
@@ -452,7 +470,7 @@ app.post('/app/subjects/:id/delete', ensureAdmin, async (req, res) => {
     const doc = await get(`SELECT * FROM subjects WHERE id = ?`, [id]);
     if (!doc) return res.status(404).json({ ok:false, error:'No encontrado' });
 
-    // 1) borrar archivos declarados en el propio subject
+    // 1) borrar archivos declarados en el propio subject (solo si son locales)
     const rels = collectFileRels(doc);
     for (const rel of rels) {
       const cands = candidatesFromRel(rel);
@@ -512,6 +530,3 @@ init().then(() => {
   console.error('❌ Error inicializando DB:', err);
   process.exit(1);
 });
-
-// Preguntas Admin (subida de archivos Materia+Plan)
-app.use('/app/preguntas', require('./routes/preguntas')());

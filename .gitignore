@@ -1,7 +1,12 @@
 node_modules/
 .env
-.DS_Store
-uploads/
-public/uploads/**
-!public/uploads/.keep
 *.sqlite
+
+# uploads locales (ahora usas R2 para docs)
+public/uploads/
+uploads/
+
+# estados/runtime (no versionar)
+data/**/*.json
+
+.DS_Store

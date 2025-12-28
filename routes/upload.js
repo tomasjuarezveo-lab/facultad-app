@@ -1,27 +1,30 @@
 // routes/upload.js
 const express = require('express');
 const path    = require('path');
-const fs      = require('fs');
 const multer  = require('multer');
 const { run, get } = require('../models/db');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
-const UP_DIR = path.join(__dirname, '..', 'public', 'uploads', 'docs');
-fs.mkdirSync(UP_DIR, { recursive: true });
-
-// ===== Configuración de almacenamiento =====
-const storage = multer.diskStorage({
-  destination: UP_DIR,
-  filename: (req, file, cb) => {
-    const safe = String(file.originalname || 'archivo')
-      .replace(/[^\w.\- ()áéíóúñÁÉÍÓÚ]/g, '_');
-    cb(null, `${Date.now()}-${safe}`);
-  }
+// ===== R2 (S3 compatible) =====
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: process.env.R2_ENDPOINT, // ej: https://<accountid>.r2.cloudflarestorage.com
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
 });
+const R2_BUCKET = process.env.R2_BUCKET;
+const R2_PUBLIC_BASE = process.env.R2_PUBLIC_BASE; // ej: https://pub-xxxxx.r2.dev  (o tu dominio)
+
+if (!R2_BUCKET || !R2_PUBLIC_BASE || !process.env.R2_ENDPOINT) {
+  console.warn('[upload] ⚠️ Faltan variables de entorno R2_* (R2_BUCKET / R2_PUBLIC_BASE / R2_ENDPOINT).');
+}
 
 // ===== Límite de tamaño (ej. 100 MB) =====
 const MAX_MB = 100;
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_MB * 1024 * 1024 },
 });
 
@@ -35,14 +38,28 @@ function isPDF(file) {
 function tooBig(file, maxBytes) {
   return file && typeof file.size === 'number' && file.size > maxBytes;
 }
-function cleanupUploaded(tempFiles) {
-  for (const f of tempFiles) {
-    if (!f) continue;
-    try {
-      const abs = path.join(UP_DIR, f.filename);
-      if (fs.existsSync(abs)) fs.unlinkSync(abs);
-    } catch {}
-  }
+function safeName(originalname) {
+  return String(originalname || 'archivo').replace(/[^\w.\- ()áéíóúñÁÉÍÓÚ]/g, '_');
+}
+function extFromName(name) {
+  const e = path.extname(String(name || '')).toLowerCase();
+  return e && e.length <= 10 ? e : '';
+}
+function nowKey(prefix, originalname) {
+  const safe = safeName(originalname);
+  const ext = extFromName(safe);
+  const rand = Math.random().toString(16).slice(2);
+  return `${prefix}/${Date.now()}-${rand}-${safe}${ext && safe.endsWith(ext) ? '' : ext}`;
+}
+
+async function putToR2({ key, buffer, mimetype }) {
+  await r2.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: buffer,
+    ContentType: mimetype || 'application/octet-stream',
+  }));
+  return `${R2_PUBLIC_BASE}/${key}`;
 }
 
 module.exports = () => {
@@ -80,14 +97,29 @@ module.exports = () => {
         if (!ALLOWED.has(category)) return res.status(400).send('Categoría inválida');
         if (!subject_id) return res.status(400).send('subject_id inválido');
 
+        // Validación R2 env
+        if (!R2_BUCKET || !R2_PUBLIC_BASE || !process.env.R2_ENDPOINT) {
+          return res.status(500).send('Faltan variables de entorno de storage (R2).');
+        }
+
         const hasLevel = await hasColumn('level');
         const hasGroup = await hasColumn('group_uid');
 
-        const insertDoc = async ({ file, title, level, group_uid }) => {
+        const insertDoc = async ({ file, title, level, group_uid, prefix }) => {
           if (!file) return;
-          const rel = `/uploads/docs/${file.filename}`;
-          const ttl = title || file.originalname;
 
+          const original = file.originalname || 'archivo';
+          const ttl = title || original;
+
+          // Subir a R2
+          const key = nowKey(prefix || 'docs', original);
+          const url = await putToR2({ key, buffer: file.buffer, mimetype: file.mimetype });
+
+          // Intento mantener compatibilidad con esquemas viejos:
+          // - filename: guardo el "key" (antes era "/uploads/docs/...")
+          // - url: guardo la URL pública (si la columna existe)
+          // - mimetype/size: idem
+          // - created_at: datetime('now')
           let cols = [
             'subject_id',
             'title',
@@ -98,7 +130,11 @@ module.exports = () => {
             'created_at',
           ];
           let qms  = ['?','?','?','?','?','?',"datetime('now')"];
-          const args = [subject_id, ttl, category, rel, file.mimetype, file.size];
+          const args = [subject_id, ttl, category, key, file.mimetype, file.size];
+
+          // Columnas opcionales si existen en tu DB
+          const hasUrl = await hasColumn('url');
+          if (hasUrl) { cols.push('url'); qms.push('?'); args.push(url); }
 
           if (hasLevel && level) { cols.push('level'); qms.push('?'); args.push(level); }
           if (hasGroup && group_uid) { cols.push('group_uid'); qms.push('?'); args.push(group_uid); }
@@ -115,27 +151,24 @@ module.exports = () => {
           const temps = [fC, fM, fF];
 
           if (!fC || !fM || !fF) {
-            cleanupUploaded(temps);
             return res.status(400).send('Debés subir las 3 versiones: Completo, Mediano y Fácil.');
           }
 
           const maxBytes = MAX_MB * 1024 * 1024;
           for (const f of temps) {
             if (!isPDF(f)) {
-              cleanupUploaded(temps);
               return res.status(400).send(`Solo se permiten PDF en Resúmenes. Archivo inválido: ${f.originalname}`);
             }
             if (tooBig(f, maxBytes)) {
-              cleanupUploaded(temps);
               return res.status(400).send(`Archivo demasiado grande: ${f.originalname} (máximo ${MAX_MB} MB)`);
             }
           }
 
           const group_uid = hasGroup ? `g-${Date.now()}-${Math.random().toString(36).slice(2,8)}` : null;
 
-          await insertDoc({ file:fC, level:'completo', group_uid });
-          await insertDoc({ file:fM, level:'mediano',  group_uid });
-          await insertDoc({ file:fF, level:'facil',    group_uid });
+          await insertDoc({ file: fC, level: 'completo', group_uid, prefix: 'docs/resumenes' });
+          await insertDoc({ file: fM, level: 'mediano',  group_uid, prefix: 'docs/resumenes' });
+          await insertDoc({ file: fF, level: 'facil',    group_uid, prefix: 'docs/resumenes' });
 
           return res.redirect(`/app/materias/${subject_id}?category=resumenes&level=completo`);
         }
@@ -148,19 +181,18 @@ module.exports = () => {
         for (const f of list) {
           const okExt = /\.(pdf|doc|docx|ppt|pptx|png|jpg|jpeg)$/i.test(f.originalname || '');
           if (!okExt) {
-            cleanupUploaded(list);
             return res.status(400).send(`Tipo de archivo no permitido: ${f.originalname}`);
           }
           if (tooBig(f, maxBytes)) {
-            cleanupUploaded(list);
             return res.status(400).send(`Archivo demasiado grande: ${f.originalname} (máximo ${MAX_MB} MB)`);
           }
-          await insertDoc({ file: f });
+          await insertDoc({ file: f, prefix: `docs/${category}` });
         }
-        res.redirect(`/app/materias/${subject_id}?category=${encodeURIComponent(category)}`);
+
+        return res.redirect(`/app/materias/${subject_id}?category=${encodeURIComponent(category)}`);
       } catch (err) {
         console.error('❌ Upload error:', err);
-        res.status(500).send('Error subiendo archivo');
+        return res.status(500).send('Error subiendo archivo');
       }
     }
   );
