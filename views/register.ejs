@@ -1,14 +1,50 @@
 ﻿<%
-// Fallbacks por si el servidor no envía las listas:
-const _careers = (typeof careerOptions !== 'undefined' && Array.isArray(careerOptions) && careerOptions.length)
+/**
+ * register.ejs
+ * Reglas:
+ * - Carreras: SOLO
+ *   1) Lic. en Administración de Empresas
+ *   2) Contabilidad
+ *   3) Lic. en Economía
+ *
+ * - Planes:
+ *   - Lic. en Administración de Empresas: 6, 7, 8
+ *   - Contabilidad: 6, 7
+ *   - Lic. en Economía: 6, 7
+ */
+
+// ✅ Carreras permitidas
+const ALLOWED_CAREERS = [
+  'Lic. en Administración de Empresas',
+  'Contabilidad',
+  'Lic. en Economía'
+];
+
+// Fallback de carreras: filtra lo que venga del backend y deja solo las permitidas
+const _careersRaw = (typeof careerOptions !== 'undefined' && Array.isArray(careerOptions) && careerOptions.length)
   ? careerOptions
-  : ['Lic. en Administración de Empresas', 'Lic. en Economía', 'Contabilidad', 'Marketing', 'Recursos Humanos', 'Comercio Exterior', 'Finanzas', 'Sistemas'];
+  : ALLOWED_CAREERS;
 
-const _plans = (typeof planOptions !== 'undefined' && Array.isArray(planOptions) && planOptions.length)
-  ? planOptions
-  : ['7','8','2008','2013','2020','2024'];
+const _careers = _careersRaw.filter(c => ALLOWED_CAREERS.includes(String(c)));
 
+// Planes por carrera (regla pedida)
+const PLANS_BY_CAREER = {
+  'Lic. en Administración de Empresas': ['6', '7', '8'],
+  'Contabilidad': ['6', '7'],
+  'Lic. en Economía': ['6', '7'],
+};
+
+// Form
 const _form = (typeof form !== 'undefined' && form) ? form : {};
+
+// Valor inicial carrera/plan
+const initialCareer = (_careers.includes(String(_form.career)) ? String(_form.career) : '');
+const initialPlanRaw = (typeof _form.plan !== 'undefined' && _form.plan !== null) ? String(_form.plan) : '';
+const initialPlans = PLANS_BY_CAREER[initialCareer] || [];
+const initialPlan = (initialPlans.includes(initialPlanRaw) ? initialPlanRaw : '');
+
+// Para render inicial del select plan (si no hay carrera elegida, mostramos vacío)
+const _plans = initialCareer ? (PLANS_BY_CAREER[initialCareer] || []) : [];
 %>
 
 <div class="auth-split relative">
@@ -125,22 +161,22 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
             <select class="ios-input native-select" name="career" required aria-hidden="true" tabindex="-1" id="careerSelectNative">
               <option value="">Elegir…</option>
               <% _careers.forEach(function(c){ %>
-                <option value="<%= c %>" <%= (_form.career === c) ? 'selected' : '' %>><%= c %></option>
+                <option value="<%= c %>" <%= (initialCareer === c) ? 'selected' : '' %>><%= c %></option>
               <% }) %>
             </select>
 
             <!-- Select custom -->
             <div class="cs-select" data-select="career" id="careerSelectCustom">
               <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
-                <span class="cs-value"><%= _form.career || 'Elegir…' %></span>
+                <span class="cs-value"><%= initialCareer || 'Elegir…' %></span>
                 <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
                   <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
                 </svg>
               </button>
               <ul class="cs-menu" role="listbox" tabindex="-1">
-                <li class="cs-option <%= !_form.career ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                <li class="cs-option <%= !initialCareer ? 'is-selected':'' %>" data-value="">Elegir…</li>
                 <% _careers.forEach(function(c){ %>
-                  <li class="cs-option <%= (_form.career===c)?'is-selected':'' %>" data-value="<%= c %>"><%= c %></li>
+                  <li class="cs-option <%= (initialCareer===c)?'is-selected':'' %>" data-value="<%= c %>"><%= c %></li>
                 <% }) %>
               </ul>
             </div>
@@ -153,22 +189,22 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
             <select class="ios-input native-select" name="plan" required aria-hidden="true" tabindex="-1" id="planSelectNative">
               <option value="">Elegir…</option>
               <% _plans.forEach(function(p){ const pv = String(p); %>
-                <option value="<%= pv %>" <%= (String(_form.plan||'')===pv)?'selected':'' %>><%= pv %></option>
+                <option value="<%= pv %>" <%= (String(initialPlan||'')===pv)?'selected':'' %>><%= pv %></option>
               <% }) %>
             </select>
 
             <!-- Select custom -->
             <div class="cs-select" data-select="plan" id="planSelectCustom">
               <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
-                <span class="cs-value"><%= _form.plan || 'Elegir…' %></span>
+                <span class="cs-value"><%= initialPlan || 'Elegir…' %></span>
                 <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
                   <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
                 </svg>
               </button>
               <ul class="cs-menu" role="listbox" tabindex="-1">
-                <li class="cs-option <%= !_form.plan ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                <li class="cs-option <%= !initialPlan ? 'is-selected':'' %>" data-value="">Elegir…</li>
                 <% _plans.forEach(function(p){ const pv = String(p); %>
-                  <li class="cs-option <%= (String(_form.plan||'')===pv)?'is-selected':'' %>" data-value="<%= pv %>"><%= pv %></li>
+                  <li class="cs-option <%= (String(initialPlan||'')===pv)?'is-selected':'' %>" data-value="<%= pv %>"><%= pv %></li>
                 <% }) %>
               </ul>
             </div>
@@ -219,8 +255,15 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
     }
   });
 
-  // ===== Custom Select (Carrera / Plan) + Data dependiente =====
+  // ===== Custom Select (Carrera / Plan) + Dependencia Carrera → Plan =====
   (function(){
+    // Planes por carrera (mismo criterio del backend, pero enforce front)
+    const PLANS_BY_CAREER = {
+      "Lic. en Administración de Empresas": ["6","7","8"],
+      "Contabilidad": ["6","7"],
+      "Lic. en Economía": ["6","7"]
+    };
+
     // ---------- Setup base de cs-select ----------
     function setupCsSelect(root){
       const trigger = root.querySelector('.cs-trigger');
@@ -286,7 +329,6 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
         if (!root.contains(e.target)) close();
       });
 
-      // Mejor scroll en mobile dentro del menú (no arrastra toda la página)
       menu.addEventListener('touchmove', (e)=>{ e.stopPropagation(); }, {passive:true});
       menu.addEventListener('wheel', (e)=>{ e.stopPropagation(); }, {passive:true});
 
@@ -301,7 +343,6 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
         }
       }
 
-      // Exponer helpers para refrescar desde fuera
       root._csRefresh = function(){
         options = Array.from(root.querySelectorAll('.cs-option'));
         setScrollableIfNeeded();
@@ -311,110 +352,81 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
       setScrollableIfNeeded();
     }
 
-    // Inicializar ambos selects custom
+    // Inicializar selects custom
     document.querySelectorAll('.cs-select').forEach(setupCsSelect);
 
-    // ---------- Lógica de dependencias Carrera → Plan ----------
+    // ---------- Dependencia carrera → plan ----------
     const nativeCareer = document.getElementById('careerSelectNative');
     const nativePlan   = document.getElementById('planSelectNative');
-    const customCareer = document.getElementById('careerSelectCustom');
     const customPlan   = document.getElementById('planSelectCustom');
 
-    let OPTIONS = { careers: <%- JSON.stringify(_careers) %>, plansByCareer: {} };
-    try {
-      // Intentamos cargar mapa carrera→planes del backend (si falla, seguimos con fallback)
-      fetch('/auth/options', { credentials: 'same-origin' })
-        .then(r=>r.ok ? r.json() : Promise.reject())
-        .then(data=>{
-          if (data && data.ok) {
-            OPTIONS.careers = Array.isArray(data.careers) ? data.careers : OPTIONS.careers;
-            OPTIONS.plansByCareer = data.plansByCareer || {};
-            // Refrescar planes si ya hay carrera seleccionada
-            const currentCareer = nativeCareer.value;
-            if (currentCareer) {
-              rebuildPlanOptions(currentCareer, String(<%- JSON.stringify(_form.plan || '') %>));
-            }
-          }
-        })
-        .catch(()=>{ /* fallback silencioso */ });
-    } catch(_) {}
-
-    function getPlansForCareer(career){
-      const map = OPTIONS.plansByCareer || {};
-      const arr = map[career] || [];
-      // fallback: si no hay datos del backend, usamos _plans (del servidor o default)
-      if (!arr.length) return <%- JSON.stringify(_plans.map(String)) %>;
-      return arr.map(p=>String(p));
-    }
-
     function rebuildPlanOptions(career, prefer){
-      const plans = getPlansForCareer(career);
-      // --- nativo ---
+      const plans = (PLANS_BY_CAREER[career] || []);
+
+      // nativo
       nativePlan.innerHTML = '';
       const optEmpty = document.createElement('option');
       optEmpty.value = '';
       optEmpty.textContent = 'Elegir…';
       nativePlan.appendChild(optEmpty);
+
       plans.forEach(p=>{
         const op = document.createElement('option');
         op.value = String(p);
-        op.textContent = String(p);
+        op.textContent = 'Plan ' + String(p);
         nativePlan.appendChild(op);
       });
-      // seleccionar prefer si existe, si no vacío
-      nativePlan.value = plans.includes(String(prefer)) ? String(prefer) : '';
 
-      // --- custom ---
+      // prefer
+      const pref = String(prefer || '');
+      nativePlan.value = plans.includes(pref) ? pref : '';
+
+      // custom
       const menu = customPlan.querySelector('.cs-menu');
       const valEl= customPlan.querySelector('.cs-value');
       menu.innerHTML = '';
+
       const liEmpty = document.createElement('li');
       liEmpty.className = 'cs-option' + (nativePlan.value==='' ? ' is-selected' : '');
       liEmpty.dataset.value = '';
       liEmpty.textContent = 'Elegir…';
       menu.appendChild(liEmpty);
+
       plans.forEach(p=>{
         const li = document.createElement('li');
         li.className = 'cs-option' + (String(p)===String(nativePlan.value) ? ' is-selected' : '');
         li.dataset.value = String(p);
-        li.textContent = String(p);
+        li.textContent = 'Plan ' + String(p);
         menu.appendChild(li);
       });
 
-      // Re-enlazar eventos y scroll del custom
       customPlan._csRefresh && customPlan._csRefresh();
 
-      // Delegación simple para nuevas opciones
       menu.querySelectorAll('.cs-option').forEach(li=>{
         li.addEventListener('click', ()=>{
           menu.querySelectorAll('.cs-option').forEach(o=>o.classList.remove('is-selected'));
           li.classList.add('is-selected');
           const v = li.dataset.value || '';
           nativePlan.value = v;
-          valEl.textContent = v || 'Elegir…';
+          valEl.textContent = v ? ('Plan ' + v) : 'Elegir…';
         });
       });
 
-      // Si no quedó seleccionado nada, mostrar "Elegir…"
-      valEl.textContent = nativePlan.value || 'Elegir…';
+      valEl.textContent = nativePlan.value ? ('Plan ' + nativePlan.value) : 'Elegir…';
     }
 
-    // Al cambiar carrera (nativa o custom), refrescar planes
     nativeCareer.addEventListener('change', ()=>{
       rebuildPlanOptions(nativeCareer.value, '');
     });
 
-    // Cuando se elige desde el custom de carrera, el setupCsSelect ya dispara change en el nativo
-    // gracias a _csSetValue, así que con lo de arriba alcanza.
-
-    // Setup inicial si el form venía con valores
-    (function initialPlanSync(){
-      const currentCareer = nativeCareer.value;
-      const currentPlan   = String(<%- JSON.stringify(_form.plan || '') %>);
-      if (currentCareer) {
-        rebuildPlanOptions(currentCareer, currentPlan);
-      }
+    // Sync inicial: si ya hay carrera, reconstruye y respeta prefer si está permitido
+    (function initialSync(){
+      const career = nativeCareer.value || "";
+      const prefer = "<%= initialPlan %>";
+      if (career) rebuildPlanOptions(career, prefer);
+      else rebuildPlanOptions("", "");
     })();
+
   })();
 </script>
 
@@ -426,7 +438,7 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   border-radius:12px;
   border:1px solid rgba(15,23,42,.12);
   padding:0 12px;
-  background:#F5F8FB;           /* fondo uniforme */
+  background:#F5F8FB;
   color:#0f172a;
   box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
 }
@@ -439,7 +451,7 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   display:block;
   font-size:12px;
   font-weight:700;
-  margin-bottom:4px;            /* menos margen */
+  margin-bottom:4px;
   color:#0f172a;
 }
 .ios-input-wrap{ position:relative; }
@@ -464,7 +476,7 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   padding:0 12px;
   background:#F5F8FB;
   color:#0F172A;
-  border:1px solid #0000001c;         /* borde negro para el select custom */
+  border:1px solid #0000001c;
   border-radius:12px;
   box-shadow:none;
   cursor:pointer;
@@ -484,9 +496,9 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   border:1px solid #0000001c;
   border-radius:12px;
   box-shadow: 0 10px 24px rgba(15,23,42,.10);
-  overflow-y: hidden;            /* por defecto SIN scroll */
+  overflow-y: hidden;
   overflow-x: hidden;
-  padding:6px;                   /* compacto */
+  padding:6px;
   list-style:none; margin:0;
   z-index: 1000;
   display:none;
@@ -498,7 +510,6 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  /* max-height se setea por JS según 4 ítems visibles */
 }
 
 .cs-option{
@@ -512,6 +523,5 @@ const _form = (typeof form !== 'undefined' && form) ? form : {};
   font-weight:700;
 }
 
-/* Compat extra */
 select::-ms-expand{ display:none; }
 </style>

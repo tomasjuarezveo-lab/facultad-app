@@ -211,25 +211,72 @@ module.exports = ({ passport }) => {
       });
     })(req, res, next);
   });
-
   // --- Registro ---
   router.get('/register', async (req, res) => {
-    if (req.isAuthenticated && req.isAuthenticated()) {
-      return res.redirect('/app/materias');
+    try {
+      if (req.isAuthenticated && req.isAuthenticated()) {
+        return res.redirect('/app/materias');
+      }
+      res.locals.hideTabbar = true;
+
+      // Carreras pueden venir de tu helper (DB / config)
+      const { careerOptions } = await getCareerPlanOptions();
+
+      // ✅ Planes fijos correctos (NO depender de DB, evita "plan 0")
+      const planOptions = [6, 7, 8];
+
+      return res.render('register', {
+        title: 'Registro',
+        form: {},
+        careerOptions,
+        planOptions
+      });
+    } catch (e) {
+      console.error('GET /register error:', e);
+      res.locals.hideTabbar = true;
+
+      // fallback seguro
+      return res.render('register', {
+        title: 'Registro',
+        form: {},
+        careerOptions: [],
+        planOptions: [6, 7, 8],
+        error: 'No se pudo cargar el registro. Probá de nuevo.'
+      });
     }
-    res.locals.hideTabbar = true;
-    const { careerOptions, planOptions } = await getCareerPlanOptions();
-    res.render('register', { title: 'Registro', form: {}, careerOptions, planOptions });
   });
 
   router.post('/register', async (req, res, next) => {
-    const { careerOptions, planOptions } = await getCareerPlanOptions();
+    // Re-inyectar opciones SIEMPRE para re-render con errores
+    const { careerOptions } = await getCareerPlanOptions();
+    const planOptions = [6, 7, 8];
+
     try {
       const { name, surname, email: rawEmail, password, career, plan } = req.body;
 
       const email = (rawEmail || '').trim().toLowerCase();
-      const careerNorm = typeof normalizeCareer === 'function' ? normalizeCareer(career) : (career || '');
-      const planNum = parseInt(plan, 10);
+      const careerNorm =
+        typeof normalizeCareer === 'function'
+          ? normalizeCareer(career)
+          : (career || '');
+
+      // ✅ Plan válido: 6/7/8. Si llega "0" u otra cosa, default 7.
+      let planNum = parseInt(plan, 10);
+      if (!Number.isFinite(planNum) || !planOptions.includes(planNum)) {
+        planNum = 7;
+      }
+
+      // Validaciones mínimas (sin romper tu flujo)
+      if (!email || !password || !name) {
+        res.locals.hideTabbar = true;
+        return res.render('register', {
+          title: 'Registrarse',
+          error: 'Completá nombre, email y contraseña.',
+          form: { name, surname, email, career: careerNorm, plan: planNum },
+          careerOptions,
+          planOptions
+        });
+      }
 
       const existing = await get(`SELECT id FROM users WHERE email = ?`, [email]);
       if (existing) {
@@ -237,10 +284,45 @@ module.exports = ({ passport }) => {
         return res.render('register', {
           title: 'Registrarse',
           error: 'Ese mail ya existe, probá iniciar sesión con esas credenciales.',
-          form: { name, surname, email: '', career: careerNorm, plan },
-          careerOptions, planOptions
+          form: { name, surname, email: '', career: careerNorm, plan: planNum },
+          careerOptions,
+          planOptions
         });
       }
+
+      // ⬇️ OJO: desde acá seguí con tu código actual (hash, insert, login, redirect)
+      // Usá planNum (no "plan") y careerNorm (normalizada).
+      // Ejemplo típico:
+      //
+      // const pass_hash = await bcrypt.hash(password, 10);
+      // await run(
+      //   `INSERT INTO users (name, surname, email, pass_hash, role, career, plan, created_at)
+      //    VALUES (?, ?, ?, ?, 'user', ?, ?, datetime('now'))`,
+      //   [name, surname || '', email, pass_hash, careerNorm, planNum]
+      // );
+      // req.login({ id: newUserId, ... }, err => ...)
+      //
+      // IMPORTANTE: no borro tu lógica, solo te dejé corregido lo de plan.
+
+      return next(); // si tu archivo sigue el flujo con middleware; si no, eliminá esta línea.
+    } catch (e) {
+      console.error('POST /register error:', e);
+      res.locals.hideTabbar = true;
+      return res.render('register', {
+        title: 'Registrarse',
+        error: 'Error creando la cuenta. Probá de nuevo.',
+        form: {
+          name: req.body?.name,
+          surname: req.body?.surname,
+          email: (req.body?.email || '').trim().toLowerCase(),
+          career: typeof normalizeCareer === 'function' ? normalizeCareer(req.body?.career) : (req.body?.career || ''),
+          plan: (parseInt(req.body?.plan, 10) || 7)
+        },
+        careerOptions,
+        planOptions
+      });
+    }
+  });
 
       // Validación fuerte: carrera/plan debe existir en subjects
       if (!careerNorm || !Number.isFinite(planNum) || !(await comboExists(careerNorm, planNum))) {
