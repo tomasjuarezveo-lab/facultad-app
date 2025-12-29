@@ -344,3 +344,47 @@ const initialPlan =
 .cs-option:hover{ background:#E8EEF6; }
 .cs-option.is-selected{ background:#FFE9C9; font-weight:700; }
 </style>
+<script>
+(function forcePlansNoZero(){
+  const CAREER_TO_PLANS = {
+    "Lic. en Administración de Empresas": ["6","7","8"],
+    "Contabilidad": ["6","7"],
+    "Lic. en Economía": ["6","7"],
+  };
+
+  const career = document.querySelector('select[name="career"]');
+  const plan   = document.querySelector('select[name="plan"]');
+
+  if (!career || !plan) return;
+
+  function rebuildPlans() {
+    const c = career.value;
+    const allowed = CAREER_TO_PLANS[c] || [];
+
+    // eliminar todo y crear de cero
+    plan.innerHTML = '';
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = 'Elegir…';
+    plan.appendChild(opt0);
+
+    allowed.forEach(p => {
+      const op = document.createElement('option');
+      op.value = p;
+      op.textContent = 'Plan ' + p;
+      plan.appendChild(op);
+    });
+
+    // SIEMPRE evitar 0
+    plan.value = '';
+  }
+
+  // Si existiera un option 0 (por código viejo), lo elimina
+  Array.from(plan.options).forEach(o => { if (o.value === '0') o.remove(); });
+
+  career.addEventListener('change', rebuildPlans);
+
+  // inicial
+  rebuildPlans();
+})();
+</script>
