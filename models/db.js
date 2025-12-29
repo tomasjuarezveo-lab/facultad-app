@@ -1,6 +1,8 @@
 // models/db.js (libSQL / Turso compatible - robusto)
 // Mantiene all/get/run/init y soporta múltiples nombres de env vars.
 
+console.log("✅ CARGÓ models/db.js NUEVO - build:", process.env.KOYEB_PUBLIC_DOMAIN || "local");
+
 const { createClient } = require("@libsql/client");
 const bcrypt = require("bcrypt");
 
