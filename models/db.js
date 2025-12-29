@@ -1,33 +1,41 @@
-// models/db.js (Turso/libSQL compatible)
-// Mantiene all/get/run/init y crea tablas necesarias en la DB remota.
+// models/db.js  (libSQL / Turso compatible)
+// Mantiene interfaz run/get/all/init como en SQLite, pero usando Turso remoto.
 
 const { createClient } = require("@libsql/client");
 const bcrypt = require("bcrypt");
 
-/** Lee env vars de varios nombres posibles y hace trim. */
-function readEnvTrim(...keys) {
-  for (const k of keys) {
-    const v = process.env[k];
-    if (typeof v === "string" && v.trim()) return v.trim();
-  }
-  return "";
+/**
+ * ENV (en Koyeb):
+ *   DATABASE_URL=libsql://xxxx.turso.io
+ *   DATABASE_AUTH_TOKEN=eyJhbGciOi...
+ *
+ * (Compat):
+ *   LIBSQL_URL / LIBSQL_AUTH_TOKEN
+ *   TURSO_DATABASE_URL / TURSO_AUTH_TOKEN
+ */
+
+const DB_URL =
+  process.env.DATABASE_URL ||
+  process.env.LIBSQL_URL ||
+  process.env.TURSO_DATABASE_URL;
+
+const DB_TOKEN =
+  process.env.DATABASE_AUTH_TOKEN ||
+  process.env.LIBSQL_AUTH_TOKEN ||
+  process.env.TURSO_AUTH_TOKEN;
+
+if (!DB_URL) {
+  console.error("❌ Falta DATABASE_URL (o LIBSQL_URL / TURSO_DATABASE_URL)");
 }
-
-const DB_URL = readEnvTrim("DATABASE_URL", "TURSO_DATABASE_URL", "LIBSQL_URL");
-const DB_TOKEN = readEnvTrim("DATABASE_AUTH_TOKEN", "TURSO_AUTH_TOKEN", "LIBSQL_AUTH_TOKEN");
-
-// Logs útiles (no imprime el token completo)
-console.log("✅ db.js cargado (libSQL/Turso)");
-console.log("DB_URL:", DB_URL || "(VACIO)");
-console.log("DB_TOKEN length:", DB_TOKEN ? DB_TOKEN.length : 0);
-console.log("DB_TOKEN startsWith:", DB_TOKEN ? DB_TOKEN.slice(0, 12) + "..." : "(VACIO)");
+if (!DB_TOKEN) {
+  console.error("❌ Falta DATABASE_AUTH_TOKEN (o LIBSQL_AUTH_TOKEN / TURSO_AUTH_TOKEN)");
+}
 
 const db = createClient({
   url: DB_URL,
   authToken: DB_TOKEN,
 });
 
-// Helpers compatibles con tu código actual
 async function run(sql, params = []) {
   return db.execute({ sql, args: params });
 }
@@ -42,29 +50,35 @@ async function all(sql, params = []) {
   return r.rows || [];
 }
 
-// Helpers de migración
+// --- helpers schema ---
+async function tableExists(name) {
+  const r = await get(
+    `SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1`,
+    [name]
+  );
+  return !!r;
+}
+
 async function columnExists(table, col) {
-  try {
-    const cols = await all(`PRAGMA table_info(${table})`);
-    return cols.some((c) => c.name === col);
-  } catch {
-    return false;
+  // PRAGMA table_info(tabla) devuelve {cid,name,type,...}
+  const rows = await all(`PRAGMA table_info(${table});`);
+  return rows.some((r) => String(r.name).toLowerCase() === String(col).toLowerCase());
+}
+
+async function ensureColumn(table, col, ddlSql) {
+  const has = await columnExists(table, col);
+  if (!has) {
+    try {
+      await run(ddlSql);
+      console.log(`🟩 ${table}.${col} ensured`);
+    } catch (e) {
+      // si falla por race/ya existe, seguimos
+      console.warn(`⚠️ No se pudo asegurar ${table}.${col}:`, e.message);
+    }
   }
 }
 
-/**
- * init(): crea tablas si no existen + migraciones suaves + seed admin
- * Importante: esto corre una vez al levantar el server.
- */
-async function init() {
-  console.log("🟦 INIT START");
-
-  // Ping mínimo: si falla acá, es URL/token.
-  const ping = await db.execute("SELECT 1 as ok");
-  console.log("✅ Turso ping OK:", ping.rows?.[0]?.ok);
-
-  // ===== Tablas base =====
-
+async function ensureTableUsers() {
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -73,41 +87,46 @@ async function init() {
       pass_hash TEXT NOT NULL,
       role TEXT DEFAULT 'user',
       career TEXT DEFAULT '',
-      plan TEXT DEFAULT ''
-    )
+      plan INTEGER DEFAULT 7
+    );
   `);
 
-  // Materias
+  // columnas que tu app / admin usan
+  await ensureColumn("users", "created_at", `ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP;`);
+  await ensureColumn("users", "phone",      `ALTER TABLE users ADD COLUMN phone TEXT;`);
+  await ensureColumn("users", "avatarUrl",  `ALTER TABLE users ADD COLUMN avatarUrl TEXT;`);
+
+  // arreglar planes 0/null
+  try {
+    await run(`UPDATE users SET plan=7 WHERE plan IS NULL OR plan=0;`);
+  } catch {}
+}
+
+async function ensureTableSubjects() {
   await run(`
     CREATE TABLE IF NOT EXISTS subjects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       career TEXT,
-      plan TEXT,
+      plan INTEGER,
       year INTEGER,
       name TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
-  console.log("🟩 subjects table ensured");
+  await ensureColumn("subjects", "created_at", `ALTER TABLE subjects ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP;`);
+}
 
-  // Documentos (subidas)
+async function ensureCoreTables() {
+  // Scores juegos
   await run(`
-    CREATE TABLE IF NOT EXISTS documents (
+    CREATE TABLE IF NOT EXISTS game_scores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      subject_id INTEGER,
-      career TEXT,
-      plan TEXT,
-      category TEXT,
-      title TEXT,
-      filename TEXT,
-      url TEXT,
-      mimetype TEXT,
-      size INTEGER,
-      level TEXT,
-      group_uid TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE SET NULL
-    )
+      user_id INTEGER,
+      game TEXT,
+      score INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
   `);
 
   // Notificaciones
@@ -117,77 +136,43 @@ async function init() {
       title TEXT,
       message TEXT,
       career TEXT DEFAULT '',
-      plan TEXT DEFAULT '',
-      created_at TEXT DEFAULT (datetime('now'))
-    )
+      plan INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
-  // Correlativas (JSON)
+  // Correlativas
   await run(`
     CREATE TABLE IF NOT EXISTS correlatives (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       career TEXT,
-      plan TEXT,
+      plan INTEGER,
       data_json TEXT
-    )
+    );
   `);
 
-  // Finales
+  // Docs (tu upload usa varios campos)
   await run(`
-    CREATE TABLE IF NOT EXISTS finals (
+    CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      career TEXT,
-      plan TEXT,
-      subject TEXT,
-      date TEXT,
-      exam_type TEXT DEFAULT 'final'
-        CHECK (exam_type IN ('final','parcial','recuperatorio','otro')),
-      created_at TEXT DEFAULT (datetime('now'))
-    )
+      subject_id INTEGER,
+      title TEXT,
+      category TEXT,
+      filename TEXT,
+      mimetype TEXT,
+      size INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
+  await ensureColumn("documents", "level",     `ALTER TABLE documents ADD COLUMN level TEXT;`);
+  await ensureColumn("documents", "group_uid", `ALTER TABLE documents ADD COLUMN group_uid TEXT;`);
 
-  // Profesores y reseñas
-  await run(`
-    CREATE TABLE IF NOT EXISTS professors (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      career TEXT,
-      plan TEXT,
-      name TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
-    )
-  `);
-
-  await run(`
-    CREATE TABLE IF NOT EXISTS reviews (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      professor_id INTEGER,
-      rating INTEGER,
-      comment TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY(professor_id) REFERENCES professors(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Tutorial flags
-  await run(`
-    CREATE TABLE IF NOT EXISTS tutorial_seen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      key TEXT,
-      seen_at TEXT DEFAULT (datetime('now')),
-      UNIQUE(user_id, key),
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
-  `);
-
-  // Quizzes
+  // Quizzes DB (si usás tablas)
   await run(`
     CREATE TABLE IF NOT EXISTS quiz_questions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       career TEXT,
-      plan TEXT,
+      plan INTEGER,
       subject TEXT,
       question TEXT,
       option_a TEXT,
@@ -196,7 +181,7 @@ async function init() {
       option_d TEXT,
       correct TEXT,
       explanation TEXT
-    )
+    );
   `);
 
   await run(`
@@ -204,37 +189,72 @@ async function init() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER,
       career TEXT,
-      plan TEXT,
+      plan INTEGER,
       score INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+    );
   `);
 
-  // Juegos (scores)
+  // Finales (por si existe ruta)
   await run(`
-    CREATE TABLE IF NOT EXISTS game_scores (
+    CREATE TABLE IF NOT EXISTS finals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER,
-      game TEXT,
-      score INTEGER DEFAULT 0,
-      created_at TEXT DEFAULT (datetime('now')),
+      subject_id INTEGER,
+      career TEXT,
+      plan INTEGER,
+      year INTEGER,
+      date TEXT,
+      exam_type TEXT,
+      modalidad TEXT,
+      rendible INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+    );
+  `);
+  // asegurar columnas usadas por versiones viejas/nuevas
+  await ensureColumn("finals", "exam_type", `ALTER TABLE finals ADD COLUMN exam_type TEXT;`);
+  await ensureColumn("finals", "modalidad", `ALTER TABLE finals ADD COLUMN modalidad TEXT;`);
+  await ensureColumn("finals", "rendible",  `ALTER TABLE finals ADD COLUMN rendible INTEGER DEFAULT 1;`);
+
+  // Profesores + reviews (tu sección profesores)
+  await run(`
+    CREATE TABLE IF NOT EXISTS professors (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      photo_url TEXT,
+      career TEXT,
+      plan INTEGER DEFAULT 7
+    );
+  `);
+  await ensureColumn("professors", "subjects_text", `ALTER TABLE professors ADD COLUMN subjects_text TEXT;`);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      professor_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      rating INTEGER NOT NULL,
+      comment TEXT,
+      corre INTEGER,
+      clases INTEGER,
+      onda INTEGER,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(professor_id) REFERENCES professors(id) ON DELETE CASCADE,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+    );
   `);
 
-  // ===== Grupos / Chats efímeros =====
+  // Grupos (tu sección grupos)
   await run(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      career TEXT DEFAULT '',
-      plan TEXT DEFAULT '',
+      career TEXT,
+      plan INTEGER,
       subject_id INTEGER,
-      name TEXT,
-      expires_at TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE SET NULL
-    )
+      title TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
   `);
 
   await run(`
@@ -242,10 +262,10 @@ async function init() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       group_id INTEGER,
       user_id INTEGER,
-      joined_at TEXT DEFAULT (datetime('now')),
+      joined_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+    );
   `);
 
   await run(`
@@ -254,38 +274,55 @@ async function init() {
       group_id INTEGER,
       user_id INTEGER,
       message TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE,
       FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
-    )
+    );
   `);
 
-  // ===== Migraciones suaves (no rompen) =====
-  try {
-    const hasPhone = await columnExists("users", "phone");
-    if (!hasPhone) {
-      await run(`ALTER TABLE users ADD COLUMN phone TEXT`);
-      console.log("[migración] users.phone agregado");
-    }
-  } catch (e) {
-    console.log("No se pudo asegurar users.phone (continuo sin romper):", e?.message || e);
-  }
-
-  // ===== Seed admin =====
-  const admin = await get(`SELECT * FROM users WHERE role='admin' LIMIT 1`);
-  if (!admin) {
-    const email = process.env.ADMIN_EMAIL || "admin@demo.com";
-    const pass = process.env.ADMIN_PASS || "admin123";
-    const pass_hash = await bcrypt.hash(pass, 10);
-    await run(
-      `INSERT INTO users (name, email, pass_hash, role) VALUES (?, ?, ?, 'admin')`,
-      ["Admin", email, pass_hash]
+  // Tutorial visto
+  await run(`
+    CREATE TABLE IF NOT EXISTS tutorial_seen (
+      user_id INTEGER NOT NULL,
+      section TEXT NOT NULL,
+      seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(user_id, section),
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
     );
-    console.log(`[DB] Admin creado: ${email} / ${pass}`);
-  }
+  `);
+}
 
-  console.log("[DB] init OK (libSQL remoto)");
+async function seedAdminIfMissing() {
+  const admin = await get(`SELECT 1 AS ok FROM users WHERE role='admin' LIMIT 1`);
+  if (admin) return;
+
+  const email = process.env.ADMIN_EMAIL || "admin@demo.com";
+  const pass  = process.env.ADMIN_PASS  || "admin123";
+  const hash  = await bcrypt.hash(pass, 10);
+
+  await run(
+    `INSERT INTO users (name, email, pass_hash, role, career, plan, created_at)
+     VALUES (?, ?, ?, 'admin', ?, ?, CURRENT_TIMESTAMP);`,
+    ["Admin", email, hash, "Lic. en Administración de Empresas", 7]
+  );
+
+  console.log(`[DB] Admin creado: ${email} / ${pass}`);
+}
+
+async function init() {
+  console.log("🟦 INIT START");
+
+  // ping
+  const ping = await get(`SELECT 1 AS ok;`);
+  console.log("✅ Turso ping OK:", ping?.ok ?? 1);
+
+  await ensureTableUsers();
+  await ensureTableSubjects();
+  await ensureCoreTables();
+  await seedAdminIfMissing();
+
   console.log("🟦 INIT DONE");
+  console.log("[DB] init OK (libSQL remoto)");
 }
 
 module.exports = { db, all, get, run, init };
