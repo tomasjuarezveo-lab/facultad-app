@@ -51,96 +51,48 @@ module.exports = ({ passport }) => {
   // ===== Helpers =====
   function normStr(s){ return String(s || '').trim().replace(/\s+/g, ' ').toLowerCase(); }
 
-  // Devuelve: { careerOptions, planOptions, plansByCareer }
-  async function getCareerPlanOptions() {
-    // Carreras desde subjects/users (normalizadas)
-    const careers = new Set();
-    // Planes totales (unión) y por carrera
-    const plansSet         = new Set();
-    const plansByCareerMap = new Map();
+  // ✅ Fuente ÚNICA de verdad (NO depende de DB)
+  const CAREERS = [
+    'Lic. en Administración de Empresas',
+    'Contabilidad',
+    'Lic. en Economía'
+  ];
 
-    try {
-      const sC = await all(`SELECT DISTINCT career FROM subjects WHERE career IS NOT NULL AND TRIM(career)<>''`);
-      (sC || []).forEach(r => {
-        const c = r && r.career ? normalizeCareer(r.career) : '';
-        if (c) careers.add(c);
-      });
-    } catch (_) {}
+  const PLANS_BY_CAREER = {
+    'Lic. en Administración de Empresas': [6, 7, 8],
+    'Contabilidad': [6, 7],
+    'Lic. en Economía': [6, 7]
+  };
 
-    // Si no hay en subjects, caemos a users
-    if (careers.size === 0) {
-      try {
-        const uC = await all(`SELECT DISTINCT career FROM users WHERE career IS NOT NULL AND TRIM(career)<>''`);
-        (uC || []).forEach(r => {
-          const c = r && r.career ? normalizeCareer(r.career) : '';
-          if (c) careers.add(c);
-        });
-      } catch (_) {}
-    }
-
-    // Fallbacks si DB está vacía
-    if (careers.size === 0) [
-      'Lic. en Administración de Empresas',
-      'Contabilidad',
-      'Lic. en Economía',
-      'Comercio Internacional',
-      'Marketing',
-      'Recursos Humanos',
-      'Sistemas / GTI'
-    ].forEach(c => careers.add(c));
-
-    // Planes por carrera (desde subjects)
-    try {
-      const rows = await all(
-        `SELECT career, plan
-           FROM subjects
-          WHERE career IS NOT NULL AND TRIM(career)<>'' AND plan IS NOT NULL`
-      );
-      (rows || []).forEach(r => {
-        const c = normalizeCareer(r.career || '');
-        const p = Number(r.plan);
-        if (!c || !Number.isFinite(p)) return;
-        plansSet.add(p);
-        const arr = plansByCareerMap.get(c) || [];
-        if (!arr.includes(p)) arr.push(p);
-        plansByCareerMap.set(c, arr);
-      });
-    } catch (_) {}
-
-    // Si no hay nada en subjects, armamos set de planes desde users (solo a modo informativo)
-    if (plansSet.size === 0) {
-      try {
-        const uP = await all(`SELECT DISTINCT plan FROM users WHERE plan IS NOT NULL`);
-        (uP || []).forEach(r => {
-          const p = Number(r.plan);
-          if (Number.isFinite(p)) plansSet.add(p);
-        });
-      } catch (_) {}
-    }
-
-    // Fallback de planes si sigue vacío
-    if (plansSet.size === 0) [2008, 2016, 2021, 2022, 2023].forEach(p => plansSet.add(p));
-
-    const careerOptions = [...careers].sort((a,b)=>a.localeCompare(b,'es'));
-    const planOptions   = [...plansSet].sort((a,b)=>a-b);
-
-    // normalizar mapa a objeto con arrays ordenados
-    const plansByCareer = {};
-    for (const c of careerOptions) {
-      const arr = plansByCareerMap.get(c) || [];
-      plansByCareer[c] = arr.sort((a,b)=>a-b);
-    }
-
-    return { careerOptions, planOptions, plansByCareer };
+  function safeNormalizeCareer(input) {
+    const c = typeof normalizeCareer === 'function' ? normalizeCareer(input || '') : String(input || '');
+    // Solo permitimos estas 3
+    if (CAREERS.includes(c)) return c;
+    // intentamos mapear por strings comunes por si viene algo raro
+    const lc = String(input || '').toLowerCase();
+    if (lc.includes('admin')) return 'Lic. en Administración de Empresas';
+    if (lc.includes('cont')) return 'Contabilidad';
+    if (lc.includes('econo')) return 'Lic. en Economía';
+    return '';
   }
 
-  // Verifica si existe al menos un subject para esa combinación
-  async function comboExists(career, plan) {
-    const row = await get(
-      `SELECT 1 AS ok FROM subjects WHERE LOWER(career)=LOWER(?) AND plan=? LIMIT 1`,
-      [normalizeCareer(career), Number(plan)]
-    );
-    return !!row;
+  // Devuelve: { careerOptions, planOptions, plansByCareer }
+  async function getCareerPlanOptions() {
+    // Carreras fijas
+    const careerOptions = CAREERS.slice();
+
+    // Planes totales fijos (unión)
+    const union = new Set();
+    Object.values(PLANS_BY_CAREER).forEach(arr => arr.forEach(p => union.add(p)));
+    const planOptions = Array.from(union).sort((a,b)=>a-b);
+
+    // Mapa carrera→planes fijo
+    const plansByCareer = {};
+    careerOptions.forEach(c => {
+      plansByCareer[c] = (PLANS_BY_CAREER[c] || []).slice().sort((a,b)=>a-b);
+    });
+
+    return { careerOptions, planOptions, plansByCareer };
   }
 
   // ===== Endpoints auxiliares para selects dependientes =====
@@ -148,15 +100,9 @@ module.exports = ({ passport }) => {
   // GET /auth/plans?career=Lic.%20en%20Econom%C3%ADa
   router.get('/plans', async (req, res) => {
     try {
-      const career = normalizeCareer(String(req.query.career || '').trim());
+      const career = safeNormalizeCareer(String(req.query.career || '').trim());
       if (!career) return res.json({ ok:true, career:'', plans: [] });
-
-      const rows = await all(
-        `SELECT DISTINCT plan FROM subjects WHERE LOWER(career)=LOWER(?) AND plan IS NOT NULL ORDER BY plan`,
-        [career]
-      );
-      const plans = (rows || []).map(r => Number(r.plan)).filter(n => Number.isFinite(n));
-      return res.json({ ok:true, career, plans });
+      return res.json({ ok:true, career, plans: (PLANS_BY_CAREER[career] || []).slice() });
     } catch (e) {
       console.error('GET /auth/plans error:', e);
       return res.status(500).json({ ok:false, error:'No se pudo obtener planes' });
@@ -211,6 +157,7 @@ module.exports = ({ passport }) => {
       });
     })(req, res, next);
   });
+
   // --- Registro ---
   router.get('/register', async (req, res) => {
     try {
@@ -219,12 +166,9 @@ module.exports = ({ passport }) => {
       }
       res.locals.hideTabbar = true;
 
-      // Carreras pueden venir de tu helper (DB / config)
-      const { careerOptions } = await getCareerPlanOptions();
+      const { careerOptions, planOptions } = await getCareerPlanOptions();
 
-      // ✅ Planes fijos correctos (NO depender de DB, evita "plan 0")
-      const planOptions = [6, 7, 8];
-
+      // Importante: el frontend puede filtrar por carrera usando /auth/options o lógica local.
       return res.render('register', {
         title: 'Registro',
         form: {},
@@ -234,103 +178,50 @@ module.exports = ({ passport }) => {
     } catch (e) {
       console.error('GET /register error:', e);
       res.locals.hideTabbar = true;
-
-      // fallback seguro
       return res.render('register', {
         title: 'Registro',
         form: {},
-        careerOptions: [],
-        planOptions: [6, 7, 8],
+        careerOptions: CAREERS.slice(),
+        planOptions: [6,7,8],
         error: 'No se pudo cargar el registro. Probá de nuevo.'
       });
     }
   });
 
   router.post('/register', async (req, res, next) => {
-    // Re-inyectar opciones SIEMPRE para re-render con errores
-    const { careerOptions } = await getCareerPlanOptions();
-    const planOptions = [6, 7, 8];
+    const { careerOptions, planOptions } = await getCareerPlanOptions();
 
     try {
       const { name, surname, email: rawEmail, password, career, plan } = req.body;
 
       const email = (rawEmail || '').trim().toLowerCase();
-      const careerNorm =
-        typeof normalizeCareer === 'function'
-          ? normalizeCareer(career)
-          : (career || '');
+      const careerNorm = safeNormalizeCareer(career);
 
-      // ✅ Plan válido: 6/7/8. Si llega "0" u otra cosa, default 7.
+      // 🔒 Plan permitido por carrera (y NUNCA 0)
+      const allowedPlans = (PLANS_BY_CAREER[careerNorm] || []);
       let planNum = parseInt(plan, 10);
-      if (!Number.isFinite(planNum) || !planOptions.includes(planNum)) {
-        planNum = 7;
+      if (!Number.isFinite(planNum) || !allowedPlans.includes(planNum)) {
+        planNum = allowedPlans[0] || 6; // default seguro
       }
 
-      // Validaciones mínimas (sin romper tu flujo)
-      if (!email || !password || !name) {
+      // Validaciones mínimas
+      if (!name || !email || !password || !careerNorm) {
         res.locals.hideTabbar = true;
-        return res.render('register', {
+        return res.status(400).render('register', {
           title: 'Registrarse',
-          error: 'Completá nombre, email y contraseña.',
-          form: { name, surname, email, career: careerNorm, plan: planNum },
-          careerOptions,
-          planOptions
+          error: 'Completá nombre, email, contraseña y carrera.',
+          form: { name, surname, email, career: careerNorm, plan: String(planNum) },
+          careerOptions, planOptions
         });
       }
 
       const existing = await get(`SELECT id FROM users WHERE email = ?`, [email]);
       if (existing) {
         res.locals.hideTabbar = true;
-        return res.render('register', {
-          title: 'Registrarse',
-          error: 'Ese mail ya existe, probá iniciar sesión con esas credenciales.',
-          form: { name, surname, email: '', career: careerNorm, plan: planNum },
-          careerOptions,
-          planOptions
-        });
-      }
-
-      // ⬇️ OJO: desde acá seguí con tu código actual (hash, insert, login, redirect)
-      // Usá planNum (no "plan") y careerNorm (normalizada).
-      // Ejemplo típico:
-      //
-      // const pass_hash = await bcrypt.hash(password, 10);
-      // await run(
-      //   `INSERT INTO users (name, surname, email, pass_hash, role, career, plan, created_at)
-      //    VALUES (?, ?, ?, ?, 'user', ?, ?, datetime('now'))`,
-      //   [name, surname || '', email, pass_hash, careerNorm, planNum]
-      // );
-      // req.login({ id: newUserId, ... }, err => ...)
-      //
-      // IMPORTANTE: no borro tu lógica, solo te dejé corregido lo de plan.
-
-      return next(); // si tu archivo sigue el flujo con middleware; si no, eliminá esta línea.
-    } catch (e) {
-      console.error('POST /register error:', e);
-      res.locals.hideTabbar = true;
-      return res.render('register', {
-        title: 'Registrarse',
-        error: 'Error creando la cuenta. Probá de nuevo.',
-        form: {
-          name: req.body?.name,
-          surname: req.body?.surname,
-          email: (req.body?.email || '').trim().toLowerCase(),
-          career: typeof normalizeCareer === 'function' ? normalizeCareer(req.body?.career) : (req.body?.career || ''),
-          plan: (parseInt(req.body?.plan, 10) || 7)
-        },
-        careerOptions,
-        planOptions
-      });
-    }
-  });
-
-      // Validación fuerte: carrera/plan debe existir en subjects
-      if (!careerNorm || !Number.isFinite(planNum) || !(await comboExists(careerNorm, planNum))) {
-        res.locals.hideTabbar = true;
         return res.status(400).render('register', {
           title: 'Registrarse',
-          error: `El plan ${plan} no está disponible para la carrera "${careerNorm}".`,
-          form: { name, surname, email: email, career: careerNorm, plan },
+          error: 'Ese mail ya existe, probá iniciar sesión con esas credenciales.',
+          form: { name, surname, email: '', career: careerNorm, plan: String(planNum) },
           careerOptions, planOptions
         });
       }
@@ -344,10 +235,11 @@ module.exports = ({ passport }) => {
 
       const hash = await bcrypt.hash(password, 10);
 
+      // Insert
       if (hasSurname) {
         await run(
           `INSERT INTO users (name, surname, email, pass_hash, career, plan) VALUES (?, ?, ?, ?, ?, ?)`,
-          [name, surname, email, hash, careerNorm, planNum]
+          [name, surname || '', email, hash, careerNorm, planNum]
         );
       } else {
         await run(
@@ -357,9 +249,11 @@ module.exports = ({ passport }) => {
       }
 
       const newUser = await get(`SELECT id, name, email, role, career, plan FROM users WHERE email = ?`, [email]);
+
       req.login(newUser, (err) => {
         if (err) return next(err);
 
+        // Si el sistema de verificación no está activo, damos 30 días por defecto
         if (!verificationUtil.getEnabled()) {
           const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
           const now = Date.now();
@@ -378,15 +272,15 @@ module.exports = ({ passport }) => {
     } catch (err) {
       console.error('POST /register error', err);
       res.locals.hideTabbar = true;
-      return res.render('register', {
+      return res.status(500).render('register', {
         title: 'Registrarse',
         error: 'Ocurrió un error al crear la cuenta. Intentá nuevamente.',
         form: {
-          name: (req.body.name || ''),
-          surname: (req.body.surname || ''),
+          name: (req.body?.name || ''),
+          surname: (req.body?.surname || ''),
           email: '',
-          career: (req.body.career || ''),
-          plan: (req.body.plan || '')
+          career: safeNormalizeCareer(req.body?.career || ''),
+          plan: String(parseInt(req.body?.plan, 10) || '')
         },
         careerOptions, planOptions
       });
@@ -409,7 +303,7 @@ module.exports = ({ passport }) => {
       const name   = normStr(req.body.name);
       const email  = normStr(req.body.email);
       const phone  = normStr(req.body.phone);
-      const career = normalizeCareer(req.body.career || '');
+      const career = safeNormalizeCareer(req.body.career || '');
       const plan   = String(req.body.plan || '').trim();
 
       if (!name || !email || !career || !plan) {
@@ -431,7 +325,7 @@ module.exports = ({ passport }) => {
 
       const dbName   = normStr(user.name);
       const dbPhone  = ('phone' in user) ? normStr(user.phone) : '';
-      const dbCareer = normalizeCareer(user.career || '');
+      const dbCareer = safeNormalizeCareer(user.career || '');
       const dbPlan   = String(user.plan || '').trim();
 
       const ok =
