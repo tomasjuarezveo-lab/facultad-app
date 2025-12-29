@@ -1,5 +1,6 @@
 // models/db.js  (libSQL / Turso compatible)
 // Mantiene interfaz run/get/all/init como en SQLite, pero usando Turso remoto.
+// Además: auto-migraciones (CREATE/ALTER) para que el schema coincida con tus rutas.
 
 const { createClient } = require("@libsql/client");
 const bcrypt = require("bcrypt");
@@ -9,7 +10,7 @@ const bcrypt = require("bcrypt");
  *   DATABASE_URL=libsql://xxxx.turso.io
  *   DATABASE_AUTH_TOKEN=eyJhbGciOi...
  *
- * (Compat):
+ * Compat:
  *   LIBSQL_URL / LIBSQL_AUTH_TOKEN
  *   TURSO_DATABASE_URL / TURSO_AUTH_TOKEN
  */
@@ -24,18 +25,20 @@ const DB_TOKEN =
   process.env.LIBSQL_AUTH_TOKEN ||
   process.env.TURSO_AUTH_TOKEN;
 
-if (!DB_URL) {
-  console.error("❌ Falta DATABASE_URL (o LIBSQL_URL / TURSO_DATABASE_URL)");
-}
-if (!DB_TOKEN) {
-  console.error("❌ Falta DATABASE_AUTH_TOKEN (o LIBSQL_AUTH_TOKEN / TURSO_AUTH_TOKEN)");
-}
+console.log("✅ db.js cargado (libSQL/Turso)");
+console.log("DB_URL:", DB_URL || "(missing)");
+console.log("DB_TOKEN length:", DB_TOKEN ? String(DB_TOKEN).length : 0);
+console.log("DB_TOKEN startsWith:", DB_TOKEN ? String(DB_TOKEN).slice(0, 12) + "..." : "(missing)");
+
+if (!DB_URL) console.error("❌ Falta DATABASE_URL (o LIBSQL_URL / TURSO_DATABASE_URL)");
+if (!DB_TOKEN) console.error("❌ Falta DATABASE_AUTH_TOKEN (o LIBSQL_AUTH_TOKEN / TURSO_AUTH_TOKEN)");
 
 const db = createClient({
   url: DB_URL,
   authToken: DB_TOKEN,
 });
 
+// ------------------- helpers básicos -------------------
 async function run(sql, params = []) {
   return db.execute({ sql, args: params });
 }
@@ -50,34 +53,25 @@ async function all(sql, params = []) {
   return r.rows || [];
 }
 
-// --- helpers schema ---
-async function tableExists(name) {
-  const r = await get(
-    `SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name=? LIMIT 1`,
-    [name]
-  );
-  return !!r;
-}
-
+// ------------------- helpers schema -------------------
 async function columnExists(table, col) {
-  // PRAGMA table_info(tabla) devuelve {cid,name,type,...}
   const rows = await all(`PRAGMA table_info(${table});`);
   return rows.some((r) => String(r.name).toLowerCase() === String(col).toLowerCase());
 }
 
 async function ensureColumn(table, col, ddlSql) {
   const has = await columnExists(table, col);
-  if (!has) {
-    try {
-      await run(ddlSql);
-      console.log(`🟩 ${table}.${col} ensured`);
-    } catch (e) {
-      // si falla por race/ya existe, seguimos
-      console.warn(`⚠️ No se pudo asegurar ${table}.${col}:`, e.message);
-    }
+  if (has) return;
+  try {
+    await run(ddlSql);
+    console.log(`🟩 ${table}.${col} ensured`);
+  } catch (e) {
+    // Puede fallar por "already exists" si dos instancias corren a la vez, no rompemos.
+    console.warn(`⚠️ No se pudo asegurar ${table}.${col}:`, e.message);
   }
 }
 
+// ------------------- tablas + migraciones -------------------
 async function ensureTableUsers() {
   await run(`
     CREATE TABLE IF NOT EXISTS users (
@@ -91,15 +85,16 @@ async function ensureTableUsers() {
     );
   `);
 
-  // columnas que tu app / admin usan
   await ensureColumn("users", "created_at", `ALTER TABLE users ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP;`);
   await ensureColumn("users", "phone",      `ALTER TABLE users ADD COLUMN phone TEXT;`);
   await ensureColumn("users", "avatarUrl",  `ALTER TABLE users ADD COLUMN avatarUrl TEXT;`);
 
+  // ✅ /app/juegos: falta points
+  // Muchas apps guardan "puntos" en users para ranking/roulette.
+  await ensureColumn("users", "points", `ALTER TABLE users ADD COLUMN points INTEGER DEFAULT 0;`);
+
   // arreglar planes 0/null
-  try {
-    await run(`UPDATE users SET plan=7 WHERE plan IS NULL OR plan=0;`);
-  } catch {}
+  try { await run(`UPDATE users SET plan=7 WHERE plan IS NULL OR plan=0;`); } catch {}
 }
 
 async function ensureTableSubjects() {
@@ -113,7 +108,16 @@ async function ensureTableSubjects() {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
   await ensureColumn("subjects", "created_at", `ALTER TABLE subjects ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP;`);
+
+  // ✅ /app/correlativas: algunas queries usan subject_name en vez de name
+  await ensureColumn("subjects", "subject_name", `ALTER TABLE subjects ADD COLUMN subject_name TEXT;`);
+  // Backfill: subject_name = name cuando esté vacío
+  try { await run(`UPDATE subjects SET subject_name = name WHERE subject_name IS NULL OR subject_name = '';`); } catch {}
+
+  // arreglar planes 0/null
+  try { await run(`UPDATE subjects SET plan=7 WHERE plan IS NULL OR plan=0;`); } catch {}
 }
 
 async function ensureCoreTables() {
@@ -142,6 +146,8 @@ async function ensureCoreTables() {
   `);
 
   // Correlativas
+  // Nota: tus correlativas se reconstruyen desde tablas/JSON,
+  // pero dejamos una tabla base por si tu código la usa.
   await run(`
     CREATE TABLE IF NOT EXISTS correlatives (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -151,7 +157,7 @@ async function ensureCoreTables() {
     );
   `);
 
-  // Docs (tu upload usa varios campos)
+  // Documents (uploads)
   await run(`
     CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -196,7 +202,7 @@ async function ensureCoreTables() {
     );
   `);
 
-  // Finales (por si existe ruta)
+  // Finals
   await run(`
     CREATE TABLE IF NOT EXISTS finals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -212,21 +218,22 @@ async function ensureCoreTables() {
       FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE CASCADE
     );
   `);
-  // asegurar columnas usadas por versiones viejas/nuevas
   await ensureColumn("finals", "exam_type", `ALTER TABLE finals ADD COLUMN exam_type TEXT;`);
   await ensureColumn("finals", "modalidad", `ALTER TABLE finals ADD COLUMN modalidad TEXT;`);
   await ensureColumn("finals", "rendible",  `ALTER TABLE finals ADD COLUMN rendible INTEGER DEFAULT 1;`);
 
-  // Profesores + reviews (tu sección profesores)
+  // Profesores + reviews
   await run(`
     CREATE TABLE IF NOT EXISTS professors (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
-      photo_url TEXT,
       career TEXT,
       plan INTEGER DEFAULT 7
     );
   `);
+
+  // ✅ /app/profesores: query usa p.photo_url
+  await ensureColumn("professors", "photo_url", `ALTER TABLE professors ADD COLUMN photo_url TEXT;`);
   await ensureColumn("professors", "subjects_text", `ALTER TABLE professors ADD COLUMN subjects_text TEXT;`);
 
   await run(`
@@ -245,17 +252,19 @@ async function ensureCoreTables() {
     );
   `);
 
-  // Grupos (tu sección grupos)
+  // Grupos
   await run(`
     CREATE TABLE IF NOT EXISTS groups (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       career TEXT,
       plan INTEGER,
-      subject_id INTEGER,
       title TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  // ✅ /app/grupos: falta subject_id
+  await ensureColumn("groups", "subject_id", `ALTER TABLE groups ADD COLUMN subject_id INTEGER;`);
 
   await run(`
     CREATE TABLE IF NOT EXISTS group_members (
@@ -301,8 +310,8 @@ async function seedAdminIfMissing() {
   const hash  = await bcrypt.hash(pass, 10);
 
   await run(
-    `INSERT INTO users (name, email, pass_hash, role, career, plan, created_at)
-     VALUES (?, ?, ?, 'admin', ?, ?, CURRENT_TIMESTAMP);`,
+    `INSERT INTO users (name, email, pass_hash, role, career, plan, created_at, points)
+     VALUES (?, ?, ?, 'admin', ?, ?, CURRENT_TIMESTAMP, 0);`,
     ["Admin", email, hash, "Lic. en Administración de Empresas", 7]
   );
 
@@ -321,8 +330,8 @@ async function init() {
   await ensureCoreTables();
   await seedAdminIfMissing();
 
-  console.log("🟦 INIT DONE");
   console.log("[DB] init OK (libSQL remoto)");
+  console.log("🟦 INIT DONE");
 }
 
 module.exports = { db, all, get, run, init };
