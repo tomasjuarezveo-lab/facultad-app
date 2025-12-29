@@ -1,9 +1,10 @@
 // models/db.js (Turso/libSQL compatible)
-// Mantiene all/get/run/init y crea TODAS las tablas necesarias.
+// Mantiene all/get/run/init y crea tablas necesarias en la DB remota.
 
 const { createClient } = require("@libsql/client");
 const bcrypt = require("bcrypt");
 
+/** Lee env vars de varios nombres posibles y hace trim. */
 function readEnvTrim(...keys) {
   for (const k of keys) {
     const v = process.env[k];
@@ -15,6 +16,7 @@ function readEnvTrim(...keys) {
 const DB_URL = readEnvTrim("DATABASE_URL", "TURSO_DATABASE_URL", "LIBSQL_URL");
 const DB_TOKEN = readEnvTrim("DATABASE_AUTH_TOKEN", "TURSO_AUTH_TOKEN", "LIBSQL_AUTH_TOKEN");
 
+// Logs útiles (no imprime el token completo)
 console.log("✅ db.js cargado (libSQL/Turso)");
 console.log("DB_URL:", DB_URL || "(VACIO)");
 console.log("DB_TOKEN length:", DB_TOKEN ? DB_TOKEN.length : 0);
@@ -25,6 +27,7 @@ const db = createClient({
   authToken: DB_TOKEN,
 });
 
+// Helpers compatibles con tu código actual
 async function run(sql, params = []) {
   return db.execute({ sql, args: params });
 }
@@ -39,15 +42,7 @@ async function all(sql, params = []) {
   return r.rows || [];
 }
 
-// Helpers migración
-async function tableExists(name) {
-  const r = await get(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
-    [name]
-  );
-  return !!r;
-}
-
+// Helpers de migración
 async function columnExists(table, col) {
   try {
     const cols = await all(`PRAGMA table_info(${table})`);
@@ -57,12 +52,19 @@ async function columnExists(table, col) {
   }
 }
 
+/**
+ * init(): crea tablas si no existen + migraciones suaves + seed admin
+ * Importante: esto corre una vez al levantar el server.
+ */
 async function init() {
-  // 1) Ping
+  console.log("🟦 INIT START");
+
+  // Ping mínimo: si falla acá, es URL/token.
   const ping = await db.execute("SELECT 1 as ok");
   console.log("✅ Turso ping OK:", ping.rows?.[0]?.ok);
 
-  // 2) Crear tablas base (todas las que usa tu app)
+  // ===== Tablas base =====
+
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,6 +77,7 @@ async function init() {
     )
   `);
 
+  // Materias
   await run(`
     CREATE TABLE IF NOT EXISTS subjects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,7 +88,9 @@ async function init() {
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
+  console.log("🟩 subjects table ensured");
 
+  // Documentos (subidas)
   await run(`
     CREATE TABLE IF NOT EXISTS documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -96,11 +101,16 @@ async function init() {
       title TEXT,
       filename TEXT,
       url TEXT,
+      mimetype TEXT,
+      size INTEGER,
+      level TEXT,
+      group_uid TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE SET NULL
     )
   `);
 
+  // Notificaciones
   await run(`
     CREATE TABLE IF NOT EXISTS notifications (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -112,6 +122,7 @@ async function init() {
     )
   `);
 
+  // Correlativas (JSON)
   await run(`
     CREATE TABLE IF NOT EXISTS correlatives (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +132,7 @@ async function init() {
     )
   `);
 
+  // Finales
   await run(`
     CREATE TABLE IF NOT EXISTS finals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,10 +140,13 @@ async function init() {
       plan TEXT,
       subject TEXT,
       date TEXT,
+      exam_type TEXT DEFAULT 'final'
+        CHECK (exam_type IN ('final','parcial','recuperatorio','otro')),
       created_at TEXT DEFAULT (datetime('now'))
     )
   `);
 
+  // Profesores y reseñas
   await run(`
     CREATE TABLE IF NOT EXISTS professors (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -155,6 +170,7 @@ async function init() {
     )
   `);
 
+  // Tutorial flags
   await run(`
     CREATE TABLE IF NOT EXISTS tutorial_seen (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -166,6 +182,7 @@ async function init() {
     )
   `);
 
+  // Quizzes
   await run(`
     CREATE TABLE IF NOT EXISTS quiz_questions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -194,6 +211,7 @@ async function init() {
     )
   `);
 
+  // Juegos (scores)
   await run(`
     CREATE TABLE IF NOT EXISTS game_scores (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,19 +223,55 @@ async function init() {
     )
   `);
 
-  // 3) Migraciones suaves (no rompen si ya existen)
-  // users.phone (si tu app lo usa)
+  // ===== Grupos / Chats efímeros =====
+  await run(`
+    CREATE TABLE IF NOT EXISTS groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      career TEXT DEFAULT '',
+      plan TEXT DEFAULT '',
+      subject_id INTEGER,
+      name TEXT,
+      expires_at TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(subject_id) REFERENCES subjects(id) ON DELETE SET NULL
+    )
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS group_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER,
+      user_id INTEGER,
+      joined_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  await run(`
+    CREATE TABLE IF NOT EXISTS group_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      group_id INTEGER,
+      user_id INTEGER,
+      message TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // ===== Migraciones suaves (no rompen) =====
   try {
     const hasPhone = await columnExists("users", "phone");
     if (!hasPhone) {
       await run(`ALTER TABLE users ADD COLUMN phone TEXT`);
-      console.log("[migración] users: columna phone agregada");
+      console.log("[migración] users.phone agregado");
     }
   } catch (e) {
     console.log("No se pudo asegurar users.phone (continuo sin romper):", e?.message || e);
   }
 
-  // 4) Seed admin si no existe
+  // ===== Seed admin =====
   const admin = await get(`SELECT * FROM users WHERE role='admin' LIMIT 1`);
   if (!admin) {
     const email = process.env.ADMIN_EMAIL || "admin@demo.com";
@@ -231,6 +285,7 @@ async function init() {
   }
 
   console.log("[DB] init OK (libSQL remoto)");
+  console.log("🟦 INIT DONE");
 }
 
 module.exports = { db, all, get, run, init };
