@@ -1,18 +1,32 @@
-// models/db.js  (libSQL / Turso compatible)
-// Reemplaza sqlite3 local por SQLite remoto (libSQL) manteniendo all/get/run/init.
+// models/db.js (libSQL / Turso compatible - robusto)
+// Mantiene all/get/run/init y soporta múltiples nombres de env vars.
 
 const { createClient } = require("@libsql/client");
 const bcrypt = require("bcrypt");
 
-// Variables de entorno necesarias:
-//   DATABASE_URL=libsql://xxxx.turso.io
-//   DATABASE_AUTH_TOKEN=xxxxxxxx
-//
-// (Si estás usando un libSQL local, también sirve. Pero para nube: Turso)
+// Lee la URL/token desde varias variables posibles (por compatibilidad)
+function readEnvTrim(...keys) {
+  for (const k of keys) {
+    const v = process.env[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
+}
 
+const DB_URL = readEnvTrim("DATABASE_URL", "TURSO_DATABASE_URL", "LIBSQL_URL");
+const DB_TOKEN = readEnvTrim("DATABASE_AUTH_TOKEN", "TURSO_AUTH_TOKEN", "LIBSQL_AUTH_TOKEN");
+
+if (!DB_URL) {
+  console.error("❌ Falta DB URL. Seteá DATABASE_URL (o TURSO_DATABASE_URL / LIBSQL_URL).");
+}
+if (!DB_TOKEN) {
+  console.error("❌ Falta DB AUTH TOKEN. Seteá DATABASE_AUTH_TOKEN (o TURSO_AUTH_TOKEN / LIBSQL_AUTH_TOKEN).");
+}
+
+// Creamos el cliente igual (si falta algo, fallará al ejecutar y verás el log anterior)
 const db = createClient({
-  url: process.env.DATABASE_URL,
-  authToken: process.env.DATABASE_AUTH_TOKEN,
+  url: DB_URL,
+  authToken: DB_TOKEN,
 });
 
 // Helpers compatibles con tu código actual
@@ -32,10 +46,7 @@ async function all(sql, params = []) {
 }
 
 // ====== INIT (crea tablas si no existen) ======
-// OJO: Es prácticamente el mismo SQL que SQLite, pero ejecutado remoto.
-// Tu app ya dependía de SQLite, así que esto te mantiene todo igual.
 async function init() {
-  // Tablas base
   await run(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
