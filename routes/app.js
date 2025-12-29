@@ -159,6 +159,18 @@ module.exports = (deps = {}) => {
         if (req.query.plan) plan = parseInt(req.query.plan, 10) || 0;
       }
 
+            // ✅ Auto-fix: asegurar tabla subjects en Turso (por si init no la creó todavía)
+      await run(`
+        CREATE TABLE IF NOT EXISTS subjects (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          career TEXT,
+          plan TEXT,
+          year INTEGER,
+          name TEXT,
+          created_at TEXT DEFAULT (datetime('now'))
+        )
+      `);
+
       const subjects = await all(
         `SELECT * FROM subjects WHERE career=? AND plan=? ORDER BY year, name`,
         [career, plan]
