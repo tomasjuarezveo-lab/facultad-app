@@ -1,12 +1,24 @@
+﻿# deps
 node_modules/
-.env
-*.sqlite
 
-# uploads locales (ahora usas R2 para docs)
+# env (NO subir secretos)
+.env
+.env.*
+!.env.example
+
+# sqlite locales (NO subir)
+*.sqlite
+data.sqlite
+facultad.sqlite
+sessions.sqlite
+data/*.sqlite
+data/**/*.sqlite
+
+# uploads locales (NO subir)
 public/uploads/
 uploads/
 
-# estados/runtime (no versionar)
-data/**/*.json
-
+# logs / editor
+*.log
 .DS_Store
+.vscode/
