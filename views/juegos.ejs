@@ -161,12 +161,30 @@
     color:#0f172a00;
   }
 </style>
+
 <%
-  // Materias del perfil del usuario
-  const _subs = (subjects || []).filter(s =>
-    String(s.career||'') === String(user?.career||'') &&
-    String(s.plan||'')   === String(user?.plan||'')
-  );
+  // Materias del perfil del usuario (robusto: career normalizado + plan entero)
+  function normCareer(v){
+    return String(v || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+      .replace(/\./g,'')
+      .replace(/\s+/g,' ')
+      .trim();
+  }
+  function planInt(v){
+    const raw = String(v ?? '').trim().replace(',', '.');
+    const n = parseInt(raw.split('.')[0], 10);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  const uCareer = normCareer(user?.career);
+  const uPlan   = planInt(user?.plan);
+
+  const _subs = (subjects || []).filter(s => {
+    if (!uCareer || !uPlan) return true;
+    return normCareer(s.career) === uCareer && planInt(s.plan) === uPlan;
+  });
 %>
 
 <div class="wheel-wrap">
@@ -176,7 +194,7 @@
     <div style="margin:10px 0;font-weight:800; max-width:100%; height:auto;">
       Mis puntos: <span id="score"><%= typeof puntos!=='undefined' ? puntos : 0 %></span>
     </div>
- 
+
     <span><strong id="pointsValue" class="Transparenttotal"><%= typeof puntos!=='undefined' ? puntos : 0 %></strong></span>
   </div>
 
