@@ -1,0 +1,399 @@
+<%
+  const availabilitySafe = availability || {};
+  const answersSafe = answers || {};
+%>
+<style>
+  .study-shell{
+    width:min(1120px, calc(100vw - 28px));
+    margin:14px auto 22px;
+    display:grid;
+    gap:18px;
+  }
+  .study-card,
+  .study-sideCard{
+    position:relative;
+    border-radius:34px;
+    background:rgba(255,255,255,.56);
+    border:1px solid rgba(255,255,255,.42);
+    box-shadow:0 28px 80px rgba(15,23,42,.12);
+    backdrop-filter:blur(20px) saturate(160%);
+    -webkit-backdrop-filter:blur(20px) saturate(160%);
+    overflow:hidden;
+  }
+  .study-card{ padding:24px; }
+  .study-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+  .study-kicker{ display:inline-flex; padding:8px 12px; border-radius:999px; background:rgba(248,193,96,.26); color:#7c5a13; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+  .study-title{ margin:10px 0 6px; font-size:32px; line-height:1.02; font-weight:950; color:#0f172a; letter-spacing:-.04em; }
+  .study-sub{ margin:0; font-size:14px; line-height:1.6; color:rgba(15,23,42,.72); max-width:760px; }
+  .study-chip{ display:inline-flex; align-items:center; justify-content:center; min-height:42px; padding:0 18px; border-radius:999px; background:#F8C160; color:#000; text-decoration:none; font-weight:900; font-size:13px; box-shadow:0 18px 32px rgba(248,193,96,.28); }
+  .study-banner{ margin:0 0 18px; padding:16px 18px; border-radius:24px; background:rgba(15,23,42,.06); color:#0f172a; font-size:14px; font-weight:700; }
+  .study-layout{ display:grid; grid-template-columns:minmax(0, 1.3fr) 360px; gap:18px; }
+  .study-stepper{ display:grid; gap:14px; }
+  .study-progressRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+  .study-progressText{ font-size:13px; font-weight:800; color:rgba(15,23,42,.68); }
+  .study-progressBar{ height:10px; border-radius:999px; background:rgba(15,23,42,.08); overflow:hidden; }
+  .study-progressFill{ height:100%; width:5%; border-radius:999px; background:linear-gradient(90deg, #F8C160 0%, #ffd47f 100%); transition:width .22s ease; }
+  .study-questionCard{ display:none; padding:22px; border-radius:28px; background:rgba(255,255,255,.54); border:1px solid rgba(255,255,255,.38); }
+  .study-questionCard.is-active{ display:block; }
+  .study-questionMeta{ font-size:12px; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:rgba(15,23,42,.50); }
+  .study-questionTitle{ margin:10px 0 0; font-size:26px; line-height:1.18; font-weight:900; color:#0f172a; }
+  .study-scale{ display:grid; gap:10px; margin-top:18px; }
+  .study-scaleOpt{ display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:20px; border:1px solid rgba(15,23,42,.10); background:rgba(255,255,255,.74); cursor:pointer; transition:transform .12s ease, border-color .12s ease, box-shadow .12s ease; }
+  .study-scaleOpt:hover{ transform:translateY(-1px); border-color:rgba(248,193,96,.65); box-shadow:0 12px 26px rgba(15,23,42,.08); }
+  .study-scaleOpt input{ accent-color:#F8C160; width:18px; height:18px; }
+  .study-scaleLabel{ font-size:14px; font-weight:700; color:#0f172a; }
+  .study-actions{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:16px; }
+  .study-btnRow{ display:flex; gap:10px; flex-wrap:wrap; }
+  .study-btn{ min-height:44px; padding:0 18px; border-radius:999px; border:1px solid rgba(15,23,42,.12); background:rgba(255,255,255,.78); color:#0f172a; font-size:13px; font-weight:900; cursor:pointer; }
+  .study-btn.is-primary{ background:#F8C160; border-color:rgba(248,193,96,.36); color:#000; }
+  .study-btn[disabled]{ opacity:.45; cursor:not-allowed; }
+  .study-gridWrap{ padding:22px; }
+  .study-gridHead{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:14px; }
+  .study-gridTitle{ margin:0; font-size:22px; line-height:1.1; font-weight:900; color:#0f172a; }
+  .study-gridSub{ margin:8px 0 0; font-size:13px; line-height:1.55; color:rgba(15,23,42,.68); }
+  .study-gridScroll{ overflow:auto; padding-bottom:4px; }
+  .study-grid{ display:grid; grid-template-columns:88px repeat(7, minmax(92px, 1fr)); gap:8px; min-width:860px; }
+  .study-gridCorner,
+  .study-dayHead,
+  .study-hourCell,
+  .study-cell{ border-radius:18px; }
+  .study-gridCorner,
+  .study-dayHead,
+  .study-hourCell{ background:rgba(255,255,255,.72); border:1px solid rgba(15,23,42,.08); }
+  .study-gridCorner{ min-height:72px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; color:rgba(15,23,42,.48); }
+  .study-dayHead{ min-height:72px; padding:10px; display:grid; gap:8px; align-content:space-between; }
+  .study-dayName{ font-size:13px; font-weight:900; color:#0f172a; }
+  .study-dayCheck{ display:flex; align-items:center; gap:8px; font-size:11px; font-weight:800; color:rgba(15,23,42,.62); }
+  .study-hourCell{ min-height:42px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:900; color:#0f172a; }
+  .study-cell{ min-height:42px; border:1px solid rgba(15,23,42,.10); background:rgba(255,255,255,.78); cursor:pointer; transition:transform .12s ease, background .12s ease, border-color .12s ease; }
+  .study-cell:hover{ transform:translateY(-1px); }
+  .study-cell.is-occupied{ background:rgba(15,23,42,.84); border-color:rgba(15,23,42,.84); }
+  .study-sideCard{ padding:22px; display:grid; gap:16px; align-content:start; }
+  .study-sideTitle{ margin:0; font-size:18px; font-weight:900; color:#0f172a; }
+  .study-sideList{ display:grid; gap:10px; margin:0; padding:0; list-style:none; }
+  .study-sideList li{ padding:12px 14px; border-radius:18px; background:rgba(255,255,255,.72); border:1px solid rgba(15,23,42,.08); color:rgba(15,23,42,.78); font-size:13px; line-height:1.55; }
+  .study-note{ padding:14px 16px; border-radius:20px; background:rgba(248,193,96,.18); border:1px solid rgba(248,193,96,.24); font-size:13px; line-height:1.55; color:#7c5a13; font-weight:700; }
+  .study-hidden{ display:none !important; }
+  html.cw-dark .study-card,
+  html.cw-dark .study-sideCard,
+  html.cw-dark .study-questionCard,
+  html.cw-dark .study-gridCorner,
+  html.cw-dark .study-dayHead,
+  html.cw-dark .study-hourCell,
+  html.cw-dark .study-sideList li,
+  html.cw-dark .study-scaleOpt{
+    background:rgba(15,23,42,.74) !important;
+    border-color:rgba(255,255,255,.08) !important;
+    color:rgba(243,244,246,.96) !important;
+  }
+  html.cw-dark .study-title,
+  html.cw-dark .study-gridTitle,
+  html.cw-dark .study-sideTitle,
+  html.cw-dark .study-questionTitle,
+  html.cw-dark .study-dayName,
+  html.cw-dark .study-hourCell,
+  html.cw-dark .study-scaleLabel{ color:rgba(243,244,246,.96) !important; }
+  html.cw-dark .study-sub,
+  html.cw-dark .study-gridSub,
+  html.cw-dark .study-progressText,
+  html.cw-dark .study-dayCheck,
+  html.cw-dark .study-questionMeta,
+  html.cw-dark .study-sideList li,
+  html.cw-dark .study-note{ color:rgba(203,213,225,.88) !important; }
+  html.cw-dark .study-btn{ background:rgba(255,255,255,.08) !important; border-color:rgba(255,255,255,.10) !important; color:rgba(243,244,246,.96) !important; }
+  html.cw-dark .study-btn.is-primary,
+  html.cw-dark .study-chip{ background:#F8C160 !important; color:#000 !important; }
+  @media (max-width: 980px){ .study-layout{ grid-template-columns:1fr; } }
+  @media (max-width: 720px){
+    .study-card, .study-sideCard{ border-radius:26px; }
+    .study-card{ padding:18px; }
+    .study-title{ font-size:26px; }
+    .study-questionTitle{ font-size:22px; }
+    .study-actions{ flex-direction:column; align-items:stretch; }
+    .study-btnRow{ width:100%; }
+    .study-btn{ width:100%; }
+  }
+</style>
+
+<div class="study-shell">
+  <div class="study-card">
+    <div class="study-head">
+      <div>
+        <div class="study-kicker">Sistema adaptativo</div>
+        <h1 class="study-title"><%= forceTest ? 'Test de productividad y horarios' : 'Editar cronómetro y disponibilidad' %></h1>
+        <p class="study-sub">Respondé las 20 preguntas y pintá los bloques ocupados de tu semana. La app cruza tus índices psicológicos con tu disponibilidad real y guarda todo en tu cuenta.</p>
+      </div>
+      <a class="study-chip" href="/app/perfil">Volver al perfil</a>
+    </div>
+
+    <% if (currentMethod) { %>
+      <div class="study-banner">Método actual guardado: <strong><%= currentMethod %></strong>. Podés actualizar tus horarios o rehacer el test cuando quieras.</div>
+    <% } %>
+
+    <form id="studyForm" action="/estudio/diagnostico" method="POST">
+      <input type="hidden" name="answers_json" id="answersJson" />
+      <input type="hidden" name="availability_json" id="availabilityJson" />
+
+      <div class="study-layout">
+        <div>
+          <% if (forceTest) { %>
+            <div class="study-stepper">
+              <div class="study-progressRow">
+                <div id="studyProgressText" class="study-progressText">Pregunta 1 de <%= questions.length %></div>
+                <div style="width:min(360px, 48vw)">
+                  <div class="study-progressBar"><div id="studyProgressFill" class="study-progressFill"></div></div>
+                </div>
+              </div>
+
+              <% questions.forEach((q, idx) => { %>
+                <article class="study-questionCard <%= idx === 0 ? 'is-active' : '' %>" data-step="<%= idx %>" data-question-id="<%= q.id %>">
+                  <div class="study-questionMeta">Índice <%= q.dimension %> · pregunta <%= idx + 1 %></div>
+                  <h2 class="study-questionTitle"><%= q.text %></h2>
+                  <div class="study-scale">
+                    <% [
+                      { value: 1, label: '1 · Nada que ver conmigo' },
+                      { value: 2, label: '2 · Poco' },
+                      { value: 3, label: '3 · Intermedio' },
+                      { value: 4, label: '4 · Bastante' },
+                      { value: 5, label: '5 · Muy yo' }
+                    ].forEach((opt) => { %>
+                      <label class="study-scaleOpt">
+                        <input
+                          type="radio"
+                          name="study_q_<%= q.id %>"
+                          value="<%= opt.value %>"
+                          data-question="<%= q.id %>"
+                          <%= Number(answersSafe[q.id] || 0) === opt.value ? 'checked' : '' %>
+                        />
+                        <span class="study-scaleLabel"><%= opt.label %></span>
+                      </label>
+                    <% }) %>
+                  </div>
+                </article>
+              <% }) %>
+            </div>
+          <% } else { %>
+            <div class="study-banner">Tu test ya está completado. Acá sólo estás editando la disponibilidad semanal para recalcular el cronograma sugerido con el mismo método.</div>
+          <% } %>
+
+          <div class="study-sideCard study-gridWrap" style="margin-top:18px;">
+            <div class="study-gridHead">
+              <div>
+                <h2 class="study-gridTitle">Horarios ocupados</h2>
+                <p class="study-gridSub">Pintá los bloques en los que no podés estudiar. La cuadrícula va de 06:00 a 00:00. El check “Ocupado 100%” bloquea todo el día.</p>
+              </div>
+            </div>
+
+            <div class="study-gridScroll">
+              <div class="study-grid" id="studyAvailabilityGrid">
+                <div class="study-gridCorner">Ocupado</div>
+                <% ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'].forEach((dayName, dow) => { %>
+                  <div class="study-dayHead">
+                    <div class="study-dayName"><%= dayName %></div>
+                    <label class="study-dayCheck">
+                      <input type="checkbox" class="study-day-full" data-dow="<%= dow %>" />
+                      <span>Ocupado 100%</span>
+                    </label>
+                  </div>
+                <% }) %>
+
+                <% Array.from({ length: 18 }, (_, rowIndex) => rowIndex + 6).forEach((hour) => { %>
+                  <div class="study-hourCell"><%= String(hour).padStart(2, '0') %>:00</div>
+                  <% ['L','M','X','J','V','S','D'].forEach((_, dow) => { %>
+                    <button
+                      type="button"
+                      class="study-cell"
+                      data-dow="<%= dow %>"
+                      data-hour="<%= hour %>"
+                      aria-label="<%= hour %>:00 <%= ['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'][dow] %>"
+                    ></button>
+                  <% }) %>
+                <% }) %>
+              </div>
+            </div>
+          </div>
+
+          <div class="study-actions">
+            <div class="study-btnRow">
+              <% if (forceTest) { %>
+                <button id="studyPrevBtn" class="study-btn" type="button">Anterior</button>
+                <button id="studyNextBtn" class="study-btn" type="button">Siguiente</button>
+              <% } %>
+            </div>
+            <div class="study-btnRow">
+              <% if (!forceTest) { %>
+                <a class="study-btn" href="/estudio/resultado">Ver resultado actual</a>
+              <% } %>
+              <button id="studySubmitBtn" class="study-btn is-primary" type="submit"><%= forceTest ? 'Guardar diagnóstico' : 'Guardar horarios' %></button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="study-sideCard">
+          <h3 class="study-sideTitle">Qué hace esta pantalla</h3>
+          <ul class="study-sideList">
+            <li>Calcula 5 índices: foco, estructura, resistencia, memoria activa y autonomía.</li>
+            <li>Asigna un método entre 10 estrategias científicas configuradas en el backend.</li>
+            <li>Cruza ese método con tus horas libres reales para sugerir un cronograma usable.</li>
+          </ul>
+          <div class="study-note">
+            Ejemplo esperado: si hoy tenés libre de 15:00 a 17:00 y tu método es Pomodoro Estructurado, después del guardado vas a ver sugerencias como “15:00–15:25, pausa 15:25–15:30, 15:30–15:55…”.
+          </div>
+        </aside>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  const QUESTIONS = <%- JSON.stringify(questions || []) %>;
+  const PREFILLED_ANSWERS = <%- JSON.stringify(answersSafe) %>;
+  const PREFILLED_AVAILABILITY = <%- JSON.stringify(availabilitySafe) %>;
+  const FORCE_TEST = <%- JSON.stringify(!!forceTest) %>;
+  const HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
+
+  const state = {
+    step: 0,
+    answers: {},
+    availability: {}
+  };
+
+  function normalizeAvailability(input){
+    const out = {};
+    for (let dow = 0; dow < 7; dow++){
+      const row = input?.[dow] || input?.[String(dow)] || {};
+      const hours = Array.isArray(row.hours)
+        ? Array.from(new Set(row.hours.map(Number).filter(h => HOURS.includes(h)))).sort((a,b) => a-b)
+        : [];
+      const allDay = !!row.allDay || hours.length === HOURS.length;
+      out[dow] = { allDay, hours: allDay ? [...HOURS] : hours };
+    }
+    return out;
+  }
+
+  function setCellOccupied(dow, hour, occupied){
+    const row = state.availability[dow] || { allDay:false, hours:[] };
+    const set = new Set((row.hours || []).map(Number));
+    if (occupied) set.add(Number(hour)); else set.delete(Number(hour));
+    row.hours = Array.from(set).sort((a,b) => a-b);
+    row.allDay = row.hours.length === HOURS.length;
+    state.availability[dow] = row;
+  }
+
+  function syncGridFromState(){
+    document.querySelectorAll('.study-cell').forEach(cell => {
+      const dow = Number(cell.dataset.dow);
+      const hour = Number(cell.dataset.hour);
+      const occupied = !!state.availability[dow]?.hours?.includes(hour);
+      cell.classList.toggle('is-occupied', occupied);
+    });
+
+    document.querySelectorAll('.study-day-full').forEach(check => {
+      const dow = Number(check.dataset.dow);
+      check.checked = (state.availability[dow]?.hours || []).length === HOURS.length;
+    });
+  }
+
+  function syncAnswersFromInputs(){
+    QUESTIONS.forEach(q => {
+      const checked = document.querySelector(`input[data-question="${q.id}"]:checked`);
+      if (checked) state.answers[q.id] = Number(checked.value);
+    });
+  }
+
+  function updateStepper(){
+    if (!FORCE_TEST) return;
+    const cards = document.querySelectorAll('.study-questionCard');
+    cards.forEach((card, idx) => card.classList.toggle('is-active', idx === state.step));
+
+    const progressText = document.getElementById('studyProgressText');
+    const progressFill = document.getElementById('studyProgressFill');
+    if (progressText) progressText.textContent = `Pregunta ${state.step + 1} de ${QUESTIONS.length}`;
+    if (progressFill) progressFill.style.width = `${((state.step + 1) / QUESTIONS.length) * 100}%`;
+
+    const prev = document.getElementById('studyPrevBtn');
+    const next = document.getElementById('studyNextBtn');
+    if (prev) prev.disabled = state.step === 0;
+    if (next) next.disabled = state.step === QUESTIONS.length - 1;
+  }
+
+  state.answers = { ...PREFILLED_ANSWERS };
+  state.availability = normalizeAvailability(PREFILLED_AVAILABILITY || {});
+
+  syncGridFromState();
+  updateStepper();
+
+  document.querySelectorAll('input[data-question]').forEach(input => {
+    input.addEventListener('change', syncAnswersFromInputs);
+  });
+  syncAnswersFromInputs();
+
+  const prevBtn = document.getElementById('studyPrevBtn');
+  const nextBtn = document.getElementById('studyNextBtn');
+  if (prevBtn) prevBtn.addEventListener('click', () => { state.step = Math.max(0, state.step - 1); updateStepper(); });
+  if (nextBtn) nextBtn.addEventListener('click', () => { state.step = Math.min(QUESTIONS.length - 1, state.step + 1); updateStepper(); });
+
+  let isPainting = false;
+  let paintValue = false;
+
+  document.querySelectorAll('.study-cell').forEach(cell => {
+    cell.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      isPainting = true;
+      const dow = Number(cell.dataset.dow);
+      const hour = Number(cell.dataset.hour);
+      const occupied = !!state.availability[dow]?.hours?.includes(hour);
+      paintValue = !occupied;
+      setCellOccupied(dow, hour, paintValue);
+      syncGridFromState();
+    });
+
+    cell.addEventListener('mouseenter', () => {
+      if (!isPainting) return;
+      setCellOccupied(Number(cell.dataset.dow), Number(cell.dataset.hour), paintValue);
+      syncGridFromState();
+    });
+
+    cell.addEventListener('click', () => {
+      const dow = Number(cell.dataset.dow);
+      const hour = Number(cell.dataset.hour);
+      const occupied = !!state.availability[dow]?.hours?.includes(hour);
+      setCellOccupied(dow, hour, !occupied);
+      syncGridFromState();
+    });
+  });
+
+  document.addEventListener('mouseup', () => { isPainting = false; });
+
+  document.querySelectorAll('.study-day-full').forEach(check => {
+    check.addEventListener('change', () => {
+      const dow = Number(check.dataset.dow);
+      state.availability[dow] = {
+        allDay: check.checked,
+        hours: check.checked ? [...HOURS] : []
+      };
+      syncGridFromState();
+    });
+  });
+
+  document.getElementById('studyForm')?.addEventListener('submit', (e) => {
+    syncAnswersFromInputs();
+
+    if (FORCE_TEST){
+      const missing = QUESTIONS.find(q => !state.answers[q.id]);
+      if (missing){
+        e.preventDefault();
+        const missingIndex = QUESTIONS.findIndex(q => q.id === missing.id);
+        state.step = Math.max(0, missingIndex);
+        updateStepper();
+        alert('Respondé todas las preguntas antes de guardar.');
+        return;
+      }
+    }
+
+    document.getElementById('answersJson').value = JSON.stringify(state.answers);
+    document.getElementById('availabilityJson').value = JSON.stringify(state.availability);
+  });
+})();
+</script>

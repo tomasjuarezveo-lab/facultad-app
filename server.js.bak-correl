@@ -1,0 +1,161 @@
+﻿require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const bcrypt = require('bcrypt');
+const methodOverride = require('method-override');
+const expressLayouts = require('express-ejs-layouts');
+const { db, all, get, init } = require('./models/db');
+
+const app = express();
+// Ocultar tabbar en login/register
+app.use((req,res,next)=>{
+  res.locals.hideTabbar = /^\/(login|register)(\/|$)/.test(req.path);
+  next();
+});
+
+// Páginas principales (no subpáginas)
+app.use((req,res,next)=>{
+  const mains = new Set([
+    '/app/materias',
+    '/app/autoevaluaciones',
+    '/app/juegos',
+    '/app/correlativas',
+    '/app/finales',
+    '/app/profesores'
+  ]);
+  res.locals.isMainPage = mains.has(req.path);
+  next();
+});
+
+// View + estÃ¡ticos
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layout');
+app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(methodOverride('_method'));
+
+// SesiÃ³n
+app.use(session({
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: path.join(__dirname) }),
+  secret: process.env.SESSION_SECRET || 'supersecreto',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 1000*60*60*24*7 }
+}));
+
+// Passport
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+  try {
+    const user = await get(`SELECT * FROM users WHERE email = ?`, [email]);
+    if (!user) return done(null, false, { message: 'Credenciales invÃ¡lidas' });
+    const ok = await bcrypt.compare(password, user.pass_hash);
+    if (!ok) return done(null, false, { message: 'Credenciales invÃ¡lidas' });
+    return done(null, { id: user.id, name: user.name, role: user.role, career: user.career, plan: user.plan, email: user.email });
+  } catch (e) { return done(e); }
+}));
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+  const user = await get(`SELECT id, name, email, role, career, plan FROM users WHERE id=?`, [id]);
+  done(null, user);
+});
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Helpers
+function ensureAuth(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.redirect('/login');
+}
+function ensureAdmin(req, res, next) {
+  if (req.isAuthenticated() && req.user.role === 'admin') return next();
+  return res.status(403).send('Solo el administrador puede realizar esta acciÃ³n');
+}
+app.use((req, res, next) => {
+  res.locals.user = req.user;
+  next();
+});
+
+// Rutas
+const authRoutes = require('./routes/auth');
+const appRoutes = require('./routes/app');
+const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload');
+const pdfRoutes = require('./routes/pdf');
+
+app.use(authRoutes({ passport }));
+app.use('/app', ensureAuth, appRoutes({ ensureAdmin }));
+app.use('/admin', ensureAdmin, adminRoutes());
+app.use('/upload', ensureAdmin, uploadRoutes());
+app.use('/pdf-view', pdfRoutes());
+
+app.get('/', (req, res) => {
+  if (req.isAuthenticated()) return res.redirect('/app/materias');
+  res.redirect('/login');
+});
+
+// Init + listen
+init().then(() => {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`âœ… Servidor en http://localhost:${PORT}`));
+});
+
+
+/* ===== Avatar upload (sheet) ===== */
+const fs2 = require("fs");
+const path2 = require("path");
+const multer2 = require("multer");
+
+const AVATAR_DIR = path2.join(__dirname, "uploads", "avatars");
+try{ fs2.mkdirSync(AVATAR_DIR, { recursive:true }); }catch(e){}
+
+const DATA_DIR = path2.join(__dirname, "data");
+try{ fs2.mkdirSync(DATA_DIR, { recursive:true }); }catch(e){}
+const AVATAR_DB = path2.join(DATA_DIR, "avatars.json");
+let avatarMap = {};
+try{ avatarMap = JSON.parse(fs2.readFileSync(AVATAR_DB, "utf8")); }catch(e){ avatarMap = {}; }
+
+// servir /uploads si no estaba
+app.use("/uploads", express.static(path2.join(__dirname, "uploads")));
+
+// inyectar avatar guardado en sesión si existe en el map (por email)
+app.use((req,res,next)=>{
+  if (req.session && req.session.user){
+    const em = req.session.user.email;
+    if (em && avatarMap[em]) req.session.user.avatarUrl = avatarMap[em];
+  }
+  next();
+});
+
+const storageAvatar = multer2.diskStorage({
+  destination: AVATAR_DIR,
+  filename: (req, file, cb) =>{
+    const uid = (req.session.user && (req.session.user.id || req.session.user.email?.replace(/[^a-z0-9]/gi,"_"))) || Date.now();
+    const ext = path2.extname(file.originalname).toLowerCase() || ".jpg";
+    cb(null, `u${uid}-${Date.now()}${ext}`);
+  }
+});
+const uploadAvatar = multer2({
+  storage: storageAvatar,
+  limits: { fileSize: 3*1024*1024 },
+  fileFilter: (req,file,cb)=> /^image\//.test(file.mimetype) ? cb(null,true) : cb(new Error("Solo imágenes"))
+});
+
+app.post("/profile/avatar", (req,res)=>{
+  if (!req.session || !req.session.user) return res.redirect("/login");
+  uploadAvatar.single("avatar")(req,res,(err)=>{
+    if (err || !req.file){ console.error(err); return res.redirect("back"); }
+    const rel = "/uploads/avatars/" + req.file.filename;
+    const em  = req.session.user.email;
+    if (em){ avatarMap[em] = rel; try{ fs2.writeFileSync(AVATAR_DB, JSON.stringify(avatarMap,null,2)); }catch(e){ console.error(e); } }
+    req.session.user.avatarUrl = rel;
+    res.redirect("back");
+  });
+});

@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor</title>
+  <style>
+    :root { --padTop: 78px; --padBottom: 100px; }
+    html, body { margin:0; padding:0; height:100%; background:#f3f4f6; }
+    /* Contenedor scrollable de todo el documento */
+    #viewer {
+      position: fixed; inset: 0;
+      overflow: auto;
+      background: #f3f4f6;
+    }
+    /* Columna de páginas centrada SIEMPRE */
+    #column {
+      display: flex; flex-direction: column; align-items: center;
+      width: fit-content; min-width: 320px;
+      margin: var(--padTop) auto var(--padBottom) auto;
+    }
+    .page {
+      display:block; margin: 14px auto;
+      background:#fff; box-shadow:0 6px 20px rgba(0,0,0,.08);
+      border-radius: 6px;
+    }
+    /* Toolbar superior izquierda (☰) */
+    #hambox { position: fixed; top: 12px; left: 12px; z-index: 200; }
+    .btn {
+      padding:8px 10px; border-radius:12px; background:#fff;
+      box-shadow:0 2px 10px rgba(0,0,0,.08); border:1px solid #eee; cursor:pointer;
+      user-select:none;
+    }
+    /* Toolbar superior derecha (Zoom) */
+    #zoombar { position: fixed; top: 12px; right: 12px; z-index: 200; display:flex; gap:6px; }
+
+    /* Panel de miniaturas sobrepuesto (no empuja nada) */
+    #thumbsPanel {
+      position: fixed; top: 56px; left: 12px; bottom: 90px; width: 280px;
+      background: rgba(255,255,255,.96); backdrop-filter: blur(8px);
+      border: 1px solid #eee; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.15);
+      overflow: auto; z-index: 250; display: none; padding: 10px;
+    }
+    .thumb {
+      display:block; margin:10px auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06);
+      border-radius:4px; cursor:pointer; transition: transform .08s ease;
+    }
+    .thumb:hover { transform: scale(1.02); }
+
+    /* Spinner mientras re-renderiza */
+    #spinner {
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(243,244,246,.35); z-index: 180;
+    }
+    .dot {
+      width:10px; height:10px; margin: 4px; border-radius: 999px; background:#111;
+      animation: pulse .9s infinite alternate;
+    }
+    .dot:nth-child(2){ animation-delay: .15s }
+    .dot:nth-child(3){ animation-delay: .3s }
+    @keyframes pulse { from { opacity:.2; transform: scale(.8) } to { opacity:.9; transform: scale(1.1) } }
+  </style>
+  <!-- PDF.js desde CDN -->
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+  </script>
+</head>
+<body>
+  <!-- Botón ☰ -->
+  <div id="hambox"><button id="toggle" class="btn">☰</button></div>
+
+  <!-- Zoom + / - / 100% -->
+  <div id="zoombar">
+    <button id="zOut"  class="btn">−</button>
+    <button id="zReset" class="btn">100%</button>
+    <button id="zIn"   class="btn">＋</button>
+  </div>
+
+  <!-- Panel de miniaturas sobrepuesto -->
+  <div id="thumbsPanel"></div>
+
+  <!-- Spinner -->
+  <div id="spinner"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+
+  <!-- Viewer principal -->
+  <div id="viewer"><div id="column"></div></div>
+
+  <script>
+    const file = "<%= file %>";
+    const viewer = document.getElementById('viewer');
+    const column = document.getElementById('column');
+    const thumbsPanel = document.getElementById('thumbsPanel');
+    const spinner = document.getElementById('spinner');
+    const toggle = document.getElementById('toggle');
+    const zIn = document.getElementById('zIn');
+    const zOut = document.getElementById('zOut');
+    const zReset = document.getElementById('zReset');
+
+    let pdf, currentScale = 1.1;   // escala inicial
+    const MIN_Z = 0.6, MAX_Z = 3.0, STEP = 0.15;
+
+    toggle.onclick = () => {
+      const show = thumbsPanel.style.display !== 'block';
+      thumbsPanel.style.display = show ? 'block' : 'none';
+    };
+
+    zIn.onclick = () => { setZoom(Math.min(MAX_Z, currentScale + STEP)); };
+    zOut.onclick = () => { setZoom(Math.max(MIN_Z, currentScale - STEP)); };
+    zReset.onclick = () => { setZoom(1.0); };
+
+    // Soporte de Ctrl + rueda / Ctrl + +/- (opcional)
+    viewer.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const dir = e.deltaY > 0 ? -1 : 1;
+        setZoom(Math.max(MIN_Z, Math.min(MAX_Z, currentScale + dir*STEP)));
+      }
+    }, { passive:false });
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && (e.key === '+' || e.key === '=')) { e.preventDefault(); setZoom(Math.min(MAX_Z, currentScale + STEP)); }
+      if (e.ctrlKey && (e.key === '-' )) { e.preventDefault(); setZoom(Math.max(MIN_Z, currentScale - STEP)); }
+      if (e.ctrlKey && (e.key === '0' )) { e.preventDefault(); setZoom(1.0); }
+    });
+
+    // Mantener el scroll centrado al hacer zoom
+    function setZoom(newScale) {
+      if (!pdf) return;
+      if (Math.abs(newScale - currentScale) < 0.001) return;
+      const centerYBefore = viewer.scrollTop + viewer.clientHeight/2;
+      const centerRatio = centerYBefore / Math.max(1, viewer.scrollHeight);
+      currentScale = newScale;
+      renderAll().then(() => {
+        const newTop = centerRatio * viewer.scrollHeight - viewer.clientHeight/2;
+        viewer.scrollTop = Math.max(0, newTop);
+        zReset.textContent = Math.round(currentScale*100) + '%';
+      });
+    }
+
+    function createCanvas(id) {
+      const c = document.createElement('canvas');
+      c.className = 'page';
+      c.id = id;
+      // margen superior para que al hacer scrollIntoView quede separadito
+      c.style.scrollMarginTop = '90px';
+      return c;
+    }
+
+    async function renderPage(pageNum) {
+      const page = await pdf.getPage(pageNum);
+      const dpr = Math.max(1, window.devicePixelRatio || 1);
+      const viewport = page.getViewport({ scale: currentScale });
+      const canvas = document.getElementById('page_'+pageNum) || createCanvas('page_'+pageNum);
+      const context = canvas.getContext('2d', { alpha: false });
+      canvas.style.width = viewport.width + 'px';
+      canvas.style.height = viewport.height + 'px';
+      canvas.width  = Math.floor(viewport.width  * dpr);
+      canvas.height = Math.floor(viewport.height * dpr);
+      const renderContext = { canvasContext: context, viewport, transform: [dpr,0,0,dpr,0,0] };
+      if (!canvas.parentNode) column.appendChild(canvas);
+      await page.render(renderContext).promise;
+      return canvas;
+    }
+
+    async function renderAll() {
+      spinner.style.display = 'flex';
+      // Vaciar contenedor para evitar fugas de memoria cuando se re-escala
+      column.innerHTML = '';
+      for (let n=1; n<=pdf.numPages; n++) {
+        await renderPage(n);
+      }
+      spinner.style.display = 'none';
+    }
+
+    function buildThumbs() {
+      thumbsPanel.innerHTML = '';
+      const makeThumb = async (n) => {
+        const t = document.createElement('canvas');
+        t.className = 'thumb'; t.title = 'Página ' + n;
+        t.onclick = () => {
+          const el = document.getElementById('page_' + n);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        thumbsPanel.appendChild(t);
+        const page = await pdf.getPage(n);
+        const scale = 0.2;
+        const vp = page.getViewport({ scale });
+        const ctx = t.getContext('2d');
+        t.width = vp.width; t.height = vp.height;
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      };
+      // Crear miniaturas en segundo plano
+      (async () => {
+        for (let n=1; n<=pdf.numPages; n++) await makeThumb(n);
+      })();
+    }
+
+    // Cargar documento
+    pdfjsLib.getDocument(file).promise
+      .then(async _pdf => { pdf = _pdf; await renderAll(); buildThumbs(); })
+      .catch(err => {
+        column.innerHTML = '<div style="padding:20px;color:#888">No se pudo abrir el documento.</div>';
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

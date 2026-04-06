@@ -1,0 +1,367 @@
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap');
+
+  /* ── Base ── */
+  .subs-page {
+    min-height: calc(100vh - 180px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0 24px;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+  }
+
+  .subs-wrap {
+    width: min(1060px, 100%);
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* ── Header ── */
+  .subs-header {
+    text-align: center;
+    margin-bottom: 18px;
+  }
+
+  .subs-main-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(32px, 5vw, 54px);
+    font-weight: 400;
+    color: #0f172a;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    line-height: 1.05;
+  }
+
+  .subs-main-title em {
+    font-style: italic;
+    color: #c8963a;
+  }
+
+  /* ── Pill mejorado ── */
+  .subs-current {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg, rgba(255,255,255,.90), rgba(255,255,255,.70));
+    border: 1px solid rgba(248,193,96,.40);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    box-shadow:
+      0 6px 20px rgba(248,193,96,.14),
+      0 2px 8px rgba(15,23,42,.06),
+      inset 0 1px 0 rgba(255,255,255,.95);
+    border-radius: 9999px;
+    padding: 8px 16px 8px 10px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #475569;
+  }
+
+  .subs-current-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #F8C160, #F4B24D);
+    border-radius: 9999px;
+    padding: 4px 10px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #7c4d00;
+    letter-spacing: 0.01em;
+    box-shadow: 0 3px 8px rgba(248,193,96,.35), inset 0 1px 0 rgba(255,255,255,.40);
+  }
+
+  .subs-current-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: .7;
+  }
+
+  .subs-current-label {
+    color: #94a3b8;
+    font-size: 12px;
+  }
+
+
+
+  /* ── Grid ── */
+  .subs-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+
+  /* ── Card glass ── */
+  .subs-card {
+    border-radius: 20px;
+    background: linear-gradient(145deg, rgba(255,255,255,.72), rgba(255,255,255,.50));
+    border: 1px solid rgba(255,255,255,.75);
+    box-shadow:
+      0 12px 28px rgba(15,23,42,.09),
+      inset 0 1px 0 rgba(255,255,255,.90),
+      inset 0 -8px 20px rgba(15,23,42,.03);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    padding: 22px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transition: transform .18s ease, box-shadow .18s ease;
+    cursor: pointer;
+  }
+
+  .subs-card:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      0 20px 36px rgba(15,23,42,.12),
+      inset 0 1px 0 rgba(255,255,255,.95);
+  }
+
+  .subs-card.is-featured {
+    background: linear-gradient(145deg, rgba(248,193,96,.20), rgba(248,193,96,.08));
+    border-color: rgba(248,193,96,.50);
+    box-shadow:
+      0 14px 32px rgba(248,193,96,.18),
+      inset 0 1px 0 rgba(255,255,255,.90);
+  }
+
+  /* Badge */
+  .subs-badge {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    background: #F8C160;
+    color: #7c4d00;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 9px;
+    border-radius: 9999px;
+    box-shadow: 0 3px 8px rgba(248,193,96,.35);
+  }
+
+  .subs-plan-name {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+    margin: 0 0 4px;
+    text-transform: lowercase;
+  }
+
+  .subs-desc {
+    font-size: 12px;
+    line-height: 1.5;
+    color: #64748b;
+    margin: 0 0 14px;
+  }
+
+  .subs-sep {
+    height: 1px;
+    background: rgba(15,23,42,.06);
+    margin: 0 0 13px;
+  }
+
+  .subs-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    flex: 1;
+  }
+
+  .subs-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 12px;
+    color: #334155;
+    line-height: 1.4;
+  }
+
+  .subs-list li::before {
+    content: '';
+    width: 5px;
+    height: 5px;
+    min-width: 5px;
+    border-radius: 50%;
+    background: #F8C160;
+    margin-top: 4px;
+  }
+
+  .subs-footer { margin-top: auto; }
+
+  .subs-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    margin-bottom: 12px;
+  }
+
+  .subs-price-amount {
+    font-size: 22px;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: -0.03em;
+  }
+
+  .subs-price-period {
+    font-size: 11px;
+    color: #94a3b8;
+  }
+
+  .subs-btn {
+    appearance: none;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 13px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: linear-gradient(145deg, rgba(255,255,255,.65), rgba(255,255,255,.30));
+    box-shadow:
+      0 6px 16px rgba(15,23,42,.07),
+      inset 0 1px 0 rgba(255,255,255,.85);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    letter-spacing: -0.01em;
+    transition: transform .14s ease, box-shadow .16s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .subs-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 22px rgba(15,23,42,.11), inset 0 1px 0 rgba(255,255,255,.95);
+  }
+
+  .subs-btn:active { transform: scale(.99); }
+
+  .subs-card.is-featured .subs-btn {
+    background: linear-gradient(145deg, #F8C160, #F4B24D);
+    border-color: rgba(248,193,96,.35);
+    color: #7c4d00;
+    box-shadow: 0 8px 22px rgba(248,193,96,.35), inset 0 1px 0 rgba(255,255,255,.45);
+  }
+
+  .subs-card.is-featured .subs-btn:hover {
+    box-shadow: 0 12px 28px rgba(248,193,96,.42), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+
+  /* ── Animación entrada ── */
+  @keyframes subs-fade-up {
+    from { opacity: 0; transform: translateY(14px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .subs-header  { animation: subs-fade-up .45s ease both; }
+  .subs-grid    { animation: subs-fade-up .45s .10s ease both; }
+
+  /* ── Responsive ── */
+  @media (max-width: 860px) {
+    .subs-grid {
+      grid-template-columns: 1fr;
+      max-width: 400px;
+      margin: 0 auto;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .subs-main-title { font-size: 30px; }
+    .subs-card { padding: 18px 18px 16px; }
+  }
+</style>
+
+<section class="subs-page">
+  <div class="subs-wrap">
+
+    <!-- Header -->
+    <div class="subs-header">
+      <h1 class="subs-main-title">elegí tu <em>suscripción</em></h1>
+
+      <!-- Pill mejorado -->
+      <div class="subs-current">
+        <span class="subs-current-label">Plan activo</span>
+        <span class="subs-current-badge">
+          <span class="subs-current-dot"></span>
+          <%= user.subscription || 'Basic' %>
+        </span>
+      </div>
+    </div>
+
+    <!-- Planes -->
+    <div class="subs-grid">
+
+      <article class="subs-card" aria-label="Plan Basic">
+        <h2 class="subs-plan-name">basic</h2>
+        <p class="subs-desc">Plan base para empezar y acceder a lo esencial de la plataforma.</p>
+        <div class="subs-sep"></div>
+        <ul class="subs-list">
+          <li>Acceso general a la app</li>
+          <li>Consulta de materias y bibliografía</li>
+          <li>Visualización de profesores y reseñas</li>
+          <li>Ingreso a funciones básicas</li>
+        </ul>
+        <div class="subs-footer">
+          <div class="subs-price-row">
+            <span class="subs-price-amount">Gratis</span>
+            <span class="subs-price-period">/ mes</span>
+          </div>
+          <button class="subs-btn" type="button">Seleccionar Basic</button>
+        </div>
+      </article>
+
+      <article class="subs-card is-featured" aria-label="Plan Plus">
+        <span class="subs-badge">Popular</span>
+        <h2 class="subs-plan-name">plus</h2>
+        <p class="subs-desc">Plan intermedio con más herramientas y mejor experiencia de uso.</p>
+        <div class="subs-sep"></div>
+        <ul class="subs-list">
+          <li>Todo lo incluido en Basic</li>
+          <li>Más funciones académicas</li>
+          <li>Beneficios adicionales en la app</li>
+          <li>Prioridad en nuevas mejoras</li>
+        </ul>
+        <div class="subs-footer">
+          <div class="subs-price-row">
+            <span class="subs-price-amount">$4.999</span>
+            <span class="subs-price-period">/ mes</span>
+          </div>
+          <button class="subs-btn" type="button">Seleccionar Plus</button>
+        </div>
+      </article>
+
+      <article class="subs-card" aria-label="Plan Max">
+        <h2 class="subs-plan-name">max</h2>
+        <p class="subs-desc">Plan más completo para usuarios que quieren el máximo nivel de acceso.</p>
+        <div class="subs-sep"></div>
+        <ul class="subs-list">
+          <li>Todo lo incluido en Plus</li>
+          <li>Acceso a funciones premium</li>
+          <li>Experiencia más completa</li>
+          <li>Máxima prioridad en beneficios</li>
+        </ul>
+        <div class="subs-footer">
+          <div class="subs-price-row">
+            <span class="subs-price-amount">$9.999</span>
+            <span class="subs-price-period">/ mes</span>
+          </div>
+          <button class="subs-btn" type="button">Seleccionar Max</button>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+

@@ -1,0 +1,159 @@
+<% const pageTitle = 'Verificá tu código'; %>
+<% if (typeof title === 'undefined') { title = pageTitle; } %>
+
+<style>
+@media (max-width: 640px){
+  html.auth-html .auth-brand{
+    position: fixed !important;
+    left: 14px !important;
+    top: calc(10px + env(safe-area-inset-top)) !important;
+    z-index: 60 !important;
+    display:block !important;
+  }
+  html.auth-html .auth-brand img{
+    height: 22px !important;
+    width:auto !important;
+    max-width: 160px !important;
+    display:block !important;
+    object-fit:contain !important;
+  }
+}
+@media (max-width: 430px){
+  html.auth-html .auth-brand img{
+    height: 18px !important;
+  }
+}
+
+/* Ajuste fino para los labels de contraseñas en paralelo */
+.ios-label-sm {
+  display: block;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 700;
+  color: #3a3a3c;
+  margin-bottom: 8px;
+  margin-left: 4px;
+}
+</style>
+
+<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <section class="px-6 sm:px-10 lg:pr-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">
+        <%= pageTitle %>
+      </h1>
+
+      <p class="text-sm sm:text-base text-slate-500 mb-6">
+        Te enviamos un código de 6 dígitos a <strong><%= targetEmail %></strong>. Ingresalo y elegí si querés cambiar tu mail, tu contraseña o ambos.
+      </p>
+
+      <% if (sent) { %>
+        <div class="mb-5 text-sm text-green-700">
+          Te enviamos el código de verificación por email.
+        </div>
+      <% } %>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="mb-5 text-sm text-red-600">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form action="/forgot/reset" method="post" class="space-y-5 max-w-md">
+        <label class="block">
+          <span class="ios-label">Código de verificación</span>
+          <input
+            class="ios-input"
+            type="text"
+            name="code"
+            required
+            maxlength="6"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            placeholder="000000"
+            value="<%= (form && form.code) || '' %>"
+          />
+        </label>
+
+        <label class="block">
+          <span class="ios-label">Nuevo email (opcional)</span>
+          <input
+            class="ios-input"
+            type="email"
+            name="email"
+            placeholder="Dejalo vacío si no querés cambiarlo"
+            value="<%= (form && form.email) || '' %>"
+          />
+        </label>
+
+        <div class="grid grid-cols-2 gap-4">
+          <label class="block">
+            <span class="ios-label-sm">Contraseña</span>
+            <input
+              class="ios-input"
+              type="password"
+              name="pass1"
+              minlength="6"
+              placeholder="Nueva"
+            />
+          </label>
+
+          <label class="block">
+            <span class="ios-label-sm">Repetir</span>
+            <input
+              class="ios-input"
+              type="password"
+              name="pass2"
+              minlength="6"
+              placeholder="Repetir"
+            />
+          </label>
+        </div>
+
+        <button class="ios-btn-primary w-full mt-2 bg-[#F8C160]">
+          Guardar cambios e ingresar
+        </button>
+
+        <p class="text-center text-sm mt-2">
+          <a href="/forgot" class="ios-link" style="color: orange;">
+            Volver al paso anterior
+          </a>
+        </p>
+      </form>
+    </section>
+
+    <section class="hidden lg:block"></section>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const authLogo = document.querySelector('.auth-brand img');
+  if (!authLogo) return;
+
+  const src = authLogo.getAttribute('src') || '';
+  if (src.includes('dropbox.com') && src.includes('clear-way.png') && src.includes('dl=1') && !src.includes('raw=1')){
+    authLogo.setAttribute('src', src.replace('dl=1','raw=1'));
+  }
+
+  authLogo.setAttribute('loading','eager');
+  authLogo.setAttribute('decoding','async');
+  authLogo.setAttribute('referrerpolicy','no-referrer');
+
+  authLogo.addEventListener('error', () => {
+    const s = authLogo.getAttribute('src') || '';
+    if (s.includes('raw=1')){
+      authLogo.setAttribute('src', s.replace('raw=1','dl=1'));
+    }
+  }, { once:true });
+
+  const codeInput = document.querySelector('input[name="code"]');
+  if (codeInput) {
+    codeInput.addEventListener('input', () => {
+      codeInput.value = String(codeInput.value || '').replace(/\D/g, '').slice(0, 6);
+    });
+  }
+});
+</script>

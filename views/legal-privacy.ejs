@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Política de Privacidad | CleverWave</title>
+  <style>
+    :root{
+      --bg1:#fff7e8;
+      --bg2:#fffdf8;
+      --card:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --line:rgba(15,23,42,.10);
+      --accent:#F8C160;
+      --accent-ink:#7c4a00;
+      --shadow:0 18px 45px rgba(15,23,42,.10);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(248,193,96,.25), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+    }
+    .wrap{
+      width:min(980px, calc(100% - 28px));
+      margin:32px auto 48px;
+    }
+    .hero{
+      background:rgba(255,255,255,.72);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border:1px solid rgba(255,255,255,.75);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:28px 22px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(248,193,96,.20);
+      color:var(--accent-ink);
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    h1{
+      margin:14px 0 10px;
+      font-size:clamp(30px, 5vw, 46px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+    }
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      max-width:760px;
+    }
+    .card{
+      margin-top:18px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:0 10px 28px rgba(15,23,42,.06);
+      padding:24px 20px;
+    }
+    h2{
+      margin:0 0 12px;
+      font-size:22px;
+      letter-spacing:-.02em;
+    }
+    h3{
+      margin:18px 0 8px;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:-.01em;
+      color:var(--ink);
+    }
+    p, li{
+      color:#334155;
+      font-size:15px;
+      line-height:1.8;
+    }
+    ul{
+      margin:10px 0 0 0;
+      padding-left:20px;
+    }
+    ul li{
+      margin-bottom:6px;
+    }
+    .topbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:18px 0 0;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:0 16px;
+      border-radius:14px;
+      font-weight:800;
+      font-size:14px;
+      transition:transform .14s ease, box-shadow .18s ease, opacity .18s ease;
+      cursor:pointer;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{
+      background:var(--accent);
+      color:#1f2937;
+      box-shadow:0 10px 20px rgba(248,193,96,.35);
+    }
+    .btn-secondary{
+      background:#ffffff;
+      color:#0f172a;
+      border:1px solid var(--line);
+    }
+    .foot{
+      margin-top:18px;
+      color:#64748b;
+      font-size:13px;
+      text-align:center;
+    }
+    .mini{
+      color:#64748b;
+      font-size:13px;
+      line-height:1.7;
+      margin-top:8px;
+    }
+    .highlight-box{
+      background:rgba(248,193,96,.10);
+      border-left:3px solid var(--accent);
+      border-radius:0 12px 12px 0;
+      padding:14px 18px;
+      margin:14px 0 0;
+    }
+    .highlight-box p{
+      margin:0;
+      font-size:14px;
+      color:#7c4a00;
+    }
+    .shield-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:#ecfdf5;
+      color:#065f46;
+      font-size:12px;
+      font-weight:700;
+      padding:5px 11px;
+      border-radius:999px;
+      margin-bottom:10px;
+      letter-spacing:.03em;
+    }
+    @media (max-width:640px){
+      .wrap{width:min(100% - 18px, 980px); margin:18px auto 28px}
+      .hero{padding:20px 16px}
+      .card{padding:18px 15px}
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+
+    <!-- HERO -->
+    <section class="hero">
+      <span class="badge">Documento Legal</span>
+      <h1>Política de Privacidad y Protección de Datos</h1>
+      <p class="lead">
+        El presente documento describe de manera detallada cómo CleverWave recopila, utiliza, protege y gestiona la información personal de sus usuarios. Al utilizar la plataforma, la persona usuaria otorga su consentimiento expreso e informado para el tratamiento de sus datos personales bajo los términos aquí establecidos, conforme a la Ley N.º 25.326 de Protección de los Datos Personales de la República Argentina y normativa complementaria.
+      </p>
+      <div class="topbar">
+        <a class="btn btn-primary" href="/login">Iniciar sesión</a>
+        <a class="btn btn-secondary" href="/register">Crear cuenta</a>
+        <a class="btn btn-secondary" href="/terminos">Términos y Condiciones</a>
+      </div>
+    </section>
+
+    <!-- PRIMERO -->
+    <section class="card">
+      <h2>Primero: Recolección Mínima de Datos y Finalidad</h2>
+      <p>
+        CleverWave adopta el principio de minimización de datos, recopilando exclusivamente la información estrictamente necesaria para garantizar la operatividad técnica y académica de la plataforma. Los datos personales recolectados son:
+      </p>
+      <ul>
+        <li><strong>Correo electrónico:</strong> utilizado para la autenticación, recuperación de cuenta y comunicaciones operativas del servicio.</li>
+        <li><strong>Nombre de usuario:</strong> identificador visible dentro de la plataforma para la interacción en espacios comunitarios.</li>
+        <li><strong>Carrera universitaria:</strong> utilizada para personalizar el contenido académico, la bibliografía y las estadísticas de estudio relevantes para el perfil del usuario.</li>
+      </ul>
+      <p>
+        Estos datos tienen como finalidades exclusivas:
+      </p>
+      <ul>
+        <li>La creación, gestión y personalización del perfil de usuario.</li>
+        <li>La sincronización de estadísticas de estudio y el funcionamiento del cronómetro académico.</li>
+        <li>La participación en grupos de estudio, chats y demás espacios colaborativos de la plataforma.</li>
+      </ul>
+      <p>
+        CleverWave no solicita ni almacena datos sensibles tales como número de documento, fecha de nacimiento, domicilio, datos bancarios u otra información que exceda la necesaria para los fines declarados.
+      </p>
+    </section>
+
+    <!-- SEGUNDO -->
+    <section class="card">
+      <span class="shield-tag">🔒 Privacidad Garantizada</span>
+      <h2>Segundo: Privacidad Absoluta y No Cesión de Datos Personales</h2>
+      <p>
+        CleverWave establece una política de confidencialidad estricta e irrenunciable respecto a la identidad e información de sus usuarios. En ningún caso y bajo ninguna circunstancia CleverWave:
+      </p>
+      <ul>
+        <li><strong>Vende</strong> datos personales de sus usuarios a terceros.</li>
+        <li><strong>Alquila, cede ni transfiere</strong> información personal a empresas de marketing, agencias de publicidad, plataformas de análisis de datos u otras entidades externas con fines comerciales.</li>
+        <li><strong>Comparte</strong> el historial de estudio, calificaciones de docentes, correo electrónico, nombre real ni ningún otro dato identificable con Centros de Estudiantes, autoridades universitarias, institutos educativos ni organismos públicos o privados, salvo requerimiento judicial expreso y fundado conforme a la normativa vigente.</li>
+      </ul>
+      <div class="highlight-box">
+        <p>✅ Tu identidad permanece protegida dentro de CleverWave. Ningún tercero, institución educativa ni anunciante tiene acceso a tus datos personales identificables.</p>
+      </div>
+    </section>
+
+    <!-- TERCERO -->
+    <section class="card">
+      <h2>Tercero: Política de Publicidad y Modelo de Sostenibilidad</h2>
+      <p>
+        Con el objeto de sostener la infraestructura tecnológica, los costos de servidores y el desarrollo continuo de la plataforma, CleverWave implementa el siguiente modelo de financiamiento:
+      </p>
+      <ul>
+        <li>La aplicación podrá mostrar anuncios publicitarios integrados en su interfaz, seleccionados de forma automática y con criterios temáticos generales.</li>
+        <li>La segmentación publicitaria se realiza de manera <strong>anónima y automatizada</strong>. Los anunciantes no tienen acceso, en ningún caso, a la identidad real, el correo electrónico, el historial académico ni ningún dato identificable del usuario.</li>
+        <li>Los ingresos generados mediante publicidad o a través de suscripciones al plan <strong>CleverWave Plus</strong> se destinan de manera exclusiva a garantizar la viabilidad operativa, la seguridad y la mejora continua de la plataforma.</li>
+      </ul>
+      <p>
+        CleverWave no comercializa perfiles de usuario ni datos de comportamiento con fines publicitarios externos.
+      </p>
+    </section>
+
+    <!-- CUARTO -->
+    <section class="card">
+      <h2>Cuarto: Seguridad de la Información y Gestión de Vulnerabilidades</h2>
+      <p>
+        CleverWave implementa protocolos de seguridad estándar de la industria para la protección de la información de sus usuarios, incluyendo:
+      </p>
+      <ul>
+        <li>Cifrado de contraseñas mediante algoritmos de hash unidireccional. El equipo de CleverWave <strong>no tiene acceso en ningún momento a las contraseñas en texto plano</strong> de sus usuarios.</li>
+        <li>Transmisión de datos mediante protocolos seguros (HTTPS/TLS).</li>
+        <li>Medidas técnicas y organizativas orientadas a prevenir accesos no autorizados, pérdida o alteración de datos.</li>
+      </ul>
+      <p>
+        No obstante lo anterior, la persona usuaria reconoce y acepta que ningún sistema de seguridad informática es absolutamente inexpugnable. En consecuencia, CleverWave no asume responsabilidad por accesos no autorizados derivados de ataques cibernéticos perpetrados por terceros, vulnerabilidades en servicios de hosting externos o circunstancias de fuerza mayor ajenas al control razonable del equipo de desarrollo.
+      </p>
+      <p>
+        Ante cualquier incidente de seguridad que pueda comprometer datos personales, CleverWave se compromete a notificar a los usuarios afectados en un plazo razonable y a adoptar las medidas correctivas necesarias.
+      </p>
+    </section>
+
+    <!-- QUINTO -->
+    <section class="card">
+      <h2>Quinto: Uso de Cookies y Tecnologías de Persistencia</h2>
+      <p>
+        CleverWave utiliza <em>cookies</em> de carácter estrictamente técnico y funcional con las siguientes finalidades:
+      </p>
+      <ul>
+        <li>Mantener la sesión del usuario activa durante la navegación, evitando la necesidad de autenticación repetida.</li>
+        <li>Recordar las preferencias de interfaz seleccionadas por el usuario, tales como el modo de visualización (estilo iOS, modo oscuro, entre otros).</li>
+      </ul>
+      <p>
+        CleverWave <strong>no utiliza cookies de rastreo, perfilado conductual ni publicidad comportamental</strong> que permitan identificar a los usuarios fuera de la plataforma.
+      </p>
+      <p>
+        La persona usuaria puede desactivar o eliminar las cookies desde la configuración de su navegador en cualquier momento. Se advierte que dicha acción podría afectar la correcta funcionalidad y la experiencia de uso de la aplicación.
+      </p>
+    </section>
+
+    <!-- SEXTO -->
+    <section class="card">
+      <h2>Sexto: Derechos del Usuario — Acceso, Rectificación y Eliminación de Datos</h2>
+      <p>
+        Conforme a la Ley N.º 25.326 de Protección de los Datos Personales, toda persona usuaria de CleverWave tiene garantizados los siguientes derechos sobre su información personal:
+      </p>
+      <ul>
+        <li><strong>Derecho de acceso:</strong> conocer qué datos personales se encuentran almacenados y de qué manera son tratados.</li>
+        <li><strong>Derecho de rectificación:</strong> corregir o actualizar datos inexactos o incompletos desde el panel de configuración de la cuenta.</li>
+        <li><strong>Derecho de supresión:</strong> solicitar la baja definitiva de la cuenta y la eliminación total e irreversible de todos los datos personales de la base de datos activa, en cualquier momento y sin necesidad de justificación, desde el panel de configuración o mediante solicitud al canal de contacto oficial.</li>
+        <li><strong>Derecho de oposición:</strong> oponerse al tratamiento de sus datos para finalidades específicas, en los supuestos habilitados por la normativa vigente.</li>
+      </ul>
+      <p>
+        CleverWave procesará las solicitudes de ejercicio de derechos en un plazo razonable y sin costo alguno para el usuario. Para consultas o solicitudes que no puedan gestionarse desde la aplicación, la persona usuaria puede contactarse a:
+      </p>
+      <p>📧 <strong>cleverwave@gmail.com</strong></p>
+
+      <p class="mini">
+        La DIRECCIÓN NACIONAL DE PROTECCIÓN DE DATOS PERSONALES es el organismo competente para atender denuncias y consultas relativas al tratamiento de datos personales en la República Argentina.
+      </p>
+      <p class="mini">
+        Versión vigente. Última actualización: 18 de marzo de 2026.
+      </p>
+    </section>
+
+    <div class="foot">
+      CleverWave &copy; 2026 · Política de Privacidad y Protección de Datos · Todos los derechos reservados.
+    </div>
+
+  </main>
+</body>
+</html>

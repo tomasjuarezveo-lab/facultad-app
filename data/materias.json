@@ -1,0 +1,8 @@
+[
+  { "id": "curso", "nombre": "Curso de Ingreso", "requisitos": [] },
+  { "id": "bio1", "nombre": "Biología I", "requisitos": [] },
+  { "id": "psico", "nombre": "Psicología Social", "requisitos": ["curso"] },
+  { "id": "mat2", "nombre": "Matemática II", "requisitos": ["psico"] },
+  { "id": "fis",  "nombre": "Física", "requisitos": ["psico"] },
+  { "id": "met",  "nombre": "Metodología Inv.", "requisitos": ["fis"] }
+]

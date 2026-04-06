@@ -1,0 +1,99 @@
+﻿/* Estética iOS base + nav ya existentes… (mantengo tus reglas anteriores) */
+body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; }
+.glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+.btn { padding: 10px 14px; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); transition: transform .05s ease; }
+.btn:active { transform: translateY(1px); }
+.tab { padding: 10px 16px; border-radius: 14px; }
+.card { border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.fixed-bottom { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 40; }
+.search { border-radius: 14px; padding: 10px 14px; background: #f2f3f5; }
+
+/* Bottom nav (icono + etiqueta) */
+.bottom-nav-item { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 6px; border-radius:12px; min-width:56px; }
+.bottom-nav-item svg { width:22px; height:22px; }
+.bottom-nav-item span { font-size:11px; color:#111; }
+
+/* Tabs flotantes y botón subir */
+.top-tabs { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 60; }
+.top-right-controls { position: fixed; top: 12px; right: 12px; z-index: 60; }
+
+/* Sidebar derecha solo iconos — NO recorta el tooltip hacia la izquierda */
+.sidebar-floating { position: fixed; top: 90px; right: 12px; bottom: 90px; width: 74px; overflow-y: auto; overflow-x: visible; z-index: 50; padding:8px; }
+.doc-list { display:flex; flex-direction:column; gap:10px; }
+.doc-item-icon { position: relative; display:flex; align-items:center; justify-content:center; width: 100%; height: 68px; border-radius: 16px; background: white; box-shadow: 0 6px 16px rgba(0,0,0,.08); }
+.doc-item-icon svg { width:32px; height:32px; }
+.doc-item-icon:hover { transform: translateY(-1px); }
+
+/* Tooltip GLOBAL (viñeta) para documentos */
+#docTooltip{
+  position: fixed; z-index: 9999; display: none; pointer-events: none;
+  background: white; border:1px solid rgba(0,0,0,.08); border-radius:12px; padding:8px 10px; white-space:nowrap;
+  box-shadow:0 12px 28px rgba(0,0,0,.18); font-size:12px; color:#111;
+}
+#docTooltip::after{
+  content:""; position:absolute; right:-8px; top:50%; transform: translateY(-50%);
+  border-width:8px; border-style:solid; border-color: transparent transparent transparent white;
+  filter: drop-shadow(-1px 1px 1px rgba(0,0,0,.08));
+}
+
+/* Visor a pantalla completa detrás de todo */
+.viewer-iframe { position: fixed; inset: 0; width: 100vw; height: 100vh; border: none; z-index: 1; }
+.viewer-empty { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; color:#6b7280; z-index: 1; }
+
+/* TEXT LAYER (selección de texto) para PDF.js */
+.textLayer { position:absolute; left:0; top:0; right:0; bottom:0; overflow:hidden; pointer-events:auto; }
+.textLayer span { position:absolute; transform-origin:0 0; white-space:pre; color: transparent; }
+.textLayer span::selection { background: rgba(56,189,248,.35); }
+.textLayer .hl { background: rgba(253,224,71,.6); border-radius:4px; }
+.textLayer .hl.active { outline: 2px solid #f59e0b; }
+
+/* Responsive móvil */
+@media (max-width: 640px){
+  .tab { padding: 12px 18px; font-size: 15px; }
+  .top-tabs { top: 10px; }
+  .bottom-nav-item { padding:10px 6px; }
+  .bottom-nav-item svg { width:26px; height:26px; }
+  .bottom-nav-item span { font-size:12px; }
+  .sidebar-floating { width: 80px; padding:10px; }
+  .doc-item-icon { height: 76px; }
+  .doc-item-icon svg { width:36px; height:36px; }
+}
+/* ==== iOS TAB BAR ==== */
+.tabbar-wrap{
+  position: fixed; left: 0; right: 0;
+  bottom: 0; padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  z-index: 80;
+}
+.tabbar{
+  margin: 0 auto; max-width: 920px;
+  display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; gap: 6px;
+  height: 68px; padding: 6px; border-radius: 26px;
+  background: rgba(255,255,255,.78); backdrop-filter: saturate(180%) blur(14px);
+  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 12px 36px rgba(0,0,0,.12);
+  position: relative;
+}
+.tabbar-item{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height: 54px; gap: 4px; border-radius: 16px; text-decoration:none;
+  color:#0f172a; -webkit-tap-highlight-color: transparent; position:relative; z-index:2;
+  transition: transform .05s ease;
+}
+.tabbar-item:active{ transform: translateY(1px); }
+.tabbar-item svg{ width: 22px; height: 22px; }
+.tabbar-item span{ font-size: 11px; }
+.tabbar-item.active{ color:#007aff; }
+.tabbar-indicator{
+  position: absolute; top: 6px; bottom: 6px; left: 6px;
+  width: calc(100%/6 - 12px);
+  background: rgba(0,122,255,.12);
+  border-radius: 16px;
+  transition: transform .28s cubic-bezier(.22,.61,.36,1), width .28s;
+  z-index: 1;
+}
+/* Responsive móvil */
+@media (max-width: 640px){
+  .tabbar{ height: 84px; padding: 8px; border-radius: 30px; }
+  .tabbar-item{ height: 64px; }
+  .tabbar-item svg{ width: 26px; height: 26px; }
+  .tabbar-item span{ font-size: 12px; }
+}

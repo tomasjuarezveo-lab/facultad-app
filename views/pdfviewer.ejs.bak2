@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor</title>
+  <style>
+    :root { --padTop: 78px; --padBottom: 100px; --glass: rgba(255,255,255,.8); }
+    html, body { margin:0; padding:0; height:100%; background: linear-gradient(180deg,#f8fafc,#f1f5f9); font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Arial, sans-serif; }
+    /* Área scroll principal */
+    #viewer { position: fixed; inset: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+    /* Columna centrada SIEMPRE */
+    #column {
+      display: flex; flex-direction: column; align-items: center;
+      width: fit-content; min-width: 320px; margin: var(--padTop) auto var(--padBottom) auto;
+      transform-origin: top center; will-change: transform;
+    }
+    .page {
+      display: block; margin: 14px auto; background:#fff;
+      box-shadow: 0 8px 28px rgba(0,0,0,.08); border-radius: 10px;
+    }
+    /* iOS glass toolbars */
+    .glass { background: var(--glass); backdrop-filter: saturate(180%) blur(14px); border: 1px solid rgba(0,0,0,.06); box-shadow: 0 10px 30px rgba(0,0,0,.08); border-radius: 14px; }
+    #hambox { position: fixed; top: 12px; left: 12px; z-index: 260; }
+    #zoombar { position: fixed; top: 12px; right: 12px; z-index: 260; display:flex; gap:6px; }
+    .btn { padding:10px 12px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,.08); cursor:pointer; box-shadow: 0 2px 8px rgba(0,0,0,.06); user-select:none; }
+    .btn:active { transform: translateY(1px); }
+    /* Panel de miniaturas sobrepuesto (no empuja nada) */
+    #thumbsPanel {
+      position: fixed; top: 56px; left: 12px; bottom: 90px; width: 300px;
+      overflow: auto; z-index: 300; display: none; padding: 10px;
+    }
+    .thumb { display:block; margin:10px auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06); border-radius:8px; cursor:pointer; transition: transform .08s ease; }
+    .thumb:hover { transform: scale(1.02); }
+    /* Spinner */
+    #spinner { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(241,245,249,.35); z-index: 240; }
+    .dot { width:10px; height:10px; margin: 4px; border-radius: 999px; background:#111; animation: pulse .9s infinite alternate; }
+    .dot:nth-child(2){ animation-delay: .15s } .dot:nth-child(3){ animation-delay: .3s }
+    @keyframes pulse { from { opacity:.25; transform: scale(.8) } to { opacity:.9; transform: scale(1.12) } }
+  </style>
+  <!-- PDF.js -->
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';</script>
+</head>
+<body>
+  <!-- Botón ☰ (abre miniaturas sobrepuestas) -->
+  <div id="hambox" class="glass"><button id="toggle" class="btn">☰</button></div>
+  <!-- Zoom + / 100% / - -->
+  <div id="zoombar" class="glass">
+    <button id="zOut"  class="btn">−</button>
+    <button id="zReset" class="btn">100%</button>
+    <button id="zIn"   class="btn">＋</button>
+  </div>
+  <!-- Miniaturas (superpuestas, no mueven nada) -->
+  <div id="thumbsPanel" class="glass"></div>
+  <!-- Spinner -->
+  <div id="spinner"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <!-- Viewer principal -->
+  <div id="viewer"><div id="column"></div></div>
+
+  <script>
+    const file = "<%= file %>";
+    const viewer = document.getElementById('viewer');
+    const column = document.getElementById('column');
+    const thumbsPanel = document.getElementById('thumbsPanel');
+    const spinner = document.getElementById('spinner');
+    const toggle = document.getElementById('toggle');
+    const zIn = document.getElementById('zIn'), zOut = document.getElementById('zOut'), zReset = document.getElementById('zReset');
+
+    // -------- Config de calidad / performance ----------
+    const MAX_DPR = Math.min(2.5, window.devicePixelRatio || 1); // nítido sin explotar RAM
+    const MIN_Z = 0.6, MAX_Z = 3.0, STEP = 0.15;
+    const RENDER_BUFFER = 2; // páginas extra alrededor en viewport
+    const DEBOUNCE = 180; // ms para re-render nítido tras zoom instantáneo
+    let pdf, pageCount = 0;
+    let baseScale = 1.1;   // escala real de render
+    let cssScale  = 1.0;   // escala visual inmediata (zoom suave)
+    let zoomDebounce, currentToken = 0;
+
+    // Estado por página
+    const pages = []; // { num, canvas, widthAt1, heightAt1, renderedScale, renderTask, visible }
+
+    function setCssScale(s) {
+      cssScale = s;
+      column.style.transform = `translateZ(0) scale(${cssScale})`;
+    }
+
+    function setZoom(newZoom, fromUser=true) {
+      newZoom = Math.max(MIN_Z, Math.min(MAX_Z, newZoom));
+      // Zoom inmediato suave por CSS
+      const visualBefore = baseScale * cssScale;
+      const visualAfter = newZoom;
+      const css = visualAfter / baseScale;
+      // Mantener el centro aproximado
+      const centerBefore = viewer.scrollTop + viewer.clientHeight/2;
+      const ratioBefore = centerBefore / Math.max(1, viewer.scrollHeight);
+      setCssScale(css);
+      zReset.textContent = Math.round(visualAfter*100)+'%';
+
+      if (zoomDebounce) clearTimeout(zoomDebounce);
+      zoomDebounce = setTimeout(() => {
+        // Fijar nueva base y quitar CSS scale
+        baseScale = newZoom;
+        setCssScale(1.0);
+        // Re-render nítido SOLO lo visible
+        renderVisible(true).then(() => {
+          const newTop = ratioBefore * viewer.scrollHeight - viewer.clientHeight/2;
+          viewer.scrollTop = Math.max(0, newTop);
+        });
+      }, fromUser ? DEBOUNCE : 0);
+    }
+
+    // Controles de zoom
+    toggle.onclick = () => { thumbsPanel.style.display = (thumbsPanel.style.display==='block'?'none':'block'); };
+    zIn.onclick = () => setZoom(baseScale * cssScale + STEP);
+    zOut.onclick = () => setZoom(baseScale * cssScale - STEP);
+    zReset.onclick = () => setZoom(1.0);
+
+    // Gestos Ctrl + rueda / Ctrl + +/- / Ctrl + 0
+    viewer.addEventListener('wheel', (e) => { if (e.ctrlKey){ e.preventDefault(); setZoom(baseScale * cssScale + (e.deltaY>0?-STEP:STEP)); }}, {passive:false});
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && (e.key==='+' || e.key==='=')) { e.preventDefault(); setZoom(baseScale * cssScale + STEP); }
+      if (e.ctrlKey && e.key==='-') { e.preventDefault(); setZoom(baseScale * cssScale - STEP); }
+      if (e.ctrlKey && e.key==='0') { e.preventDefault(); setZoom(1.0); }
+    });
+
+    function createCanvas(num) {
+      const c = document.createElement('canvas');
+      c.className = 'page';
+      c.id = 'page_'+num;
+      c.style.scrollMarginTop = '90px';
+      return c;
+    }
+
+    async function renderPage(num, token, force=false) {
+      const p = pages[num];
+      if (!p) return;
+      if (p.renderTask) { try { p.renderTask.cancel(); } catch(_){} p.renderTask = null; }
+      const page = await pdf.getPage(num);
+      const vp = page.getViewport({ scale: baseScale });
+      const dpr = MAX_DPR;
+      const need = force || !p.renderedScale || Math.abs(p.renderedScale - baseScale) > 0.02;
+
+      if (!need) return;
+
+      // Preparar canvas
+      p.canvas.style.width = vp.width + 'px';
+      p.canvas.style.height = vp.height + 'px';
+      p.canvas.width  = Math.floor(vp.width  * dpr);
+      p.canvas.height = Math.floor(vp.height * dpr);
+      const ctx = p.canvas.getContext('2d', { alpha:false });
+      const rc = { canvasContext: ctx, viewport: vp, transform: [dpr,0,0,dpr,0,0] };
+
+      // Render con cancelación por token
+      const thisToken = token;
+      p.renderTask = page.render(rc);
+      try { await p.renderTask.promise; } catch(e){ /* cancel */ }
+      if (thisToken !== currentToken) return; // hubo un zoom más reciente
+      p.renderTask = null;
+      p.renderedScale = baseScale;
+    }
+
+    // Virtualización: solo render de páginas en viewport ± buffer
+    function getVisibleRange() {
+      const top = viewer.scrollTop, bottom = top + viewer.clientHeight;
+      // Column puede estar escalada visualmente; usamos bounding boxes reales:
+      const children = Array.from(column.children);
+      let first = 1, last = pageCount;
+      for (let i=0;i<children.length;i++){
+        const el = children[i];
+        const rect = el.getBoundingClientRect();
+        const vTop = rect.top + viewer.scrollTop; // top relativo al scroll
+        const vBottom = vTop + rect.height;
+        if (vBottom >= top && vTop <= bottom) { first = Math.max(1, i+1-RENDER_BUFFER); last = Math.min(pageCount, i+1+RENDER_BUFFER); break; }
+      }
+      return [first, last];
+    }
+
+    async function renderVisible(force=false) {
+      spinner.style.display = force ? 'flex' : 'none';
+      const token = ++currentToken;
+      const [first, last] = getVisibleRange();
+      // Render secuencial para estabilidad (suficientemente rápido)
+      for (let n=first; n<=last; n++) { await renderPage(n, token, force); }
+      // Prefetch 1 página más hacia abajo si existe
+      if (last < pageCount) { renderPage(last+1, token, false); }
+      spinner.style.display = 'none';
+    }
+
+    function onScroll() { requestAnimationFrame(() => renderVisible(false)); }
+
+    function buildThumbs() {
+      thumbsPanel.innerHTML = '';
+      const cache = {};
+      const mk = async (n) => {
+        const t = document.createElement('canvas');
+        t.className = 'thumb'; t.title = 'Página ' + n;
+        t.onclick = () => document.getElementById('page_'+n)?.scrollIntoView({ behavior:'smooth', block:'start' });
+        thumbsPanel.appendChild(t);
+        const page = await pdf.getPage(n);
+        const scale = 0.18;
+        const vp = page.getViewport({ scale });
+        t.width = vp.width; t.height = vp.height;
+        const ctx = t.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+        cache[n] = t;
+      };
+      // Generación paulatina para no bloquear
+      (async () => { for (let n=1; n<=pageCount; n++) await mk(n); })();
+    }
+
+    function setupPages() {
+      column.innerHTML = '';
+      for (let n=1; n<=pageCount; n++){
+        const canvas = createCanvas(n);
+        column.appendChild(canvas);
+        pages[n] = { num:n, canvas, renderedScale:0, renderTask:null };
+      }
+    }
+
+    // Cargar PDF
+    pdfjsLib.getDocument(file).promise.then(async _pdf => {
+      pdf = _pdf; pageCount = pdf.numPages;
+      setupPages();
+      setCssScale(1.0);
+      zReset.textContent = Math.round(baseScale*100)+'%';
+      // Primer render visible y thumbnails
+      await renderVisible(true);
+      buildThumbs();
+      // Listeners
+      viewer.addEventListener('scroll', onScroll, { passive:true });
+      window.addEventListener('resize', () => { renderVisible(true); });
+    }).catch(err => {
+      column.innerHTML = '<div style="padding:20px;color:#888">No se pudo abrir el documento.</div>';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

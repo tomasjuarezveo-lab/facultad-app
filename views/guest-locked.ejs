@@ -1,0 +1,77 @@
+<style>
+  .guest-locked-wrap{
+    min-height: calc(100dvh - 120px);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 28px 16px;
+  }
+  .guest-locked-card{
+    width:min(560px, 92vw);
+    border-radius: 28px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(255,255,255,.75);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    box-shadow: 0 22px 55px rgba(15,23,42,.18);
+    padding: 18px;
+  }
+  .guest-locked-title{
+    font-weight: 900;
+    font-size: 18px;
+    color: #0f172a;
+  }
+  .guest-locked-sub{
+    margin-top: 6px;
+    color: rgba(15,23,42,.70);
+    font-weight: 650;
+    font-size: 13px;
+    line-height: 1.35;
+  }
+  .guest-locked-actions{
+    display:flex;
+    gap:10px;
+    margin-top: 14px;
+    flex-wrap:wrap;
+  }
+  .guest-btn{
+    flex:1 1 180px;
+    height: 44px;
+    border-radius: 16px;
+    font-weight: 900;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border: 1px solid rgba(255,255,255,.8);
+    box-shadow: 0 14px 34px rgba(15,23,42,.12);
+    text-decoration:none;
+  }
+  .guest-btn--primary{ background:#F8C160; color:#0f172a; }
+  .guest-btn--ghost{ background: rgba(255,255,255,.68); color:#0f172a; }
+  .guest-locked-foot{
+    margin-top: 10px;
+    font-size: 12px;
+    color: rgba(15,23,42,.55);
+    font-weight: 650;
+  }
+</style>
+
+<div class="guest-locked-wrap">
+  <div class="guest-locked-card">
+    <div class="guest-locked-title">Desbloqueá <%= section || 'esta sección' %></div>
+    <div class="guest-locked-sub">
+      Para acceder a <b><%= section || 'esta sección' %></b> necesitás crear una cuenta gratis.
+      <b>Tardás 10 segundos</b> y accedés a todo (finales, resúmenes, definiciones, juegos, grupos y perfil).
+    </div>
+
+    <div class="guest-locked-actions">
+      <a class="guest-btn guest-btn--primary" href="/logout?next=register">Crear cuenta gratis</a>
+      <a class="guest-btn guest-btn--ghost" href="/logout?next=login">Ya tengo cuenta</a>
+      <a class="guest-btn guest-btn--ghost" href="/app/materias">Seguir viendo materias</a>
+    </div>
+
+    <div class="guest-locked-foot">
+      Tip: si ya tenés cuenta, iniciá sesión y se desbloquea automáticamente.
+    </div>
+  </div>
+</div>

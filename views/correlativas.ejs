@@ -1,0 +1,1882 @@
+<!-- views/correlativas.ejs -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Correlativas</title>
+  <style>
+    :root{
+      --bg:#f7fafc; --text:#111827;
+      --card: rgba(255,255,255,.88); --muted:#6b7280;
+      --accent:#2dd4bf; --violet:#a78bfa; --green:#34d399; --amber:#f59e0b; --orange:#fb923c;
+      --blue:#3b82f6; --sky:#38bdf8;
+      --radius:14px; --gap:60px; --lane:180px; --node-w:280px;
+      --shadow:0 10px 30px rgba(0,0,0,.25);
+      --z:1;
+
+      /* Estética de búsqueda (idéntica a Autoevaluaciones) */
+      --glass-2: rgba(255, 255, 255, 0);
+      --stroke:  rgba(255, 255, 255, 0);
+
+      /* UI accents de los botones */
+      --accent-ui:#F8C160;
+      --accent-ui-12:rgb(255, 255, 255);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif}
+    .wrap{min-height:100vh;display:flex;flex-direction:column}
+    /* ✅ Esta vista se renderiza dentro de layout.ejs (body.bg-hatch-ios). Evita 100vh extra que baja el recuadro */
+    body.bg-hatch-ios .wrap{min-height:0 !important;}
+
+    /* ===== Layout: SOLO el recuadro del grafo centrado ===== */
+    #contentBound{
+      flex: 1;
+      width: 100%;
+      display: flex;
+      align-items: flex-start;     /* ✅ arriba */
+      justify-content: center;     /* ✅ centrado horizontal */
+      padding: 12px 16px 18px;     /* ✅ menos “aire” arriba */
+    }
+
+    /* El “recuadro de correlativas” es el único protagonista */
+    #correlativasCard{
+      width: min(1200px, 96vw);
+      position: relative;
+    }
+
+    /* El grafo ocupa el recuadro y se ve limpio */
+    #correlativasCard .board{
+      background: rgba(255,255,255,.72);
+      border: 1px solid rgba(226,232,240,.9);
+      border-radius: 20px;
+      box-shadow: 0 18px 44px rgba(15,23,42,.10);
+      padding: 18px;
+      padding-top: 148px; /* espacio para la UI superpuesta */
+    }
+
+    /* ===== UI superpuesta (encima del recuadro, NO sticky a la pantalla) ===== */
+    /* ===== CONTENEDOR (sin recuadro propio) ===== */
+    #topHeader.correlativas-ui{
+        position: absolute;
+        top: 14px;
+        left: 5px;                 /* ✅ pegado al borde izquierdo del recuadro */
+        right: 5px;                /* ✅ pegado al borde derecho del recuadro */
+        transform: none;           /* ✅ ya no se centra por translate */
+        z-index: 60;
+
+        width: auto;               /* ✅ ahora depende de left/right */
+        padding: 0;
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+
+        /* ✅ FIX MOBILE: el contenedor transparent no bloquea taps en el grafo */
+        pointer-events: none;
+    }
+    /* ✅ FIX MOBILE: re-habilitar eventos en todos los elementos interactivos del header */
+    #topHeader.correlativas-ui button,
+    #topHeader.correlativas-ui input,
+    #topHeader.correlativas-ui .ui-panel,
+    #topHeader.correlativas-ui .filters-wrap,
+    #topHeader.correlativas-ui .filters-secondary-wrap,
+    #topHeader.correlativas-ui .search-wrap,
+    #topHeader.correlativas-ui .legend-panel,
+    #topHeader.correlativas-ui .legend {
+        pointer-events: auto;
+    }
+
+      /* ✅ Nuevo layout: izquierda (años+leyenda) | derecha (buscar) y debajo (secundarios) */
+      #topHeader .ui-grid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-areas:
+        "left secondary"
+        "left right";
+      gap: 10px 12px;
+      align-items: start;
+    }
+      /* “Recuadros” */
+      #topHeader .ui-panel{
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0);
+        border: 1px solid rgba(226, 232, 240, 0);
+        padding: 12px;
+      }
+
+      /* Izquierda: años + leyenda */
+      #topHeader .ui-leftpanel{ grid-area:left; }
+
+      #topHeader .ui-leftpanel{
+        justify-self: start;   /* ✅ pegado a la izquierda */
+        margin-left: 0;        /* ✅ sin margen extra */
+      }
+
+      /* Derecha: buscar (recuadro “invisible”) */
+      #topHeader .ui-rightpanel{ grid-area:right; justify-self:end; }
+      #topHeader .ui-panel-invis{
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 0 !important; /* ✅ que “no se vea” */
+      }
+
+      #topHeader .ui-rightpanel,
+      #topHeader .ui-secondarypanel{
+        justify-self: end;     /* ✅ ya lo tenías */
+        margin-right: 0;       /* ✅ sin margen extra */
+      }
+
+
+      /* Debajo a la derecha: secundarios */
+      #topHeader .ui-secondarypanel{ grid-area:secondary; justify-self:end; }
+      #topHeader .ui-secondarypanel .filters-secondary-wrap{
+        width: fit-content !important;   /* ✅ solo hasta el final de botones */
+        max-width: 100%;
+      }
+
+    #topHeader .ui-left{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    #topHeader .ui-right{
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    /* ✅ Leyenda abajo a la izquierda, alineada con “Todos…” */
+      #topHeader .legend-left{
+        justify-content: flex-start !important;
+        width: fit-content;
+      }
+
+      /* ✅ Derecha: búsqueda arriba + secundarios abajo */
+      #topHeader .ui-right-stack{
+        align-items: flex-end;
+      }
+      #topHeader .ui-right-stack .search-wrap{
+        width: 18rem;
+      }
+      #topHeader .ui-right-stack .filters-secondary-wrap{
+        margin-top: 2px;
+      }
+
+
+    /* Los chips quedan más minimalistas */
+    .filters, .filters-secondary{
+      box-shadow: none;
+    }
+
+    .filters-wrap{
+      background: rgb(255, 255, 255);
+      border: 1px solid rgba(226,232,240,.9);
+      padding: 6px;
+    }
+
+    .filters-secondary-wrap{
+      background: rgba(255, 255, 255, 0.856);
+      border: 1px dashed rgba(203,213,225,.95);
+      border-radius: 14px;
+      padding: 8px;
+      box-shadow: none;
+    }
+
+    /* Búsqueda más limpia */
+    .search-ios{
+      width: 18rem;
+      background: rgba(255,255,255,.65);
+      border: 1px solid rgba(226,232,240,.95);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 10px 20px rgba(15,23,42,.06);
+    }
+
+    /* Leyenda alineada bajo la búsqueda */
+    .legend{
+      justify-content: flex-end;
+      gap: 14px;
+      width: 100%;
+    }
+
+    /* Overlay controls (fullscreen/zoom) abajo de la UI para que no se choque */
+        .overlay-controls{
+      position:absolute !important;
+      top:auto !important;
+      bottom:14px !important;
+      right:14px !important;
+      left:auto !important;
+
+      z-index:2147483640 !important;
+      display:flex !important;
+      gap:8px !important;
+      align-items:center !important;
+    }
+
+
+    #topHeader .ui-leftpanel .filters-wrap{
+      white-space: nowrap;
+    }
+
+    /* =========================
+   FIX GLOBAL (PC + Mobile):
+   Años en pill horizontal scrolleable (nunca vertical)
+      ========================= */
+    #topHeader .ui-leftpanel .filters-wrap{
+      display: inline-flex !important;
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 8px !important;
+
+      border-radius: 9999px !important;     /* pill perfecto */
+      padding: 6px !important;
+
+      width: fit-content !important;        /* desktop: no ocupa todo */
+      max-width: 100% !important;
+
+      overflow-x: auto !important;          /* ✅ si no entra, scroll */
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: none !important;
+    }
+    #topHeader .ui-leftpanel .filters-wrap::-webkit-scrollbar{ display:none !important; }
+
+    #topHeader .ui-leftpanel .filters-wrap .seg-btn{
+      flex: 0 0 auto !important;            /* nunca apila */
+      min-width: unset !important;
+    }
+
+
+
+    /* ===== Toolbar ===== */
+    .toolbar{display:flex;flex-direction:column;gap:10px}
+    .toolbar-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+    .toolbar-row.between{justify-content:space-between;}
+
+    /* Secundario: recuadro distinto y separado, alineado a la derecha */
+    .filters-secondary-wrap{
+      border-radius:12px;padding:6px 8px;display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;
+      background:#ffffff;border:1px dashed #d1d5db; box-shadow:0 4px 12px rgba(15,23,42,.06);
+    }
+
+    .seg-btn{
+      height:28px;padding:0 10px;min-width:76px;border-radius:9999px;font-weight:600;font-size:.78rem;
+      color:#475569;transition:.15s,color .15s ease,transform .15s ease,background .15s ease,box-shadow .15s ease;
+      white-space:nowrap;letter-spacing:-.01em;border:1px solid transparent;background:transparent;cursor:pointer
+    }
+    .seg-btn[data-active="true"]{
+      color:#fff;background:linear-gradient(145deg,var(--accent-ui),var(--accent-ui));border-color:var(--accent-ui-25);
+      box-shadow:0 10px 22px rgba(254,132,25,.18),inset 0 1px 0 rgba(255, 255, 255, 0)
+    }
+    .seg-btn:active{transform:translateY(1px)}
+
+    /* ===== Leyenda + Búsqueda + Zoom en una misma fila ===== */
+    .legend{display:flex;gap:16px;align-items:center;color:#4b5563;font-size:13px;flex-wrap:wrap}
+    .dot{width:12px;height:12px;border-radius:999px;display:inline-block}
+    .dot.blue{background:var(--accent); margin-top: 10px;} .dot.violet{background:var(--violet); margin-top: 10px; } .dot.green{background:var(--green)}
+
+    .row-legend-search-zoom{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .row-legend-search-zoom .spacer{flex:1}
+
+    .zoombar{display:flex;gap:7px}
+    .zoombar button{font-size: 11px; padding:10px 10px;border-radius:13px;border:1px solid rgba(255,255,255,.35); background:rgba(255, 255, 255, 0.623);color:#111827;cursor:pointer;min-width:1px}
+
+    /* ===== Búsqueda (idéntica a Autoevaluaciones) ===== */
+    .search-wrap{position:relative}
+    .search-ios{
+      height:42px;width:18rem;padding-left:40px;padding-right:14px;border-radius:9999px;background:var(--glass-2);
+      border:1px solid var(--stroke);box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 6px 16px rgba(15,23,42,.06);
+      backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);
+      color:#334155
+    }
+    .search-ios::placeholder{color:#8a99ad}
+    .search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:#9aa4b2}
+    @media (max-width:768px){.search-ios{width:14rem}}
+
+    /* ===== Contenedor del grafo ===== */
+    .board{position:relative;overflow:auto;padding:18px;background:#ffffff00;border:1px solid #e2e8f0;border-radius:16px;box-shadow:0 10px 24px rgba(15,23,42,.06);width:100%;margin-bottom:30px}
+    /* IMPORTANTE: 'normal' = altura reducida (lupa ACTIVA), 'zoom' = altura grande (lupa INACTIVA) */
+    .boardHeight-normal{height:calc(84vh - var(--header-h,64px));}  /* ✅ más alto */
+    .boardHeight-zoom{height:calc(165vh - var(--header-h,64px));}   /* ✅ más alto */
+    .board::-webkit-scrollbar{width:0;height:0}
+    .board{scrollbar-width:none;-ms-overflow-style:none}
+
+    .canvas{position:relative;min-height:80vh;min-width:980px}
+    .graph{position:relative; transform:scale(var(--z)); transform-origin: 0 0;}
+    svg.wires{position:absolute;inset:0;pointer-events:none;z-index:0}
+    /* ===== “Electricidad” / progreso en idle ===== */
+      path.wire.spark{
+        opacity: 1 !important;
+        stroke-width: 3.2 !important;
+        filter: drop-shadow(0 0 4px rgba(255,255,255,.75)) drop-shadow(0 0 10px rgba(255,255,255,.35));
+      }
+
+      @keyframes sparkDraw{
+        0%   { stroke-dashoffset: var(--len, 999); opacity: 0; }
+        10%  { opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: .95; }
+      }
+
+      @keyframes sparkFlicker{
+        0%,100% { filter: drop-shadow(0 0 3px rgba(255,255,255,.55)) drop-shadow(0 0 8px rgba(255,255,255,.25)); }
+        50%     { filter: drop-shadow(0 0 6px rgba(255,255,255,.85)) drop-shadow(0 0 14px rgba(255,255,255,.45)); }
+      }
+          /* Opacidad por defecto al 30% para TODOS los hilos */
+    /* ✅ En idle: hilos invisibles (se ilumina solo lo activo/hover/click o el spark) */
+      path.wire{
+        stroke-width:2.5;
+        fill:none;
+        opacity:0;                  /* ✅ 100% transparentes por defecto */
+        transition:opacity .12s ease;
+        stroke-linecap:round;
+      }
+    path.wire.blue{stroke:var(--accent)} path.wire.violet{stroke:var(--violet)}
+
+    .node{
+        position:absolute;
+        width:var(--node-w);
+        background: var(--card);
+        border: 1px solid rgba(226,232,240,.95);
+        border-radius: 16px;
+        padding: 10px 12px;
+        box-shadow: 0 12px 26px rgba(15,23,42,.10);
+        z-index:1;
+        transition: transform .18s, color .18s, background .18s, outline-color .18s;
+      }
+    .node .top{display:flex;align-items:center;gap:8px}
+    /* ✅ Estructura: nombre arriba, fila inferior con toggle + checkbox a la derecha */
+    .node .top{ align-items:flex-start; }
+    .node .name{ width:100%; }
+    .node .bottom{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      margin-top:10px;
+      min-height:30px;
+    }
+    .node .toggle{
+      margin-top:0 !important;   /* ✅ ya no baja solo */
+      flex:1;
+      min-width:0;
+      line-height:1.2;
+    }
+    .node .check{
+      appearance:none;
+      -webkit-appearance:none;
+      width:24px;
+      height:24px;
+      min-width:24px;
+      min-height:24px;
+      margin-left:auto;
+      border:2px solid #9ca3af;
+      border-radius:6px;
+      cursor:pointer;
+      background:#ffffff;
+      display:inline-grid;
+      place-items:center;
+      touch-action:manipulation;
+      flex:0 0 24px;
+    }
+    .node .check:checked{background:var(--green);border-color:#065f46}
+    .node .check:checked::after{content:"✓";color:#0b3d2c;font-weight:900;font-size:14px;line-height:1}
+    .node .name{font-weight:800;color:#000000;flex:1;line-height:1.2}
+    .node .toggle{margin-top:6px;font-size:13px;color:rgb(35, 37, 39);cursor:pointer;user-select:none}
+    .node .toggle:hover{text-decoration:underline}
+    .node .reqs{overflow:hidden;max-height:0;transition:max-height .25s ease}
+    .node.open{z-index:4}
+    .node.open .reqs{max-height:380px;margin-top:8px}
+    .node .reqs h4{margin:0 0 6px;font-size:12px;color:rgb(0, 0, 0);font-weight:700;text-transform:uppercase;letter-spacing:.02em}
+    .node .reqs ul{margin:0 0 6px 14px;padding:0}
+    .node .reqs li{list-style:disc;color:#372f38;font-size:13px}
+    .node.highlight{outline:2px solid var(--amber); transform:translateZ(0) scale(1.02)}
+    .node.selected{outline:2px solid var(--amber); transform:translateZ(0) scale(1.02)}
+    /* Colores de borde solicitados */
+    .node.leaf{outline:3px solid var(--orange)}      /* sin hijos => naranja */
+    .node.hub{outline:3px solid var(--blue)}         /* muchos hijos => azul */
+    .node.base{outline:3px solid var(--sky)}         /* nivel 0 => celeste */
+    .node.done{background:#16a34a;border-color:#065f46}
+    .node.done .name{color:#062d17}
+    .node.done .toggle{color:#08331b}
+        /* ✅ Inscribible: cumple correlativas (todas las prereq checkeadas) */
+    .node.eligible{
+      outline: 3px solid var(--violet) !important;
+      box-shadow:
+        0 12px 26px rgba(15,23,42,.10),
+        0 0 0 2px rgba(167,139,250,.65),
+        0 0 20px rgba(167,139,250,.55) !important;
+    }
+    /* ✅ Inscribible: cumple correlativas (todas las prereq checkeadas) y aún no está aprobada */
+    .node.eligible{
+      border-color: var(--violet) !important;
+      box-shadow:
+        0 0 0 2px rgba(167,139,250,.70),
+        0 0 18px rgba(167,139,250,.55),
+        0 12px 26px rgba(15,23,42,.10);
+    }
+    @media (max-width:560px){
+      :root{ --node-w:220px; --gap:28px; --lane:150px; }
+      .canvas{min-width:720px}
+      .board{padding:10px}
+    }
+
+  /* === Overlay controls (fullscreen + zoom) === */
+  .overlay-controls{
+    position:absolute; top:10px; right:10px; z-index:1000;
+    display:flex; gap:8px;
+  }
+  .glass-mini-btn{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:36px; height:36px; border-radius:10px; cursor:pointer;
+    border:1px solid rgba(255, 255, 255, 0.671);
+    background:rgba(255, 255, 255, 0.623);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 6px 16px rgba(0,0,0,.15), inset 0 1px 0 rgba(255,255,255,.6);
+    color:#111827;
+  }
+  .glass-mini-btn svg{ width:18px; height:18px; display:block }
+        .overlay-floating{
+          position: fixed !important;
+          top: auto !important;
+          bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+          right: 14px !important;
+          z-index:2147483647 !important;
+        }
+
+  /* === Centrado horizontal fuerte cuando la lupa está ACTIVA (altura reducida) === */
+  #correlativasViewport{
+    display: flex !important;
+    justify-content: center !important;
+    align-items: flex-start;
+    overflow: auto;
+  }
+  #board{
+    width: max-content;
+    display: inline-block;
+    transform-origin: top left;
+    margin: 0 auto;
+  }
+
+  /* === Límites y alineación al borde derecho de la barra de búsqueda === */
+  .content-bound{
+    width: 100%;
+    max-width: var(--content-max, 1200px);
+    margin: 0 auto;
+    position: relative;
+    padding: 0 16px;
+  }
+  .correlativas-card{ position: relative; }
+
+</style>
+<style>
+  /* =========================
+     ✅ iPhone 15 / Mobile:
+     - NO fullscreen por defecto (se ve el dock del layout)
+     - Card “cuadrada”
+     - Fullscreen sólo al tocar el botón
+     ========================= */
+
+  @media (max-width: 430px){
+    :root{
+      --node-w: 246px;
+      --gap: 24px;
+      --lane: 200px;
+      --z: .72;
+
+      /* fallback (JS lo recalcula midiendo el dock real del layout) */
+      --cwDockSpace: 160px;
+      --cwCardLift: 22px;
+
+      /* fallback (JS lo recalcula con el top real de <main>) */
+      --cwMainH: calc(100svh - 64px);
+    }
+
+    /* ✅ En correlativas no uses el padding-bottom global del layout (lo manejamos acá) */
+    body.bg-hatch-ios[data-section="correlativas"]{ padding-bottom: 0 !important; overflow: hidden !important; }
+    body.bg-hatch-ios[data-section="correlativas"] .container-main{ padding-bottom: 0 !important; }
+
+    /* Contenedor: centrado y SIN quedar debajo del dock */
+    /* Contenedor: centrado y con padding simétrico */
+    #contentBound{
+      height: 100svh !important;
+      padding: 10px 12px calc(10px + var(--cwDockSpace)) !important;
+
+      display: flex !important;
+      flex-direction: column !important;
+      align-items: center !important;
+      justify-content: center !important;
+
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+    /* ✅ evita que el padding del wrapper te corra el card */
+    .content-bound{ padding: 0 !important; }
+
+    /* Card: ocupa el ancho real del contenedor (sin 100vw que desborda) */
+    #correlativasCard{
+      width: 100% !important;
+      max-width: 100% !important;
+      height: calc(100svh - var(--cwDockSpace) - 20px - var(--cwCardLift)) !important;
+      margin: 0 !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+
+    /* Card (iOS) */
+    #correlativasCard .board{
+      border-radius: 18px !important;
+      margin-bottom: 0 !important;
+      padding: 12px !important;
+
+      /* en mobile la UI es 1 columna, dejamos techo (reducido porque los recuadros son mas chicos) */
+      padding-top: 148px !important;
+    }
+
+    /* Board siempre dentro de pantalla */
+    .boardHeight-normal,
+    .boardHeight-zoom{
+      height: 100% !important;
+      min-height: 0 !important;
+    }
+
+    /* UI en 1 columna */
+    #topHeader.correlativas-ui{
+      left: 10px !important;
+      right: 10px !important;
+      top: 10px !important;
+      position: absolute !important;
+    }
+    #topHeader .ui-grid{
+      grid-template-columns: 1fr !important;
+      grid-template-areas:
+        "right"
+        "secondary"
+        "left" !important;
+      gap: 1px !important;   /* pegados */
+    }
+
+    /* Buscar: ocupa todo el ancho */
+    #topHeader .ui-rightpanel{
+      justify-self: stretch !important;
+      width: 100% !important;
+    }
+    #topHeader .ui-rightpanel .search-wrap{ width: 100% !important; }
+    #topHeader .ui-rightpanel .search-ios{ width: 100% !important; }
+
+    /* Secundarios: NO ocupa todo el ancho, se adapta al contenido */
+    #topHeader .ui-secondarypanel{
+      justify-self: start !important;
+      width: auto !important;
+    }
+
+    /* Anos: igual, se adapta a sus botones */
+    #topHeader .ui-leftpanel{
+      justify-self: start !important;
+      width: auto !important;
+    }
+
+    /* Botones mas chicos */
+    .seg-btn{
+      height: 22px !important;
+      padding: 0 7px !important;
+      min-width: 0 !important;
+      font-size: .68rem !important;
+    }
+    .search-ios{
+      height: 36px !important;
+      padding-left: 36px !important;
+      padding-right: 12px !important;
+      font-size: 13px !important;
+    }
+    .search-icon{
+      left: 11px !important;
+      width: 16px !important;
+      height: 16px !important;
+    }
+
+    /* Anos: fit-content, scrolleable si no entra */
+    #topHeader .ui-leftpanel .filters-wrap{
+      width: fit-content !important;
+      max-width: calc(100vw - 24px) !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: none !important;
+    }
+    #topHeader .ui-leftpanel .filters-wrap::-webkit-scrollbar{ display:none !important; }
+
+    /* Secundarios: fit-content, scrolleable si no entra */
+    .filters-secondary-wrap{
+      width: fit-content !important;
+      max-width: calc(100vw - 24px) !important;
+      flex-wrap: nowrap !important;
+      gap: 5px !important;
+      padding: 4px 7px !important;
+      border-radius: 12px !important;
+      overflow-x: auto !important;
+      overflow-y: hidden !important;
+      -webkit-overflow-scrolling: touch !important;
+      scrollbar-width: none !important;
+    }
+    .filters-secondary-wrap::-webkit-scrollbar{ display:none !important; }
+
+    /* Eliminar padding interno de los paneles en mobile para pegarlos entre si */
+    #topHeader .ui-panel{
+      padding: 0 !important;
+    }
+
+    /* Canvas / nodos más cómodos en mobile */
+    .canvas{ min-width: 980px !important; }
+    .node{
+      padding: 12px 13px !important;
+      border-radius: 18px !important;
+    }
+    .node .name{
+      font-size: 14px !important;
+      line-height: 1.22 !important;
+    }
+    .node .bottom{
+      margin-top: 10px !important;
+      min-height: 34px !important;
+      gap: 12px !important;
+    }
+    .node .check{
+      width: 30px !important;
+      height: 30px !important;
+      min-width: 30px !important;
+      min-height: 30px !important;
+      border-radius: 8px !important;
+      flex: 0 0 30px !important;
+    }
+    .node .check:checked::after{
+      font-size: 16px !important;
+      line-height: 1 !important;
+    }
+  }
+  /* =========================
+     ✅ FULLSCREEN (nativo + fallback)
+     ========================= */
+  /* Cuando el JS detecta fullscreen nativo, aplica fs-on */
+  /* =========================
+     ✅ FULLSCREEN (nativo + fallback)
+     ========================= */
+  /* Cuando el JS detecta fullscreen nativo, aplica fs-on */
+  #correlativasCard.fs-on{
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483646 !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--bg) !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+  }
+  #correlativasCard.fs-on .board{
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    background: var(--bg) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    overflow: auto !important;
+  }
+
+  /* Fallback fullscreen (si Safari no entra en fullscreen real) */
+  body.cw-correlativas-fs{
+    overflow: hidden !important;
+    height: 100% !important;
+    width: 100% !important;
+    background: var(--bg) !important;
+  }
+  body.cw-correlativas-fs #correlativasCard{
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483646 !important;
+    width: 100dvw !important;
+    height: 100dvh !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: var(--bg) !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+  }
+  body.cw-correlativas-fs #correlativasCard .board{
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    background: var(--bg) !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    overflow: auto !important;
+  }
+  body.cw-correlativas-fs #topHeader{ display: block !important; }
+  body.cw-correlativas-fs #overlayControls{ display: flex !important; }
+/* =========================
+   ✅ DARK MODE — CORRELATIVAS
+   ========================= */
+html.cw-dark{
+  --bg:#0b1220;
+  --text: rgba(243,244,246,.96);
+  --card: rgba(17,24,39,.62);
+  --muted: rgba(156,163,175,.95);
+  --shadow: 0 18px 44px rgba(0,0,0,.55);
+
+  --glass-2: rgba(17,24,39,.55);
+  --stroke:  rgba(255,255,255,.12);
+}
+
+html.cw-dark #correlativasCard .board{
+  background: rgba(17,24,39,.50) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  box-shadow: 0 18px 44px rgba(0,0,0,.55) !important;
+}
+/* Botonera años / filtros */
+html.cw-dark .filters-secondary-wrap{
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,.35) !important;
+}
+html.cw-dark .seg-btn{ color: rgba(156,163,175,.95) !important; }
+html.cw-dark .legend{ color: rgba(156,163,175,.95) !important; }
+
+/* Buscador */
+html.cw-dark .search-ios{
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: rgba(243,244,246,.96) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 10px 20px rgba(0,0,0,.35) !important;
+}
+html.cw-dark .search-ios::placeholder{ color: rgba(156,163,175,.95) !important; }
+html.cw-dark .search-icon{ color: rgba(156,163,175,.95) !important; }
+
+/* Botones zoom / fullscreen */
+html.cw-dark .zoombar button,
+html.cw-dark .glass-mini-btn{
+  background: rgba(255,255,255,.06) !important;
+  border-color: rgba(255,255,255,.12) !important;
+  color: rgba(243,244,246,.92) !important;
+  box-shadow: 0 10px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.06) !important;
+}
+
+/* Nodos */
+html.cw-dark .node{
+  background: rgba(17,24,39,.72) !important;
+  border-color: rgba(255,255,255,.10) !important;
+  box-shadow: 0 12px 26px rgba(0,0,0,.45) !important;
+}
+html.cw-dark .node .name{ color: rgba(243,244,246,.96) !important; }
+html.cw-dark .node .toggle{ color: rgba(156,163,175,.95) !important; }
+html.cw-dark .node .reqs h4{ color: rgba(156,163,175,.95) !important; }
+html.cw-dark .node .reqs li{ color: rgba(243,244,246,.90) !important; }
+html.cw-dark .node.eligible{
+  outline: 3px solid var(--violet) !important;
+  box-shadow:
+    0 12px 26px rgba(0,0,0,.45),
+    0 0 0 2px rgba(167,139,250,.75),
+    0 0 22px rgba(167,139,250,.55) !important;
+}
+html.cw-dark .node.eligible{
+  border-color: var(--violet) !important;
+  box-shadow: 0 0 0 2px rgba(167,139,250,.78), 0 0 22px rgba(167,139,250,.55), 0 12px 26px rgba(0,0,0,.45) !important;
+}
+</style>
+
+
+
+</head>
+<body>
+  <div class="wrap">
+
+    
+
+
+
+
+
+    <!-- ===== RECTÁNGULO del grafo de correlativas ===== -->
+<div id="contentBound" class="content-bound"><section id="correlativasCard" class="correlativas-card">
+
+  <!-- ===== UI SUPERPUESTA (encima del grafo, dentro del recuadro) ===== -->
+  <div id="topHeader" class="correlativas-ui">
+      <div class="ui-grid">
+
+        <!-- IZQUIERDA: AÑOS + LEYENDA (un recuadro propio) -->
+    <div class="ui-panel ui-leftpanel">
+          <div class="filters filters-wrap">
+            <button class="seg-btn" data-year="" data-active="true">Todos</button>
+            <button class="seg-btn" data-year="1">1º</button>
+            <button class="seg-btn" data-year="2">2º</button>
+            <button class="seg-btn" data-year="3">3º</button>
+            <button class="seg-btn" data-year="4">4º</button>
+            <button class="seg-btn" data-year="5">5º</button>
+          </div>
+
+          <div class="ui-panel ui-panel-invis legend-panel">
+            <div class="legend legend-left">  
+              <br>
+              <span><span class="dot blue"></span> Regularizada</span>
+              <span><span class="dot violet"></span> Final aprobado</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- DERECHA ABAJO: SECUNDARIOS (otro recuadro) -->
+        <!-- DERECHA ARRIBA: SECUNDARIOS (otro recuadro) -->
+              <!-- DERECHA ARRIBA: BUSCAR -->
+        <div class="ui-panel ui-panel-invis ui-rightpanel">
+          <div class="search-wrap">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9aa4b2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="7"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input id="q" class="search-ios" type="search" placeholder="Buscar materia" />
+          </div>
+        </div>
+
+        <!-- IZQUIERDA / MOBILE DERECHA: AÑOS -->
+        <div class="ui-panel ui-leftpanel">
+          <div class="filters filters-wrap">
+            <button class="seg-btn" data-year="" data-active="true">Todos</button>
+            <button class="seg-btn" data-year="1">1º</button>
+            <button class="seg-btn" data-year="2">2º</button>
+            <button class="seg-btn" data-year="3">3º</button>
+            <button class="seg-btn" data-year="4">4º</button>
+            <button class="seg-btn" data-year="5">5º</button>
+          </div>
+        </div>
+
+        <!-- DERECHA / MOBILE IZQUIERDA: SECUNDARIOS -->
+        <div class="ui-panel ui-secondarypanel">
+          <div class="filters-secondary filters-secondary-wrap">
+            <button class="seg-btn" id="btnLeaf" data-active="false">Sin correlativas</button>
+            <button class="seg-btn" id="btnHub" data-active="false">Materias Filtro</button>
+            <button class="seg-btn" id="btnBase" data-active="false">Materias base</button>
+          </div>
+        </div>
+
+
+
+
+      </div>
+
+
+          <% if (user && user.role === 'admin') { %>
+        <div class="admin-row" style="margin-top:10px; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;">
+          <form id="formUploadCorrelativas"
+                action="/admin/correlativas/upload"
+                method="post"
+                enctype="multipart/form-data"
+                class="mb-0"
+                style="display:flex; align-items:center; gap:.5rem; margin:0;">
+
+            <input id="fileCorrelativas" name="correlativas" type="file" accept=".txt" class="hidden" />
+
+            <button type="button"
+                    id="btnUploadCorrelativas"
+                    class="inline-flex items-center gap-2 px-3 py-2 rounded-xl text-white font-semibold"
+                    style="background:#111827; box-shadow:0 10px 24px rgba(0,0,0,.15);">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M5 20h14v-2H5v2zm7-18l-5 5h3v6h4V7h3l-5-5z"/></svg>
+              Subir correlativas (.txt)
+            </button>
+
+            <span id="hintCorrelativas" class="text-sm text-slate-600">
+              Formato: una materia por bloque. <em>regularizada:</em> y <em>final aprobado:</em> separados por coma.
+            </span>
+          </form>
+        </div>
+
+        <script>
+          (function(){
+            const btn  = document.getElementById('btnUploadCorrelativas');
+            const file = document.getElementById('fileCorrelativas');
+            const form = document.getElementById('formUploadCorrelativas');
+
+            if (btn && file && form){
+              btn.addEventListener('click', ()=> file.click());
+              file.addEventListener('change', ()=>{
+                if (file.files && file.files[0]) form.submit();
+              });
+            }
+          })();
+        </script>
+
+        <%
+          const __q = (typeof query !== 'undefined' && query)
+                      ? query
+                      : ((typeof locals !== 'undefined' && locals && locals.query) ? locals.query : {});
+          const __ok = String((__q && __q.ok) || '');
+          if (__ok === '1') {
+        %>
+          <div class="mb-0 px-3 py-2 rounded-md text-sm"
+              style="margin-top:10px; background:#ecfeff; color:#0369a1; border:1px solid #bae6fd;">
+            Correlativas actualizadas: <%= (__q.updated || 0) %>  |
+            Materias no encontradas: <%= (__q.nf || 0) %>.
+          </div>
+        <% } %>
+      <% } %>
+
+  </div>
+
+  <!-- Overlay controls (fullscreen + zoom) -->
+  <div id="overlayControls" class="overlay-controls">
+        <button id="zoomBtnOverlay" class="" type="button" aria-label="Zoom" title="Zoom">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.6"/>
+        <path d="M20 20l-4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <div class="zoombar">
+      <button id="zOut" class="glass-mini-btn">−</button>
+      <button id="zReset" class="glass-mini-btn">100%</button>
+      <button id="zIn" class="glass-mini-btn">+</button>
+    </div>
+       <button id="fsBtnOverlay" class="glass-mini-btn" type="button" aria-label="Pantalla completa" title="Pantalla completa">
+        <svg class="icon-enter" style="display:none; max-width:100%; height:auto;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 3l6 6M9 3H3v6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M15 15l6 6m0-6v6h-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+
+        <svg class="icon-exit" style="display:none; max-width:100%; height:auto;" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path opacity="0.6" fill-rule="evenodd" clip-rule="evenodd" d="M2.39286 15C2.39286 14.5858 2.72864 14.25 3.14286 14.25H9C9.41421 14.25 9.75 14.5858 9.75 15V20.8571C9.75 21.2714 9.41421 21.6071 9 21.6071C8.58579 21.6071 8.25 21.2714 8.25 20.8571V16.8107L2.53033 22.5303C2.23744 22.8232 1.76256 22.8232 1.46967 22.5303C1.17678 22.2374 1.17678 21.7626 1.46967 21.4697L7.18934 15.75H3.14286C2.72864 15.75 2.39286 15.4142 2.39286 15Z" fill="#1C274C"></path> <path fill-rule="evenodd" clip-rule="evenodd" d="M21.6071 9C21.6071 9.41421 21.2714 9.75 20.8571 9.75H15C14.5858 9.75 14.25 9.41421 14.25 9V3.14286C14.25 2.72864 14.5858 2.39286 15 2.39286C15.4142 2.39286 15.75 2.72864 15.75 3.14286V7.18934L21.4697 1.46967C21.7626 1.17678 22.2374 1.17678 22.5303 1.46967C22.8232 1.76256 22.8232 2.23744 22.5303 2.53033L16.8107 8.25H20.8571C21.2714 8.25 21.6071 8.58579 21.6071 9Z" fill="#1C274C"></path> </g></svg>
+      </button>
+  <!-- tutorialBtn removed: now handled by layout helpFab -->
+  </div>
+
+    <div class="board boardHeight-normal" id="board">
+        <div class="canvas" id="canvas">
+          <div class="graph" id="graph">
+            <svg class="wires" id="wires"></svg>
+            <div id="nodes"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section></div>
+  <script>
+  /* ✅ iPhone 15: calcula el espacio REAL disponible (top real de <main> + dock real del layout)
+    y lo vuelca a CSS vars para que el recuadro NO quede tapado por el dock. */
+  (function(){
+    try{
+      var b = document.body;
+      if (b && !b.getAttribute('data-section')) b.setAttribute('data-section','correlativas');
+    }catch(_){ }
+
+    const mq = window.matchMedia('(max-width: 430px)');
+
+    function sync(){
+      if (!mq.matches) return;
+
+      const root = document.documentElement;
+      const main = document.querySelector('main') || document.body;
+      const dock = document.querySelector('.ios-dock-wrap');
+      const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+
+      // Altura disponible desde el top real de <main> hasta abajo del viewport
+      const mainRect = main.getBoundingClientRect();
+      const mainH = Math.max(0, vh - mainRect.top);
+
+      // Espacio real que ocupa el dock (desde su top hasta el final del viewport)
+      let dockSpace = 160; // fallback
+      if (dock){
+        const r = dock.getBoundingClientRect();
+        dockSpace = Math.max(0, vh - r.top);
+        dockSpace = Math.min(vh, dockSpace + 10); // colchón
+      }
+
+      root.style.setProperty('--cwMainH', Math.round(mainH) + 'px');
+      root.style.setProperty('--cwDockSpace', Math.round(dockSpace) + 'px');
+    }
+
+    function run(){
+      // 2 frames: Safari ajusta innerHeight después de pintar
+      requestAnimationFrame(()=>requestAnimationFrame(sync));
+    }
+
+    window.addEventListener('resize', run, {passive:true});
+    window.addEventListener('orientationchange', run, {passive:true});
+    document.addEventListener('DOMContentLoaded', run);
+
+    if (document.readyState !== 'loading') run();
+  })();
+  </script>
+  <script>
+  const IS_ADMIN_PLAN7 = <%- JSON.stringify(isAdminPlan7) %>;
+  const RAW = <%- JSON.stringify(materias || []) %>;
+
+  // ---- Normalización de requisitos
+  const DATA0 = RAW.map(m => ({
+    id: String(m.id),
+    nombre: m.nombre || m.name,
+    year: m.year || null,
+    requisitos: (m.requisitos || []).map(r => {
+      if (typeof r === 'string' || typeof r === 'number') return { id: String(r), tipo: 'cursada' };
+      return { id: String(r.id), tipo: (r.tipo === 'final' ? 'final' : 'cursada') };
+    })
+  }));
+  // ✅ Inscribible: no aprobada y cumple TODAS sus correlativas (según checks)
+  function isEligibleMat(m){
+    if (!m) return false;
+    if (DONE.has(m.id)) return false;
+    const reqs = (m.requisitos || []);
+    if (!reqs.length) return true;
+    return reqs.every(r => DONE.has(String(r.id)));
+  }
+
+  function updateEligibility(){
+    document.querySelectorAll('#nodes .node').forEach(node => {
+      const id = String(node.dataset.id || '');
+      const m = byId[id];
+      node.classList.toggle('eligible', isEligibleMat(m));
+    });
+  }
+  // ---- Reducción transitiva en cliente
+  function reduceTransitiveClient(data){
+    const byId = Object.fromEntries(data.map(m => [m.id, m]));
+    // ✅ Inscribibles: materias NO aprobadas que cumplen TODAS sus correlativas (según checks)
+  function isEligible(m){
+    if (!m) return false;
+    if (DONE.has(String(m.id))) return false;
+    const reqs = (m.requisitos || []);
+    if (!reqs.length) return true;
+    return reqs.every(r => DONE.has(String(r.id)));
+  }
+  function updateEligibility(){
+    const nodes = Array.from(document.querySelectorAll('#nodes .node'));
+    nodes.forEach(n => n.classList.remove('eligible'));
+    nodes.forEach(n => {
+      const id = String(n.dataset.id || '');
+      const m = byId[id];
+      if (!m) return;
+      if (isEligible(m)) n.classList.add('eligible');
+    });
+  }
+    const R = { cursada:{}, final:{} };
+    data.forEach(m => {
+      R.cursada[m.id] = new Set(m.requisitos.filter(r=>r.tipo==='cursada').map(r=>r.id));
+      R.final[m.id]   = new Set(m.requisitos.filter(r=>r.tipo==='final').map(r=>r.id));
+    });
+    function reachable(type, origin, target, seen=new Set()){
+      if (origin === target) return true;
+      if (seen.has(origin)) return false;
+      seen.add(origin);
+      for (const dep of (R[type][origin] ? Array.from(R[type][origin]) : [])){
+        if (reachable(type, dep, target, seen)) return true;
+      }
+      return false;
+    }
+    const out = data.map(m => ({...m, requisitos:[...m.requisitos]}));
+    out.forEach(m => {
+      for (const t of ['cursada','final']){
+        const list = out.find(x=>x.id===m.id).requisitos.filter(r=>r.tipo===t).map(r=>r.id);
+        const toRemove = new Set();
+        for (let i=0;i<list.length;i++){
+          for (let j=0;j<list.length;j++){
+            if (i===j) continue;
+            const a = list[i], b = list[j];
+            if (reachable(t, b, a)) toRemove.add(a);
+          }
+        }
+        if (toRemove.size){
+          out.find(x=>x.id===m.id).requisitos = out.find(x=>x.id===m.id).requisitos.filter(r => !(r.tipo===t && toRemove.has(r.id)));
+          R[t][m.id] = new Set(out.find(x=>x.id===m.id).requisitos.filter(r=>r.tipo===t).map(r=>r.id));
+        }
+      }
+    });
+    return out;
+  }
+  const DATA = reduceTransitiveClient(DATA0);
+
+  // Persistencia de aprobadas (✅ Turso por usuario, fallback local si invitado)
+    const USER_ID = <%- JSON.stringify(user && user.id ? String(user.id) : '') %>;
+    const IS_GUEST_USER = <%- JSON.stringify(!!(user && user.role === 'guest')) %>;
+
+    const LS_KEY = "aprobadas_" + (USER_ID || 'guest');
+
+    function loadDoneLocal(){ try{ return new Set(JSON.parse(localStorage.getItem(LS_KEY)||"[]")); }catch(_){ return new Set(); } }
+    function saveDoneLocal(set){ localStorage.setItem(LS_KEY, JSON.stringify([...set])); }
+
+    const DONE = loadDoneLocal();
+
+    async function syncDoneFromServer(){
+      if (IS_GUEST_USER || !USER_ID) return;
+      try{
+        const res = await fetch('/app/correlativas/api/done', { credentials:'same-origin' });
+        const j = await res.json().catch(()=>null);
+        if (res.ok && j && j.ok && Array.isArray(j.ids)){
+          DONE.clear();
+          j.ids.forEach(id => DONE.add(String(id)));
+          saveDoneLocal(DONE);
+          render();
+          updateFilterActives();
+          applyWireFocus();
+        }
+      }catch(_){}
+    }
+
+    async function saveOneToServer(subjectId, isDone){
+      if (IS_GUEST_USER || !USER_ID) return;
+      try{
+        await fetch('/app/correlativas/api/done', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json' },
+          credentials:'same-origin',
+          body: JSON.stringify({ subjectId: String(subjectId), done: !!isDone })
+        });
+      }catch(_){}
+    }
+
+  // Mapas (globales sobre DATA)
+  const byId = Object.fromEntries(DATA.map(m => [m.id, m]));
+
+  // ---- Niveles
+  function buildLevels(arr){
+    const pending = new Map(arr.map(m => [m.id, m.requisitos.length]));
+    const used = new Set(); const levels = [];
+    let frontier = [...pending].filter(([_,d])=>d===0).map(([id])=>id);
+    while(frontier.length){
+      levels.push(frontier);
+      frontier.forEach(id => { pending.delete(id); used.add(id); });
+      const next = [];
+      for(const [id] of pending){
+        const reqs = (arr.find(x=>x.id===id)?.requisitos || []).map(r=>r.id);
+        if (reqs.every(r => used.has(r))) next.push(id);
+      }
+      frontier = next;
+    }
+    if (pending.size) levels.push([...pending.keys()]);
+    return levels;
+  }
+
+  // ---- Render
+  const nodesEl = document.getElementById('nodes');
+  const wiresEl = document.getElementById('wires');
+  const canvasEl = document.getElementById('canvas');
+  const graphEl  = document.getElementById('graph');
+
+  let YEAR_FILTER = ""; // "", "1".."5"
+  let MODE_HILIGHT = ""; // "", "leaf", "hub", "base"
+  let ZOOM = 1;
+  let FOCUS_ID = null; // null => sin filtro de hilos
+
+  function centerBoardX(smooth = true){
+    const board = document.getElementById('board');
+    if (!board) return;
+
+    // si el contenido es más ancho que el viewport, centramos
+    const maxScroll = board.scrollWidth - board.clientWidth;
+    if (maxScroll <= 0) return;
+
+    const target = Math.max(0, Math.floor(maxScroll / 2));
+    try{
+      board.scrollTo({ left: target, top: board.scrollTop, behavior: smooth ? 'smooth' : 'auto' });
+    }catch(_){
+      board.scrollLeft = target;
+    }
+  }
+
+  // ✅ Mobile: al entrar/rotar, centramos el scroll horizontal para que arranque “en el medio”
+  (function(){
+    function isMobileCoarse(){
+      return window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+    }
+
+    function centerNow(){
+      if (!isMobileCoarse()) return;
+      // cuando el render termina, el scrollWidth ya es correcto
+      requestAnimationFrame(()=> centerBoardX(false));
+      setTimeout(()=> centerBoardX(false), 120);
+      setTimeout(()=> centerBoardX(false), 320);
+    }
+
+    window.addEventListener('load', centerNow);
+    window.addEventListener('resize', centerNow);
+    window.addEventListener('orientationchange', ()=> setTimeout(centerNow, 250));
+  })();
+
+
+
+  // --- aplica foco de hilos (muestra solo los del nodo clickeado)
+      // --- aplica foco de hilos (muestra solo los del nodo clickeado / hover)
+            function applyWireFocus(){
+        const wires = document.getElementById('wires')?.querySelectorAll('path.wire');
+        if (!wires || !wires.length) return;
+
+        const isMobileCoarseView = !!(window.matchMedia && window.matchMedia("(max-width: 430px), (hover: none) and (pointer: coarse)").matches);
+
+        if (!FOCUS_ID){
+          wires.forEach(w => {
+            w.classList.remove('spark');
+            w.style.animation = '';
+            w.style.display = '';
+            w.style.opacity = '0';
+          });
+
+          if (isMobileCoarseView) __stopIdle();
+          else __startIdle();
+          return;
+        }
+
+        __stopIdle();
+
+        wires.forEach(w => {
+          const src = w.getAttribute('data-src');
+          const dst = w.getAttribute('data-dst');
+          const show = (src === FOCUS_ID) || (dst === FOCUS_ID);
+
+          if (show){
+            w.style.display = '';
+            w.style.opacity = '1';
+          } else {
+            w.style.display = isMobileCoarseView ? '' : 'none';
+            w.style.opacity = '0';
+          }
+        });
+      }
+
+    // ===== Idle “electricidad”: 1 a 3 hilos aleatorios cada 3s (solo si no hay foco) =====
+    let __idleTimer = null;
+    let __sparkTimeouts = [];
+
+    function __clearSparks(){
+      __sparkTimeouts.forEach(t => clearTimeout(t));
+      __sparkTimeouts = [];
+      const wires = document.getElementById('wires')?.querySelectorAll('path.wire');
+      if (!wires) return;
+      wires.forEach(p => {
+        p.classList.remove('spark');
+        p.style.animation = '';
+        p.style.strokeDasharray = '';
+        p.style.strokeDashoffset = '';
+        p.style.removeProperty('--len');
+        // En idle: en mobile quedan visibles; en desktop siguen invisibles sin foco
+        // Sin foco: todas las líneas quedan ocultas
+        if (!FOCUS_ID) {
+          p.style.opacity = '0';
+        }
+      });
+    }
+
+    function __stopIdle(){
+      if (__idleTimer) clearInterval(__idleTimer);
+      __idleTimer = null;
+      __clearSparks();
+    }
+
+    function __hasActiveSelectionOrFocus(){
+      // Si hay foco por click/hover (FOCUS_ID) o nodo seleccionado, no corremos idle
+      if (FOCUS_ID) return true;
+      const sel = document.querySelector('#nodes .node.selected');
+      return !!sel;
+    }
+
+    function __triggerIdleSparks(){
+      if (__hasActiveSelectionOrFocus()) return;
+
+      const wires = Array.from(document.getElementById('wires')?.querySelectorAll('path.wire') || []);
+      if (!wires.length) return;
+
+      // Limpia sparks anteriores
+      __clearSparks();
+
+      // 1 a 3 hilos aleatorios
+      const k = 3 + Math.floor(Math.random() * 3);
+      const picked = new Set();
+      while (picked.size < Math.min(k, wires.length)){
+        picked.add(Math.floor(Math.random() * wires.length));
+      }
+
+      picked.forEach(idx => {
+        const p = wires[idx];
+        try{
+          const len = Math.max(50, Math.ceil(p.getTotalLength()));
+          p.style.setProperty('--len', String(len));
+          p.style.strokeDasharray = String(len);
+          p.style.strokeDashoffset = String(len);
+
+          p.classList.add('spark');
+          // “progreso” arriba->abajo + flicker eléctrico
+          p.style.animation = `sparkDraw 1.35s ease forwards, sparkFlicker .22s linear infinite`;
+
+          // Apagar y volver invisible
+          const t = setTimeout(()=>{
+            p.classList.remove('spark');
+            p.style.animation = '';
+            p.style.strokeDasharray = '';
+            p.style.strokeDashoffset = '';
+            p.style.removeProperty('--len');
+            p.style.opacity = '0';
+          }, 1500);
+          __sparkTimeouts.push(t);
+        }catch(e){}
+      });
+    }
+
+    function __startIdle(){
+      if (__idleTimer) return;
+      __idleTimer = setInterval(__triggerIdleSparks, 3000);
+      // Primera pasada rápida
+      setTimeout(__triggerIdleSparks, 700);
+    }
+
+  // --- escala visual (70% inicial pedido)
+  function setZoom(z){
+    ZOOM = Math.min(2.0, Math.max(0.6, z));
+    document.documentElement.style.setProperty("--z", ZOOM);
+    const zr = document.getElementById('zReset'); if (zr) zr.innerText = Math.round(ZOOM*100)+"%";
+    graphEl.style.transform = `scale(${ZOOM})`;
+    graphEl.style.transformOrigin = "0 0";
+  }
+
+function clearBoard(){ nodesEl.innerHTML=''; while(wiresEl.firstChild) wiresEl.removeChild(wiresEl.firstChild); }
+
+function pathCubic(x1,y1,x2,y2){
+  const mx = (x1+x2)/2;
+  return `M ${x1} ${y1} C ${mx} ${y1+50}, ${mx} ${y2-50}, ${x2} ${y2}`;
+}
+
+function expandNode(el, open=true){
+  const was = el.classList.contains('open');
+  if (open && !was) el.classList.add('open');
+  if (!open && was) el.classList.remove('open');
+}
+
+function centerOn(id){
+  const el = nodesEl.querySelector(`.node[data-id="${id}"]`);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const board = canvasEl.getBoundingClientRect();
+  const scrollParent = canvasEl.parentElement;
+  const targetX = (rect.left + rect.width/2) - (board.left + board.width/2);
+  const targetY = (rect.top  + rect.height/2) - (board.top  + board.height/2);
+  scrollParent.scrollBy({ left: targetX, top: targetY, behavior: 'smooth' });
+  nodesEl.querySelectorAll('.node').forEach(n => n.classList.remove('highlight'));
+  el.classList.add('highlight');
+  setTimeout(()=>el.classList.remove('highlight'), 2000);
+  expandNode(el, true);
+}
+
+function render(){
+  clearBoard();
+  // graph enabled for all careers/plans
+
+  const styles = getComputedStyle(document.documentElement);
+  const gap  = parseFloat(styles.getPropertyValue('--gap'))  || 60;
+  const lane = parseFloat(styles.getPropertyValue('--lane')) || 180;
+  const nodeW= parseFloat(styles.getPropertyValue('--node-w'))|| 280;
+
+    // ✅ ancho visible real (en mobile el canvas puede tener min-width grande)
+    const boardEl = document.getElementById('board');
+    const viewW = boardEl ? boardEl.clientWidth : window.innerWidth;
+
+    const isMobileCoarse = !!(window.matchMedia && window.matchMedia("(hover: none) and (pointer: coarse)").matches);
+
+
+  // Filtrado por año (incluye todo <= YEAR_FILTER)
+  const filtered = DATA.filter(m => !YEAR_FILTER || (m.year == null ? true : Number(m.year) <= Number(YEAR_FILTER)));
+
+  // Mapas dependientes del filtro
+  const byIdF = Object.fromEntries(filtered.map(m => [m.id, m]));
+  const levels = buildLevels(filtered);
+  const pos = {};
+  const filteredChildren = {};
+  filtered.forEach(m => (m.requisitos||[]).forEach(r => {
+    if (!byIdF[r.id]) return;
+    (filteredChildren[r.id] ??= new Set()).add(m.id);
+  }));
+
+  const maxTotalW = Math.max(0, ...levels.map(ids => ids.length ? (ids.length * (nodeW + gap) - gap) : 0));
+  const baseW0 = isMobileCoarse ? viewW : canvasEl.clientWidth;
+  const fixedBoardW = Math.max(baseW0, maxTotalW + 80);
+
+  graphEl.style.width = fixedBoardW + "px";
+
+  levels.forEach((ids,row) => {
+    const totalW = ids.length * (nodeW + gap) - gap;
+
+    // ✅ usamos SIEMPRE el mismo ancho total del grafo
+    // para que todas las filas queden centradas horizontalmente
+    const startX = Math.max(20, (fixedBoardW - totalW) / 2);
+
+    ids.forEach((id,col) => {
+      const m = byIdF[id]; if (!m) return;
+      const outdeg = (filteredChildren[id]?.size || 0);
+      const reqCount = (m.requisitos || []).filter(r => byIdF[r.id]).length; // reqs dentro del filtro
+      const isBase = (row === 0 && reqCount === 0);
+
+      const node = document.createElement('div');
+      node.className = 'node' + (DONE.has(m.id) ? ' done' : '') + (isEligibleMat(m) ? ' eligible' : '');
+      node.dataset.id = id;
+      node.dataset.outdeg = String(outdeg);
+      node.dataset.level = String(row);
+      node.dataset.isbase = isBase ? '1' : '0';
+
+      const reqC = (m.requisitos||[]).filter(r=>r.tipo==='cursada').map(r => byId[r.id]?.nombre || r.id);
+      const reqF = (m.requisitos||[]).filter(r=>r.tipo==='final').map(r => byId[r.id]?.nombre || r.id);
+
+      node.innerHTML = `
+        <div class="top">
+          <div class="name">${m.nombre}</div>
+          <div class="bottom">
+            <div class="toggle" role="button" tabindex="0">Correlativas ▾</div>
+            <input class="check" type="checkbox" ${DONE.has(m.id) ? 'checked' : ''} aria-label="Aprobada" />
+          </div>
+        </div>
+
+        <div class="reqs" aria-hidden="true">
+          ${reqC.length? `<h4>Regularizadas</h4><ul>${reqC.map(n=>`<li>${n}</li>`).join('')}</ul>` : ''}
+          ${reqF.length? `<h4>Final aprobado</h4><ul>${reqF.map(n=>`<li>${n}</li>`).join('')}</ul>` : ''}
+          ${(!reqC.length && !reqF.length)? `<div style="color:#93a3b8;font-size:12px; max-width:100%; height:auto;">Sin requisitos</div>` : ''}
+        </div>
+      `;
+
+      nodesEl.appendChild(node);
+      node.addEventListener('click', (ev)=>{
+        ev.stopPropagation();
+        document.querySelectorAll('.node.open').forEach(n => { if(n!==node) n.classList.remove('open'); });
+        FOCUS_ID = m.id;
+        applyWireFocus();
+      });
+
+      // ✅ Hover: enfocar hilos igual que click (sin click)
+      node.addEventListener('mouseenter', ()=>{
+        // si hay un click activo (selected), no lo pisamos
+        const anySelected = document.querySelector('#nodes .node.selected');
+        if (anySelected) return;
+        FOCUS_ID = m.id;
+        applyWireFocus();
+      });
+
+      node.addEventListener('mouseleave', ()=>{
+        // si hay un click activo (selected), mantenemos su foco
+        const sel = document.querySelector('#nodes .node.selected');
+        if (sel){
+          FOCUS_ID = sel.dataset.id || null;
+          applyWireFocus();
+          return;
+        }
+        FOCUS_ID = null;
+        applyWireFocus();
+      });
+
+      const toggle = node.querySelector('.toggle');
+      toggle.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        const isOpen = node.classList.contains('open');
+        document.querySelectorAll('.node.open').forEach(n => { if(n!==node) n.classList.remove('open'); });
+        if (isOpen) node.classList.remove('open'); else node.classList.add('open');
+        // NUEVO: seleccionar la materia y enfocar sus hilos
+        document.querySelectorAll('#nodes .node').forEach(n => n.classList.remove('selected'));
+        node.classList.add('selected');
+        FOCUS_ID = m.id;
+        if (typeof applyWireFocus === 'function') applyWireFocus();
+      });
+      toggle.addEventListener('keydown', (e)=>{ if (e.key==='Enter'||e.key===' ') { e.preventDefault(); const isOpen = node.classList.contains('open'); document.querySelectorAll('.node.open').forEach(n => { if(n!==node) n.classList.remove('open'); }); if (isOpen) node.classList.remove('open'); else node.classList.add('open'); } });
+
+      const chk = node.querySelector('.check');
+      chk.addEventListener('change', ()=>{
+        if (chk.checked) DONE.add(m.id); else DONE.delete(m.id);
+
+        // ✅ guarda local + server (no invitados)
+        saveDoneLocal(DONE);
+        saveOneToServer(m.id, chk.checked);
+
+        node.classList.toggle('done', chk.checked);
+        updateEligibility();
+      });
+
+      const x = startX + col * (nodeW + gap);
+      const y = row * lane;
+      node.style.transform = `translate(${x}px, ${y}px)`;
+      pos[id] = { x, y, w: node.offsetWidth||nodeW, h: node.offsetHeight||100 };
+    });
+  });
+
+  // Redibujar hilos según el filtro
+  const maxX = Math.max(1, ...Object.values(pos).map(r=>r.x + r.w));
+  const maxY = Math.max(1, ...Object.values(pos).map(r=>r.y + r.h));
+  const finalGraphW = Math.max(fixedBoardW, maxX + 40);
+
+  graphEl.style.width = finalGraphW + "px";
+
+  wiresEl.setAttribute('viewBox', `0 0 ${finalGraphW} ${maxY}`);
+  wiresEl.setAttribute('width',  finalGraphW);
+  wiresEl.setAttribute('height', maxY);
+
+  filtered.forEach(dst => {
+    const dstRect = pos[dst.id]; if (!dstRect) return;
+    (dst.requisitos||[]).forEach(req => {
+      if (!byIdF[req.id]) return;
+      const srcRect = pos[req.id]; if (!srcRect) return;
+      const x1 = srcRect.x + (srcRect.w/2), y1 = srcRect.y + srcRect.h;
+      const x2 = dstRect.x + (dstRect.w/2), y2 = dstRect.y;
+      const p = document.createElementNS('http://www.w3.org/2000/svg','path');
+      p.setAttribute('class', 'wire ' + (req.tipo === 'final' ? 'violet' : 'blue'));
+      p.setAttribute('d', pathCubic(x1,y1,x2,y2));
+      p.setAttribute('data-src', req.id);
+      p.setAttribute('data-dst', dst.id);
+      wiresEl.appendChild(p);
+    });
+  });
+
+  applyWireFocus();
+    updateEligibility(); // ✅ borde violeta si cumple correlativas
+  updateEligibility(); // ✅ borde violeta si cumple correlativas
+    // ✅ al re-render (por filtro), recentrar horizontal
+  requestAnimationFrame(()=> centerBoardX(false));
+}
+
+// ---- Búsqueda (mejorada: sin tildes/comas, y Enter cicla por coincidencias) ----
+function normalizeText(s){
+  return (s || "")
+    .toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // elimina acentos
+    .replace(/[.,;:¡!¿?()/\\\-_'"\[\]{}]/g,'')   // elimina signos comunes
+    .replace(/\s+/g,' ')                               // espacios múltiples -> uno
+    .trim();
+}
+
+let lastQuery = "";
+let searchHits = [];
+let searchIndex = 0;
+
+function rebuildHits(){
+  const q = normalizeText(document.getElementById('q').value);
+  lastQuery = q;
+  searchIndex = 0;
+  if (!q){
+    searchHits = [];
+    return;
+  }
+  searchHits = DATA
+    .map(m => ({ id:m.id, nombre:m.nombre, key:normalizeText(m.nombre) }))
+    .filter(o => o.key.includes(q))
+    .map(o => o.id);
+}
+
+function cycleSearch(){
+  const q = normalizeText(document.getElementById('q').value);
+  if (q !== lastQuery) rebuildHits();
+  if (!searchHits.length) return;
+  const id = searchHits[searchIndex % searchHits.length];
+  searchIndex++;
+  centerOn(id);
+}
+
+document.getElementById('q').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    cycleSearch();
+  }
+});
+
+document.getElementById('q').addEventListener('input', () => {
+  // Al cambiar el texto, reconstruimos coincidencias pero NO movemos aún
+  rebuildHits();
+});
+
+// ---- Filtros de año (re-renderiza)
+function updateFilterActives(){
+  document.querySelectorAll('.filters [data-year]').forEach(b=>{
+    const active = (String(YEAR_FILTER||'') === String(b.dataset.year||''));
+    if (active) b.setAttribute('data-active','true'); else b.removeAttribute('data-active');
+  });
+  const m = MODE_HILIGHT;
+  [['btnLeaf','leaf'],['btnHub','hub'],['btnBase','base']].forEach(([id,mode])=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (m===mode) el.setAttribute('data-active','true'); else el.removeAttribute('data-active');
+  });
+}
+
+document.querySelectorAll('.filters button[data-year]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    YEAR_FILTER = btn.dataset.year || "";
+    render();
+    updateFilterActives();
+    centerBoardX(true);
+  });
+});
+
+// ---- Modo de resaltado (bordes) ----
+const HUB_THRESHOLD = 4; // "muchísimos hilos" => 4 o más
+function updateHighlights(){
+  const nodes = Array.from(document.querySelectorAll('#nodes .node'));
+  nodes.forEach(n => n.classList.remove('leaf','hub','base'));
+  if (MODE_HILIGHT === 'leaf'){
+    nodes.forEach(n => { if (Number(n.dataset.outdeg||0) === 0) n.classList.add('leaf'); });
+  } else if (MODE_HILIGHT === 'hub'){
+    nodes.forEach(n => { if (Number(n.dataset.level||0) > 0 && Number(n.dataset.outdeg||0) >= HUB_THRESHOLD) n.classList.add('hub'); });
+  } else if (MODE_HILIGHT === 'base'){
+    nodes.forEach(n => { if (Number(n.dataset.level||0) === 0) n.classList.add('base'); });
+  }
+}
+
+  document.getElementById('btnLeaf').addEventListener('click', ()=>{
+    MODE_HILIGHT = (MODE_HILIGHT==='leaf'?'': 'leaf'); updateFilterActives(); updateHighlights();
+  });
+  document.getElementById('btnHub').addEventListener('click',  ()=>{
+    MODE_HILIGHT = (MODE_HILIGHT==='hub' ?'': 'hub' ); updateFilterActives(); updateHighlights();
+  });
+  document.getElementById('btnBase').addEventListener('click', ()=>{
+    MODE_HILIGHT = (MODE_HILIGHT==='base'?'': 'base'); updateFilterActives(); updateHighlights();
+  });
+
+  // ---- Zoom (− 100% +) numérico (escala visual)
+  document.getElementById('zIn').addEventListener('click',  ()=>{ setZoom(ZOOM+0.1); });
+  document.getElementById('zOut').addEventListener('click', ()=>{ setZoom(ZOOM-0.1); });
+  document.getElementById('zReset').addEventListener('click', ()=>{ setZoom(1.0); });
+
+  // ---- Drag-scroll
+  (function enableDragScroll(){
+    const board = document.getElementById('board');
+    let isDown=false,startX,startY,scrollL,scrollT;
+    board.addEventListener('mousedown',e=>{ isDown=true; startX=e.pageX; startY=e.pageY; scrollL=board.scrollLeft; scrollT=board.scrollTop; board.style.cursor='grabbing'; });
+    ['mouseleave','mouseup'].forEach(evt=>board.addEventListener(evt,()=>{ isDown=false; board.style.cursor='auto'; }));
+    board.addEventListener('mousemove',e=>{
+      if(!isDown) return;
+      e.preventDefault();
+      const dx=e.pageX-startX, dy=e.pageY-startY;
+      board.scrollLeft=scrollL-dx;
+      board.scrollTop=scrollT-dy;
+    });
+  })();
+
+  // ---- Render inicial + estado inicial
+  setZoom(0.6);   // 70%
+  if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches){
+    setZoom(0.55);
+  }
+  render(); 
+  updateFilterActives();
+  applyWireFocus(); // ✅ arranca idle si no hay foco
+  syncDoneFromServer();
+  </script>
+<script>
+// Click fuera de cualquier .node => quitar foco, mostrar todos los hilos y cerrar desplegados
+document.addEventListener('click', (e)=>{
+  if (!e.target.closest('.node')) {
+    if (typeof FOCUS_ID !== 'undefined' && FOCUS_ID) {
+      FOCUS_ID = null;
+      if (typeof applyWireFocus === 'function') applyWireFocus();
+    }
+    document.querySelectorAll('.node.open').forEach(n => n.classList.remove('open'));
+    document.querySelectorAll('#nodes .node').forEach(n => n.classList.remove('selected'));
+  }
+});
+</script>
+<script>
+// === Lupa (alto) — API pública para control desde fullscreen ===
+// Semántica pedida:
+//   - ACTIVA => altura reducida (boardHeight-normal)
+//   - INACTIVA => altura grande (boardHeight-zoom)
+(function(){
+  var board = document.getElementById('board');
+  var zoomBtn = document.getElementById('zoomBtnOverlay');
+  var wrap = board ? board.parentElement : null;
+  if(!board || !zoomBtn || !wrap) return;
+
+  var zoomOn = board.classList.contains('boardHeight-normal'); // "on" si altura reducida
+
+  function applyZoom(){
+    // ACTIVA => normal (reducida) ; INACTIVA => zoom (grande)
+    board.classList.toggle('boardHeight-normal', zoomOn);
+    board.classList.toggle('boardHeight-zoom', !zoomOn);
+    wrap.style.display = 'flex';
+    wrap.style.justifyContent = 'center';
+    wrap.style.alignItems = 'flex-start';
+    requestAnimationFrame(function(){
+      var contentW = (board.scrollWidth || board.offsetWidth || 0);
+      var viewW    = wrap.clientWidth || 0;
+      if (contentW > viewW){
+        wrap.scrollLeft = Math.max(0, (contentW - viewW) / 2);
+      } else {
+        wrap.scrollLeft = 0;
+      }
+    });
+  }
+
+  // Click manual del botón de lupa => alterna
+  zoomBtn.addEventListener('click', function(){
+    zoomOn = !zoomOn;
+    applyZoom();
+  });
+
+  // --- AUTO: al abrir la sección, ACTIVAR la lupa (altura reducida) ---
+  zoomOn = true;
+  applyZoom();
+
+  // Exponemos API global para que fullscreen pueda forzar ON/OFF
+  window.zoomOverlay = {
+    set: function(on){ zoomOn = !!on; applyZoom(); },
+    toggle: function(){ zoomOn = !zoomOn; applyZoom(); },
+    isOn: function(){ return !!zoomOn; }
+  };
+})();
+</script>
+<script>
+// === Fullscreen: entra/sale, cambia iconos y SINCRONIZA la lupa ===
+// Reglas: en FULLSCREEN => lupa DESACTIVADA (altura grande). Al salir => ACTIVADA.
+// Incluye fallback: si el navegador NO entra a fullscreen real, hacemos fullscreen CSS y ocultamos el dock.
+(function(){
+  var fsBtn   = document.getElementById('fsBtnOverlay');
+  var card    = document.getElementById('correlativasCard');
+  var overlay = document.getElementById('overlayControls');
+  if(!fsBtn || !card || !overlay) return;
+
+  function isPseudoFs(){
+    return !!(document.body && document.body.classList.contains('cw-correlativas-fs'));
+  }
+  function enterPseudoFs(){
+    if(document.body) document.body.classList.add('cw-correlativas-fs');
+  }
+  function exitPseudoFs(){
+    if(document.body) document.body.classList.remove('cw-correlativas-fs');
+  }
+
+  function isFs(){
+    if (isPseudoFs()) return true;
+    return document.fullscreenElement === card ||
+           document.webkitFullscreenElement === card ||
+           document.mozFullScreenElement === card ||
+           document.msFullscreenElement === card;
+  }
+
+  function reqFs(el){
+    if(el.requestFullscreen) return el.requestFullscreen();
+    if(el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+    if(el.mozRequestFullScreen) return el.mozRequestFullScreen();
+    if(el.msRequestFullscreen) return el.msRequestFullscreen();
+    return null;
+  }
+  function exitFs(){
+    if(document.exitFullscreen) return document.exitFullscreen();
+    if(document.webkitExitFullscreen) return document.webkitExitFullscreen();
+    if(document.mozCancelFullScreen) return document.mozCancelFullScreen();
+    if(document.msExitFullscreen) return document.msExitFullscreen();
+    return null;
+  }
+
+  function updateIconsAndSyncZoom(){
+    var enterIcon = fsBtn.querySelector('.icon-enter');
+    var exitIcon  = fsBtn.querySelector('.icon-exit');
+
+    if(isFs()){
+      overlay.classList.add('overlay-floating');
+      card.classList.add('fs-on');
+      if(enterIcon) enterIcon.style.display = 'none';
+      if(exitIcon)  exitIcon.style.display  = '';
+      if (window.zoomOverlay && typeof window.zoomOverlay.set === 'function') {
+        window.zoomOverlay.set(false);
+      }
+    }else{
+      overlay.classList.remove('overlay-floating');
+      card.classList.remove('fs-on');
+      if(enterIcon) enterIcon.style.display = '';
+      if(exitIcon)  exitIcon.style.display  = 'none';
+      if (window.zoomOverlay && typeof window.zoomOverlay.set === 'function') {
+        window.zoomOverlay.set(true);
+      }
+    }
+  }
+
+  fsBtn.addEventListener('click', async function(){
+    try{
+      if(isFs()){
+        if(isPseudoFs()){
+          exitPseudoFs();
+          updateIconsAndSyncZoom();
+          return;
+        }
+        await exitFs();
+        return;
+      }
+
+      var p = reqFs(card);
+      if(!p){
+        enterPseudoFs();
+        updateIconsAndSyncZoom();
+        return;
+      }
+
+      // Si el navegador bloquea fullscreen real (pasa en algunos iOS), caemos al pseudo fullscreen
+      setTimeout(function(){
+        if(!isFs()){
+          enterPseudoFs();
+          updateIconsAndSyncZoom();
+        }
+      }, 80);
+
+    }catch(e){
+      enterPseudoFs();
+      updateIconsAndSyncZoom();
+    }
+  });
+
+  ['fullscreenchange','webkitfullscreenchange','mozfullscreenchange','MSFullscreenChange']
+    .forEach(function(ev){ document.addEventListener(ev, updateIconsAndSyncZoom); });
+
+  updateIconsAndSyncZoom();
+})();
+</script>
+  <script>
+  // === Limitar ancho al borde derecho de la barra de búsqueda (no afecta a la lupa) ===
+  (function(){
+  function applyRightLimit(){
+    var bound  = document.getElementById('contentBound');
+    if(!bound) return;
+
+    // ✅ En móvil: NUNCA limitar a 680px (rompe el layout)
+    if (window.matchMedia && window.matchMedia("(max-width: 640px)").matches){
+      bound.style.setProperty('--content-max', '100vw');
+      return;
+    }
+
+    var search = document.querySelector('.search-ios');
+    if(!search) return;
+
+    var br = bound.getBoundingClientRect();
+    var sr = search.getBoundingClientRect();
+
+    var width = Math.max(680, Math.floor(sr.right - br.left));
+    bound.style.setProperty('--content-max', width + 'px');
+  }
+    window.addEventListener('load', applyRightLimit);
+    window.addEventListener('resize', applyRightLimit);
+    try{
+      var header = document.getElementById('topHeader') || document.body;
+      var mo = new MutationObserver(function(){ setTimeout(applyRightLimit, 10); });
+      mo.observe(header, { childList:true, subtree:true, attributes:true });
+    }catch(e){}
+    applyRightLimit();
+  })();
+  </script>
+
+
+
+
+
+
+  <script src="/public/js/correlativas-tour.js"></script>
+  
+</body>
+</html>

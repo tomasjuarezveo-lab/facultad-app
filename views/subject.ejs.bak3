@@ -1,0 +1,50 @@
+<!-- Top tabs (floating) -->
+<div class="top-tabs glass card px-2 py-2 flex gap-2 items-center">
+  <% const cats = ['examenes','trabajos','bibliografia','resumenes']; %>
+  <% cats.forEach(c => { %>
+    <a class="tab <%= c===category ? 'bg-black text-white' : 'bg-white' %>" href="/app/materias/<%= subject.id %>?category=<%= c %>">
+      <%= c.charAt(0).toUpperCase() + c.slice(1) %>
+    </a>
+  <% }) %>
+</div>
+
+<!-- Admin upload button (floating, top-right) -->
+<% if (user.role==='admin') { %>
+<div class="top-right-controls">
+  <details>
+    <summary class="btn">＋ Subir</summary>
+    <div class="mt-2 p-3 bg-white rounded shadow">
+      <form method="POST" action="/upload" enctype="multipart/form-data" class="space-y-2">
+        <input type="hidden" name="subject_id" value="<%= subject.id %>" />
+        <input type="hidden" name="category" value="<%= category %>" />
+        <input type="file" name="files" multiple class="block" />
+        <button class="btn w-full">Subir</button>
+      </form>
+    </div>
+  </details>
+</div>
+<% } %>
+
+<!-- Right sidebar (floating, narrow) -->
+<aside class="glass card p-2 sidebar-floating">
+  <div class="font-medium mb-2">Documentos</div>
+  <div class="space-y-1">
+    <% docs.forEach((d, i) => { %>
+      <div class="flex items-center justify-between doc-item">
+        <a class="truncate" title="<%= d.title %>" href="/app/materias/<%= subject.id %>?category=<%= category %>&doc=<%= d.id %>"><svg class="doc-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <%= (user.role==='admin') ? (d.title || ('Doc ' + (i+1))) : ('Doc ' + (i+1)) %>
+        </a>
+        <% if (user.role==='admin') { %>
+          <button class="text-xs" title="Renombrar" onclick="renameDoc(<%= d.id %>, '<%- (d.title||'').replace(/'/g, '&#39;') %>', <%= subject.id %>, '<%= category %>')">✏️</button>
+        <% } %>
+      </div>
+    <% }) %>
+  </div>
+</aside>
+
+<!-- Full-screen content viewer -->
+<% if (activeDoc) { %>
+  <iframe src="/pdf-view?file=/uploads/<%= activeDoc.filename %>" class="viewer-iframe"></iframe>
+<% } else { %>
+  <div class="viewer-empty">No hay documentos en esta sección.</div>
+<% } %>

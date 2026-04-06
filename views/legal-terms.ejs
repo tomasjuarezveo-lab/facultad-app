@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Términos y Condiciones | CleverWave</title>
+  <style>
+    :root{
+      --bg1:#fff7e8;
+      --bg2:#fffdf8;
+      --card:#ffffff;
+      --ink:#0f172a;
+      --muted:#475569;
+      --line:rgba(15,23,42,.10);
+      --accent:#F8C160;
+      --accent-ink:#7c4a00;
+      --shadow:0 18px 45px rgba(15,23,42,.10);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0}
+    body{
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(248,193,96,.25), transparent 28%),
+        linear-gradient(180deg, var(--bg1), var(--bg2));
+      min-height:100vh;
+    }
+    .wrap{
+      width:min(980px, calc(100% - 28px));
+      margin:32px auto 48px;
+    }
+    .hero{
+      background:rgba(255,255,255,.72);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border:1px solid rgba(255,255,255,.75);
+      border-radius:32px;
+      box-shadow:var(--shadow);
+      padding:28px 22px;
+    }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 12px;
+      border-radius:999px;
+      background:rgba(248,193,96,.20);
+      color:var(--accent-ink);
+      font-size:12px;
+      font-weight:800;
+      letter-spacing:.04em;
+      text-transform:uppercase;
+    }
+    h1{
+      margin:14px 0 10px;
+      font-size:clamp(30px, 5vw, 46px);
+      line-height:1.02;
+      letter-spacing:-.04em;
+    }
+    .lead{
+      margin:0;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.7;
+      max-width:760px;
+    }
+    .card{
+      margin-top:18px;
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:var(--radius);
+      box-shadow:0 10px 28px rgba(15,23,42,.06);
+      padding:24px 20px;
+    }
+    h2{
+      margin:0 0 12px;
+      font-size:22px;
+      letter-spacing:-.02em;
+    }
+    h3{
+      margin:18px 0 8px;
+      font-size:16px;
+      font-weight:700;
+      letter-spacing:-.01em;
+      color:var(--ink);
+    }
+    p, li{
+      color:#334155;
+      font-size:15px;
+      line-height:1.8;
+    }
+    ol{
+      margin:10px 0 0 0;
+      padding-left:20px;
+    }
+    ol li{
+      margin-bottom:6px;
+    }
+    ul{
+      margin:10px 0 0 0;
+      padding-left:20px;
+    }
+    ul li{
+      margin-bottom:6px;
+    }
+    .topbar{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:18px 0 0;
+    }
+    .btn{
+      appearance:none;
+      border:none;
+      text-decoration:none;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:46px;
+      padding:0 16px;
+      border-radius:14px;
+      font-weight:800;
+      font-size:14px;
+      transition:transform .14s ease, box-shadow .18s ease, opacity .18s ease;
+      cursor:pointer;
+    }
+    .btn:hover{transform:translateY(-1px)}
+    .btn-primary{
+      background:var(--accent);
+      color:#1f2937;
+      box-shadow:0 10px 20px rgba(248,193,96,.35);
+    }
+    .btn-secondary{
+      background:#ffffff;
+      color:#0f172a;
+      border:1px solid var(--line);
+    }
+    .foot{
+      margin-top:18px;
+      color:#64748b;
+      font-size:13px;
+      text-align:center;
+    }
+    .mini{
+      color:#64748b;
+      font-size:13px;
+      line-height:1.7;
+      margin-top:8px;
+    }
+    .highlight-box{
+      background:rgba(248,193,96,.10);
+      border-left:3px solid var(--accent);
+      border-radius:0 12px 12px 0;
+      padding:14px 18px;
+      margin:14px 0 0;
+    }
+    .highlight-box p{
+      margin:0;
+      font-size:14px;
+      color:#7c4a00;
+    }
+    .info-tag{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      background:#eff6ff;
+      color:#1e40af;
+      font-size:12px;
+      font-weight:700;
+      padding:5px 11px;
+      border-radius:999px;
+      margin-bottom:10px;
+      letter-spacing:.03em;
+    }
+    @media (max-width:640px){
+      .wrap{width:min(100% - 18px, 980px); margin:18px auto 28px}
+      .hero{padding:20px 16px}
+      .card{padding:18px 15px}
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+
+    <!-- HERO -->
+    <section class="hero">
+      <span class="badge">Documento Legal</span>
+      <h1>Términos y Condiciones de Uso</h1>
+      <p class="lead">
+        El presente instrumento regula el acceso y uso de la plataforma CleverWave. Al ingresar a la aplicación —ya sea mediante una cuenta de Google o como Invitado— la persona usuaria declara haber leído, comprendido y aceptado en su totalidad las disposiciones aquí contenidas, sin reserva alguna.
+      </p>
+      <div class="highlight-box">
+        <p>⚠️ Si sos menor de 18 años, el uso de CleverWave requiere la autorización y supervisión expresa de tus padres o tutores legales. Al ingresar, declarás contar con dicho permiso.</p>
+      </div>
+      <div class="topbar">
+        <a class="btn btn-primary" href="/login">Iniciar sesión</a>
+        <a class="btn btn-secondary" href="/register">Crear cuenta</a>
+        <a class="btn btn-secondary" href="/politica-de-privacidad-y-proteccion-de-datos">Ver Política de Privacidad</a>
+      </div>
+    </section>
+
+    <!-- PRIMERO -->
+    <section class="card">
+      <h2>Primero: Requisito de Edad y Capacidad</h2>
+      <p>
+        El uso de CleverWave está destinado a personas que cuenten con al menos <strong>18 (dieciocho) años de edad</strong> y con plena capacidad legal para contratar conforme a la normativa argentina vigente.
+      </p>
+      <p>
+        Los menores de 18 años que accedan a la plataforma declaran expresamente contar con la autorización y supervisión de sus padres o tutores legales, quienes asumen la responsabilidad por dicho uso. CleverWave no se responsabiliza por el acceso o uso no supervisado de personas menores de edad.
+      </p>
+      <p>
+        Al registrarse o ingresar como Invitado, la persona usuaria declara bajo su propia responsabilidad que cumple con el requisito de edad o que cuenta con la autorización correspondiente.
+      </p>
+    </section>
+
+    <!-- SEGUNDO -->
+    <section class="card">
+      <h2>Segundo: Naturaleza Independiente y Deslinde Institucional</h2>
+      <p>
+        CleverWave es una herramienta tecnológica de desarrollo privado, autónomo e independiente. Se deja constancia expresa de que la plataforma <strong>no ha sido creada, no está gestionada ni financiada</strong> por ningún Centro de Estudiantes, agrupación política universitaria, Facultad, Universidad ni representantes de dichas entidades.
+      </p>
+      <p>
+        CleverWave no posee vínculo oficial, jurídico ni académico con ninguna institución educativa pública o privada, salvo que se comunique expresamente lo contrario mediante canales oficiales habilitados dentro de la propia plataforma.
+      </p>
+      <p>
+        El uso de esta herramienta es responsabilidad exclusiva de la persona estudiante y no representa ni constituye una relación formal, académica ni institucional con ningún establecimiento educativo.
+      </p>
+    </section>
+
+    <!-- TERCERO -->
+    <section class="card">
+      <span class="info-tag">📄 Propiedad Intelectual</span>
+      <h2>Tercero: Propiedad Intelectual y Régimen de Contenidos</h2>
+      <p>
+        La plataforma CleverWave actúa como soporte técnico para la organización y el apoyo al estudio. En materia de contenidos, se establecen las siguientes disposiciones:
+      </p>
+
+      <h3>3.1 Material compartido por la comunidad</h3>
+      <p>
+        Los archivos disponibles en la plataforma (incluyendo, de manera enunciativa: archivos PDF, resúmenes, exámenes anteriores u otros materiales de estudio) son compartidos por la propia comunidad estudiantil o recopilados de fuentes de acceso público. CleverWave no reclama autoría sobre los materiales originales pertenecientes a cátedras, docentes o instituciones educativas.
+      </p>
+
+      <h3>3.2 Contenido generado con asistencia de Inteligencia Artificial</h3>
+      <p>
+        Los resúmenes, explicaciones y materiales generados con asistencia de herramientas de Inteligencia Artificial tienen carácter exclusivamente didáctico y complementario. CleverWave no garantiza la exactitud pedagógica, la completitud ni la idoneidad académica de dichos contenidos. La persona usuaria deberá contrastarlos siempre con la bibliografía oficial de la cátedra correspondiente.
+      </p>
+
+      <h3>3.3 Procedimiento de retiro de contenido (Safe Harbor)</h3>
+      <p>
+        En cumplimiento del principio de buena fe y de la normativa vigente en materia de propiedad intelectual, CleverWave procederá a eliminar cualquier material ante solicitud fehaciente de su autor original o titular legítimo de derechos. Dicha eliminación no implicará reconocimiento de infracción alguna por parte de la plataforma. Las solicitudes deberán remitirse a: <strong>cleverwave@gmail.com</strong>
+      </p>
+    </section>
+
+    <!-- CUARTO -->
+    <section class="card">
+      <h2>Cuarto: Suscripciones y Cargos por Servicio — CleverWave Plus</h2>
+      <p>
+        Al adquirir una suscripción al plan <strong>CleverWave Plus</strong>, la persona usuaria acepta y reconoce expresamente que el pago realizado corresponde, única y exclusivamente, al derecho de acceso y uso de las herramientas de software premium, el mantenimiento de la infraestructura de servidores y el soporte técnico asociado.
+      </p>
+      <p>
+        Bajo ningún concepto el pago constituye la compra, adquisición ni comercialización de material de estudio protegido por derechos de autor. Dicho material se mantiene como recurso accesorio y de acceso gratuito dentro de la plataforma. El cobro de la suscripción responde exclusivamente a la sostenibilidad operativa de la infraestructura técnica.
+      </p>
+    </section>
+
+    <!-- QUINTO -->
+    <section class="card">
+      <h2>Quinto: Limitación de Responsabilidad</h2>
+      <p>
+        La persona usuaria libera al equipo desarrollador de CleverWave de toda responsabilidad civil, académica o de cualquier otra índole derivada de las siguientes situaciones:
+      </p>
+      <ol>
+        <li><strong>Fallos técnicos o pérdida de datos:</strong> interrupciones del servicio, errores del sistema o pérdida de información almacenada en la plataforma por causas ajenas al control razonable del equipo de desarrollo.</li>
+        <li><strong>Contenido de terceros:</strong> comentarios, mensajes, calificaciones de docentes u otro contenido publicado por otros usuarios en las secciones interactivas, chats o grupos de estudio de la plataforma.</li>
+        <li><strong>Herramientas de organización personal:</strong> errores en la agenda personal, el cronómetro de estudio, los recordatorios u otras funcionalidades de gestión del tiempo, así como la pérdida de fechas de exámenes u instancias académicas importantes.</li>
+        <li><strong>Resultados académicos:</strong> el uso de CleverWave no garantiza ni predice el rendimiento ni el éxito en evaluaciones, exámenes o instancias académicas oficiales de ninguna institución educativa.</li>
+      </ol>
+    </section>
+
+    <!-- SEXTO -->
+    <section class="card">
+      <h2>Sexto: Modificaciones de los Términos</h2>
+      <p>
+        CleverWave se reserva el derecho de actualizar, modificar o reemplazar los presentes Términos y Condiciones en cualquier momento, con efectos a partir de su publicación en esta URL. Las modificaciones de carácter sustancial podrán ser notificadas a los usuarios registrados mediante aviso dentro de la plataforma o por correo electrónico.
+      </p>
+      <p>
+        El uso continuado de CleverWave con posterioridad a la publicación de cualquier modificación implicará la aceptación plena de los nuevos términos. Se recomienda revisar este documento periódicamente.
+      </p>
+    </section>
+
+    <!-- SÉPTIMO -->
+    <section class="card">
+      <h2>Séptimo: Legislación Aplicable y Jurisdicción</h2>
+      <p>
+        Los presentes Términos y Condiciones se rigen e interpretan de conformidad con las leyes de la República Argentina. Para la resolución de cualquier controversia derivada del uso de la plataforma, las partes se someten a la jurisdicción de los Tribunales Ordinarios de la Ciudad Autónoma de Buenos Aires, con renuncia expresa a cualquier otro fuero que pudiere corresponder.
+      </p>
+    </section>
+
+    <!-- OCTAVO -->
+    <section class="card">
+      <h2>Octavo: Contacto</h2>
+      <p>
+        Para consultas, solicitudes o cualquier comunicación relacionada con los presentes Términos y Condiciones, podés contactarte con el equipo de CleverWave a través del siguiente canal oficial:
+      </p>
+      <p>📧 <strong>cleverwave@gmail.com</strong></p>
+      <p>
+        CleverWave procurará dar respuesta en un plazo razonable a partir de la recepción de la consulta.
+      </p>
+      <p class="mini">
+        Versión vigente. Última actualización: 18 de marzo de 2026.
+      </p>
+    </section>
+
+    <div class="foot">
+      CleverWave &copy; 2026 · Términos y Condiciones de Uso · Todos los derechos reservados.
+    </div>
+
+  </main>
+</body>
+</html>

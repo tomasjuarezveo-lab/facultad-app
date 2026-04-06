@@ -1,0 +1,248 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Visor</title>
+  <style>
+    :root{
+      --padTop: 78px; --padBottom: 100px;
+      --glass: rgba(255,255,255,.82);
+      --bg1:#f8fafc; --bg2:#eef2f7; --shadow: 0 12px 36px rgba(0,0,0,.08);
+      --radius: 16px;
+    }
+    html, body { height:100%; margin:0; padding:0; background: linear-gradient(180deg,var(--bg1),var(--bg2));
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,Arial,sans-serif; }
+    /* Área scroll principal */
+    #viewer { position:fixed; inset:0; overflow:auto; -webkit-overflow-scrolling:touch; }
+    /* Columna centrada SIEMPRE (zoom visual via CSS para instantáneo) */
+    #column {
+      display:flex; flex-direction:column; align-items:center; width:fit-content; min-width:320px;
+      margin: var(--padTop) auto var(--padBottom) auto;
+      transform-origin: top center; will-change: transform;
+    }
+    .page-shell { margin:14px 0; border-radius:10px; box-shadow: var(--shadow); background:#fff; }
+    .page-canvas { display:block; border-radius:10px; }
+    /* iOS glass toolbars */
+    .glass { background:var(--glass); backdrop-filter:saturate(180%) blur(14px);
+             border:1px solid rgba(0,0,0,.06); box-shadow: var(--shadow); border-radius: var(--radius); }
+    #hambox { position:fixed; top:12px; left:12px; z-index:260; padding:6px; }
+    #zoombar { position:fixed; top:12px; right:12px; z-index:260; display:flex; gap:8px; padding:6px; }
+    .btn { padding:10px 12px; border-radius:12px; background:#fff; border:1px solid rgba(0,0,0,.08);
+           cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,.06); user-select:none; }
+    .btn:active { transform: translateY(1px); }
+    /* Miniaturas superpuestas (no mueven nada) */
+    #thumbsPanel { position:fixed; top:56px; left:12px; bottom:90px; width:300px; overflow:auto; z-index:300; display:none; padding:10px; }
+    .thumb { display:block; margin:10px auto; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.06); border-radius:10px; cursor:pointer; transition:transform .08s ease; }
+    .thumb:hover{ transform:scale(1.02); }
+    /* Spinner sutil */
+    #spinner { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(241,245,249,.35); z-index:240; }
+    .dot { width:10px; height:10px; margin:4px; border-radius:999px; background:#111; animation:pulse .9s infinite alternate; }
+    .dot:nth-child(2){ animation-delay:.15s } .dot:nth-child(3){ animation-delay:.3s }
+    @keyframes pulse { from{ opacity:.25; transform:scale(.8)} to{ opacity:.9; transform:scale(1.12)} }
+  </style>
+  <!-- PDF.js -->
+  <script src="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+  <script>pdfjsLib.GlobalWorkerOptions.workerSrc='https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';</script>
+</head>
+<body>
+  <!-- ☰ miniaturas -->
+  <div id="hambox" class="glass"><button id="toggle" class="btn">☰</button></div>
+  <!-- Zoom + / 100% / - -->
+  <div id="zoombar" class="glass">
+    <button id="zOut" class="btn">−</button>
+    <button id="zReset" class="btn">100%</button>
+    <button id="zIn" class="btn">＋</button>
+  </div>
+  <!-- Thumbs -->
+  <div id="thumbsPanel" class="glass"></div>
+  <!-- Spinner -->
+  <div id="spinner"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+  <!-- Viewer -->
+  <div id="viewer"><div id="column"></div></div>
+
+  <script>
+    const file = "<%= file %>";
+    const viewer = document.getElementById('viewer');
+    const column = document.getElementById('column');
+    const thumbsPanel = document.getElementById('thumbsPanel');
+    const spinner = document.getElementById('spinner');
+    const toggle = document.getElementById('toggle');
+    const zIn = document.getElementById('zIn'), zOut = document.getElementById('zOut'), zReset = document.getElementById('zReset');
+
+    // ---------- Config calidad/perf ----------
+    const MAX_DPR = Math.min(2.5, window.devicePixelRatio || 1); // nítido sin romper RAM
+    const MIN_Z = 0.6, MAX_Z = 3.0, STEP = 0.15;
+    const BUFFER = 2;          // páginas extra alrededor del viewport
+    const DEBOUNCE_MS = 160;   // re-render nítido tras zoom instantáneo
+    let pdf, pageCount = 0;
+    let baseScale = 1.1;       // escala real de render
+    let cssScale  = 1.0;       // escala visual instantánea
+    let token = 0, zoomTimer = null;
+
+    const pages = new Map();   // num -> { shell, canvas, w1, h1, renderedScale, task }
+
+    function setCssScale(s){ cssScale = s; column.style.transform = `translateZ(0) scale(${cssScale})`; }
+    function updateZoomLabel(){ zReset.textContent = Math.round(baseScale*cssScale*100)+'%'; }
+
+    // Zoom instantáneo (CSS) + re-render diferido y nítido (canvas)
+    function setZoom(newVisual){
+      newVisual = Math.max(MIN_Z, Math.min(MAX_Z, newVisual));
+      const scrollCenter = viewer.scrollTop + viewer.clientHeight/2;
+      const ratio = scrollCenter / Math.max(1, viewer.scrollHeight);
+
+      // Zoom visual inmediato
+      const css = newVisual / baseScale;
+      setCssScale(css); updateZoomLabel();
+
+      // Re-render nítido post-debounce (anclando el centro)
+      if (zoomTimer) clearTimeout(zoomTimer);
+      zoomTimer = setTimeout(() => {
+        baseScale = newVisual; setCssScale(1.0); updateZoomLabel();
+        recalcShellSizes();   // ajusta tamaños reales de las páginas
+        renderVisible(true).then(() => {
+          const newTop = ratio * viewer.scrollHeight - viewer.clientHeight/2;
+          viewer.scrollTop = Math.max(0, newTop);
+        });
+      }, DEBOUNCE_MS);
+    }
+
+    toggle.onclick = () => { thumbsPanel.style.display = (thumbsPanel.style.display==='block'?'none':'block'); };
+    zIn.onclick = () => setZoom(baseScale*cssScale + STEP);
+    zOut.onclick = () => setZoom(baseScale*cssScale - STEP);
+    zReset.onclick = () => setZoom(1.0);
+    viewer.addEventListener('wheel', (e)=>{ if(e.ctrlKey){ e.preventDefault(); setZoom(baseScale*cssScale + (e.deltaY>0?-STEP:STEP)); } }, {passive:false});
+    window.addEventListener('keydown',(e)=>{
+      if(e.ctrlKey && (e.key==='+'||e.key==='=')){ e.preventDefault(); setZoom(baseScale*cssScale + STEP); }
+      if(e.ctrlKey && e.key==='-'){ e.preventDefault(); setZoom(baseScale*cssScale - STEP); }
+      if(e.ctrlKey && e.key==='0'){ e.preventDefault(); setZoom(1.0); }
+    });
+    // Doble clic = zoom in
+    viewer.addEventListener('dblclick', ()=> setZoom(Math.min(MAX_Z, baseScale*cssScale + .25)));
+
+    function createShell(num, w1, h1){
+      const shell = document.createElement('div');
+      shell.className = 'page-shell';
+      shell.id = 'shell_'+num;
+      shell.style.width = (w1*baseScale)+'px';
+      shell.style.height = (h1*baseScale)+'px';
+      shell.style.scrollMarginTop = '90px';
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'page-canvas';
+      shell.appendChild(canvas);
+      column.appendChild(shell);
+      pages.set(num, { shell, canvas, w1, h1, renderedScale: 0, task: null });
+    }
+
+    function resizeShell(num){
+      const p = pages.get(num);
+      if (!p) return;
+      p.shell.style.width  = (p.w1*baseScale)+'px';
+      p.shell.style.height = (p.h1*baseScale)+'px';
+    }
+    function recalcShellSizes(){ for (let n=1;n<=pageCount;n++) resizeShell(n); }
+
+    async function renderPage(num, force=false){
+      const p = pages.get(num); if(!p) return;
+      if (p.task) { try{ p.task.cancel(); }catch(_){} p.task=null; }
+      if (!force && Math.abs(p.renderedScale - baseScale) < 0.02) return;
+
+      const myToken = ++token;
+      const page = await pdf.getPage(num);
+      const vp = page.getViewport({ scale: baseScale });
+      const dpr = MAX_DPR;
+      const cw = Math.floor(vp.width  * dpr);
+      const ch = Math.floor(vp.height * dpr);
+
+      p.canvas.width = cw; p.canvas.height = ch;
+      p.canvas.style.width  = vp.width + 'px';
+      p.canvas.style.height = vp.height + 'px';
+
+      const ctx = p.canvas.getContext('2d', { alpha:false });
+      const rc = { canvasContext: ctx, viewport: vp, transform:[dpr,0,0,dpr,0,0] };
+
+      // Render con cancelación
+      p.task = page.render(rc);
+      try { await p.task.promise; } catch(_) { /* cancelado */ }
+      if (myToken !== token) return;
+      p.task = null;
+      p.renderedScale = baseScale;
+    }
+
+    // Virtualización con IntersectionObserver
+    const io = new IntersectionObserver((entries)=>{
+      entries.forEach(e=>{
+        const num = parseInt(e.target.dataset.num, 10);
+        if (e.isIntersecting) renderPage(num, false);
+      });
+    }, { root: viewer, rootMargin: '600px 0px' }); // buffer vertical
+
+    async function renderVisible(force=false){
+      if (force) spinner.style.display = 'flex';
+      const shells = Array.from(column.children);
+      const viewTop = viewer.scrollTop, viewBottom = viewTop + viewer.clientHeight;
+      const inRange = [];
+      for (let i=0;i<shells.length;i++){
+        const el = shells[i];
+        const r = el.getBoundingClientRect();
+        const top = r.top + viewer.scrollTop;
+        const bottom = top + r.height;
+        if (bottom >= viewTop - 800 && top <= viewBottom + 800) inRange.push(i+1);
+      }
+      // Render secuencial las que están cerca
+      for (const n of inRange) await renderPage(n, force);
+      spinner.style.display = 'none';
+    }
+
+    function buildThumbs(){
+      thumbsPanel.innerHTML = '';
+      const mk = async (n)=>{
+        const t = document.createElement('canvas');
+        t.className = 'thumb'; t.title = 'Página ' + n;
+        t.onclick = ()=> document.getElementById('shell_'+n)?.scrollIntoView({ behavior:'smooth', block:'start' });
+        thumbsPanel.appendChild(t);
+        const page = await pdf.getPage(n);
+        const scale = 0.18, vp = page.getViewport({ scale });
+        t.width = vp.width; t.height = vp.height;
+        const ctx = t.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: vp }).promise;
+      };
+      // Generación paulatina para no bloquear la UI
+      const run = async ()=>{
+        for (let n=1;n<=pageCount;n++){
+          if ('requestIdleCallback' in window){
+            await new Promise(res=> requestIdleCallback(()=>{ mk(n).then(res); }, { timeout:120 }));
+          } else { await mk(n); }
+        }
+      };
+      run();
+    }
+
+    // Cargar documento
+    pdfjsLib.getDocument(file).promise.then(async _pdf=>{
+      pdf = _pdf; pageCount = pdf.numPages;
+      // Medimos cada página a escala 1.0 para tener proporciones perfectas
+      for (let n=1; n<=pageCount; n++){
+        const page = await pdf.getPage(n);
+        const vp1 = page.getViewport({ scale: 1.0 });
+        createShell(n, vp1.width, vp1.height);
+      }
+      // Observar shells para render bajo demanda
+      for (let n=1;n<=pageCount;n++){ const p=pages.get(n); p.shell.dataset.num=String(n); io.observe(p.shell); }
+      // Primer render visible y thumbs
+      recalcShellSizes();
+      updateZoomLabel();
+      await renderVisible(true);
+      buildThumbs();
+      // Re-render al hacer resize
+      window.addEventListener('resize', ()=> { renderVisible(true); });
+      // Scroll pinta en lazy
+      viewer.addEventListener('scroll', ()=> { requestAnimationFrame(()=> renderVisible(false)); }, { passive:true });
+    }).catch(err=>{
+      column.innerHTML = '<div style="padding:20px;color:#888">No se pudo abrir el documento.</div>';
+      console.error(err);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+﻿# deps
+node_modules/
+
+# env (NO subir secretos)
+.env
+.env.*
+!.env.example
+
+# sqlite locales (NO subir)
+*.sqlite
+data.sqlite
+facultad.sqlite
+sessions.sqlite
+data/*.sqlite
+data/**/*.sqlite
+
+# uploads locales (NO subir)
+public/uploads/
+uploads/
+
+# logs / editor
+*.log
+.DS_Store
+.vscode/

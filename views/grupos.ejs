@@ -1,0 +1,454 @@
+<%
+/*
+  views/grupos.ejs
+  Recibe:
+   - user
+   - tab ('mis'|'cursos'|'finales')
+   - year (0..5)
+   - q (string)
+   - groups: [{ id, name, year, career, plan, miembros, last_msg_text, last_msg_at, chat_type? }]
+   - membership: Set("<subjectId>:<chat_type>")
+*/
+function cleanTitle(n){
+  return String(n||'').replace(/\s*\([^)]*\)\s*/g,'').trim();
+}
+const activeTab = (tab==='cursos' ? 'cursos' : (tab==='finales' ? 'finales' : 'mis'));
+const qStr = typeof q==='string' ? q : '';
+const membershipSet = (typeof membership !== 'undefined' && membership) ? membership : new Set();
+
+function initial(s){ s = cleanTitle(s); return s ? s[0].toUpperCase() : 'G'; }
+function prefixFor(tipo){ return (tipo === 'cursos') ? 'Cursada de ' : 'Final de '; }
+%>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Grupos — <%= (user?.career||'') %> / <%= (user?.plan||'') %></title>
+<style>
+  /* =========================
+     GRUPOS (scoped) — compatible con layout + cw-dark
+     ========================= */
+
+  .grupos-page{
+    /* Variables locales (NO pisar :root del layout) */
+    --g-ring: rgba(15,23,42,.10);
+    --g-panel-1: rgba(255,255,255,.82);
+    --g-panel-2: rgba(255,255,255,.55);
+    --g-avatar: rgba(226,232,240,.85);
+    --g-shadow: var(--shadow);
+  }
+
+  html.cw-dark .grupos-page{
+    --g-ring: rgba(255,255,255,.10);
+    --g-panel-1: rgba(17,24,39,.72);
+    --g-panel-2: rgba(17,24,39,.55);
+    --g-avatar: rgba(55,65,81,.70);
+    --g-shadow: 0 12px 28px rgba(0,0,0,.45);
+  }
+
+  .grupos-page .wrap{ max-width:1100px; margin:14px auto 28px; padding:0 12px; }
+
+  /* === Barra superior: tabs izquierda, búsqueda derecha === */
+  .grupos-page .topbar{
+    display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
+    margin-bottom:16px;
+  }
+  .grupos-page .tabs-wrap{ display:flex; }
+
+  .grupos-page .anio-bar{
+    display:flex; gap:8px;
+    background:linear-gradient(145deg, var(--g-panel-1), var(--g-panel-2));
+    border:1px solid var(--g-ring);
+    border-radius:9999px; padding:6px;
+    box-shadow:var(--g-shadow);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+
+  .grupos-page .anio-btn{
+    height:42px; min-width:110px; padding:0 16px; border-radius:9999px;
+    display:grid; place-items:center; font-weight:800;
+    color:var(--ink); text-decoration:none;
+    transition: transform .12s ease, filter .18s ease;
+  }
+  .grupos-page .anio-btn:active{ transform: translateY(1px); }
+
+  .grupos-page .anio-btn.is-active{
+    background:#F8C160; color:#fff;
+    box-shadow: 0 8px 16px rgba(248,193,96,.35);
+  }
+
+  .grupos-page .searchbar{
+    display:flex; align-items:center; gap:8px;
+    height:42px; min-width:min(360px, 45%);
+    padding:0 12px;
+    background:linear-gradient(145deg, var(--g-panel-1), var(--g-panel-2));
+    border:1px solid var(--g-ring);
+    border-radius:9999px;
+    box-shadow:var(--g-shadow);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+  }
+
+  .grupos-page .searchbar input{
+    border:none; outline:none; background:transparent;
+    width:100%;
+    color:var(--ink);
+  }
+  .grupos-page .searchbar input::placeholder{ color:var(--muted); opacity:.8; }
+
+  /* ícono del search: el SVG tenía stroke fijo oscuro, lo forzamos a muted */
+  .grupos-page .searchbar svg [stroke]{ stroke: var(--muted) !important; }
+
+  /* === Barra de años (Cursos/Finales) === */
+  .grupos-page .years{ display:flex; justify-content:center; margin:6px 0 16px; }
+  .grupos-page .years .anio-bar{ padding:4px; }
+  .grupos-page .years .anio-btn{ height:40px; min-width:64px; font-weight:800; }
+
+  /* === Lista === */
+  .grupos-page .list{ display:flex; flex-direction:column; gap:12px; }
+
+  .grupos-page .card{
+    width:100%;
+    display:grid; grid-template-columns:56px 1fr auto;
+    gap:12px; align-items:center;
+    padding:12px 14px;
+    border:1px solid var(--g-ring);
+    border-radius:20px;
+    background:linear-gradient(145deg, var(--g-panel-1), var(--g-panel-2));
+    box-shadow:var(--g-shadow);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  .grupos-page .card.clickable{
+    cursor:pointer;
+    transition: transform .12s ease, box-shadow .12s ease, filter .18s ease;
+    text-decoration:none; color:inherit;
+  }
+  .grupos-page .card.clickable:hover{
+    transform: translateY(-1px);
+    box-shadow: 0 14px 28px rgba(15,23,42,.12);
+  }
+  html.cw-dark .grupos-page .card.clickable:hover{
+    box-shadow: 0 16px 30px rgba(0,0,0,.55);
+  }
+
+  .grupos-page .avatar{
+    width:56px; height:56px; border-radius:9999px; overflow:hidden;
+    border:1px solid var(--g-ring);
+    background:var(--g-avatar);
+    display:grid; place-items:center;
+    color:var(--ink);
+    font-weight:900;
+    position:relative;
+  }
+  .grupos-page .avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .grupos-page .avatar .init{ position:absolute; inset:0; display:grid; place-items:center; font-size:1.05rem; }
+  .grupos-page .avatar[data-fallback="1"] .init{ display:grid; }
+  .grupos-page .avatar[data-fallback="1"] img{ display:none; }
+
+  .grupos-page .main{ min-width:0; }
+  .grupos-page .row-top{ display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; }
+
+  .grupos-page .title{
+    font-weight:800; color:var(--ink);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .grupos-page .time{ color:var(--muted); white-space:nowrap; }
+
+  .grupos-page .last{
+    margin-top:2px;
+    color:var(--muted);
+    opacity:.95;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+
+  .grupos-page .join-btn{
+    height:38px; padding:0 14px; border-radius:9999px;
+    border:1px solid var(--g-ring);
+    background:#F8C160; color:#fff;
+    font-weight:800; cursor:pointer;
+  }
+  .grupos-page .join-btn.secondary{
+    background: transparent;
+    color: var(--ink);
+  }
+  html.cw-dark .grupos-page .join-btn.secondary{
+    background: rgba(255,255,255,.06);
+  }
+
+  .grupos-page .no-groups{
+    text-align:center;
+    padding:24px 0;
+    color: var(--muted);
+  }
+
+  @media (max-width:720px){
+    .grupos-page .wrap{ margin:10px auto 18px; padding:0 12px; }
+    .grupos-page .topbar{ flex-direction:column; align-items:stretch; justify-content:flex-start; gap:10px; }
+
+    .grupos-page .tabs-wrap{ width:100%; }
+    .grupos-page .tabs-wrap .anio-bar{ width:100%; justify-content:space-between; gap:6px; padding:6px; }
+    .grupos-page .tabs-wrap .anio-btn{ flex:1 1 0; min-width:0; height:42px; padding:0 10px; font-size:14px; }
+
+    .grupos-page .searchbar{ width:100%; min-width:0; height:44px; padding:0 14px; border-radius:9999px; }
+
+    .grupos-page .years{ justify-content:flex-start; margin:6px 0 12px; }
+    .grupos-page .years .anio-bar{
+      width:100%;
+      overflow-x:auto; overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      gap:8px; padding:6px;
+    }
+    .grupos-page .years .anio-bar::-webkit-scrollbar{ display:none; }
+    .grupos-page .years .anio-btn{ flex:0 0 auto; min-width:64px; height:40px; padding:0 12px; font-size:13px; white-space:nowrap; }
+
+    .grupos-page .card{ grid-template-columns:56px 1fr; gap:10px; padding:12px 12px; }
+    .grupos-page .card > div:last-child{ grid-column:1 / -1; display:flex; justify-content:flex-end; margin-top:8px; }
+    .grupos-page .card > div:last-child:empty{ display:none; }
+
+    .grupos-page .title{
+      white-space:normal;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      line-height:1.15;
+    }
+    .grupos-page .last{
+      white-space:normal;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      display:-webkit-box;
+      -webkit-line-clamp:2;
+      -webkit-box-orient:vertical;
+      line-height:1.2;
+    }
+    .grupos-page .time{ font-size:12px; }
+    .grupos-page .row-top{ grid-template-columns:1fr auto; }
+    .grupos-page .join-btn{ height:42px; padding:0 16px; border-radius:9999px; }
+  }
+
+  @media (max-width:420px){
+    .grupos-page .tabs-wrap .anio-btn{ font-size:13px; padding:0 8px; }
+    .grupos-page .searchbar{ height:44px; }
+    .grupos-page .card{ padding:11px 11px; }
+  }
+</style>
+
+<div class="grupos-page">
+  <div class="wrap">
+    <!-- Tabs (izquierda) + búsqueda (derecha) -->
+    <div class="topbar">
+      <div class="tabs-wrap">
+        <div class="anio-bar" role="tablist" aria-label="Cambiar vista">
+          <a href="/app/grupos?tab=mis<%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"
+             class="anio-btn <%= activeTab==='mis' ? 'is-active' : '' %>" role="tab" aria-selected="<%= activeTab==='mis' %>">
+            Mis grupos
+          </a>
+          <a href="/app/grupos?tab=cursos&year=<%= (activeTab==='cursos' ? year : 0) %><%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"
+             class="anio-btn <%= activeTab==='cursos' ? 'is-active' : '' %>" role="tab" aria-selected="<%= activeTab==='cursos' %>">
+            Cursos
+          </a>
+          <a href="/app/grupos?tab=finales&year=<%= (activeTab==='finales' ? year : 0) %><%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"
+             class="anio-btn <%= activeTab==='finales' ? 'is-active' : '' %>" role="tab" aria-selected="<%= activeTab==='finales' %>">
+            Finales
+          </a>
+        </div>
+      </div>
+
+      <form class="searchbar" method="get" action="/app/grupos" role="search" aria-label="Buscar grupo" onsubmit="return false;">
+        <input type="hidden" name="tab" value="<%= activeTab %>">
+        <% if (activeTab !== 'mis') { %><input type="hidden" name="year" value="<%= year %>"><% } %>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="7" stroke="#1C274C" stroke-width="1.6"/>
+          <path d="M20 20L16.5 16.5" stroke="#1C274C" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <input id="liveSearch" name="q" placeholder="Buscar grupo" value="<%- qStr %>" autocomplete="off"/>
+      </form>
+    </div>
+
+    <!-- Barra de años SOLO en Cursos/Finales -->
+    <% if (activeTab !== 'mis') { %>
+      <div class="years">
+        <div class="anio-bar">
+          <% const years = [1,2,3,4,5]; %>
+          <% years.forEach(y=>{ %>
+            <a class="anio-btn <%= (year===y) ? 'is-active' : '' %>"
+               href="/app/grupos?tab=<%= activeTab %>&year=<%= y %><%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>"><%= y %>º</a>
+          <% }) %>
+          <a class="anio-btn <%= (year===0) ? 'is-active' : '' %>"
+             href="/app/grupos?tab=<%= activeTab %>&year=0<%= qStr ? '&q='+encodeURIComponent(qStr) : '' %>">Todos</a>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- Lista -->
+    <div class="list" id="groupsList">
+      <% if (!groups || !groups.length) { %>
+        <div class="no-groups">No hay grupos para mostrar.</div>
+      <% } %>
+
+      <% (groups || []).forEach(function(g){
+           const nameClean = cleanTitle(g.name);
+           const init = initial(g.name);
+           const ts = g.last_msg_at || '';
+           const lastText = (g.last_msg_text != null && String(g.last_msg_text).trim() !== '') ? g.last_msg_text : '';
+
+           const tipo = (activeTab === 'mis') ? (String(g.chat_type || 'finales').toLowerCase() === 'cursos' ? 'cursos' : 'finales') : activeTab;
+           const displayName = prefixFor(tipo) + nameClean;
+           const isMember = membershipSet && membershipSet.has(String(g.id) + ':' + tipo);
+      %>
+        <% if (activeTab === 'mis') { %>
+          <a class="card clickable g-item" href="/app/grupos/<%= g.id %>?tipo=<%= tipo %>" data-id="<%= g.id %>" data-name="<%- nameClean.toLowerCase() %>">
+            <div class="avatar">
+              <img src="/app/grupos/<%= g.id %>/avatar/view" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <div class="init"><%= init %></div>
+            </div>
+            <div class="main">
+              <div class="row-top">
+                <div class="title"><%= displayName %></div>
+                <time class="time" data-ts="<%= ts %>"></time>
+              </div>
+              <% if (lastText) { %>
+                <div class="last"><%- lastText %></div>
+              <% } %>
+            </div>
+            <div></div>
+          </a>
+        <% } else { %>
+          <div class="card g-item" data-id="<%= g.id %>" data-name="<%- nameClean.toLowerCase() %>">
+            <div class="avatar">
+              <img src="/app/grupos/<%= g.id %>/avatar/view" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <div class="init"><%= init %></div>
+            </div>
+            <div class="main">
+              <div class="row-top">
+                <div class="title"><%= displayName %></div>
+                <div class="time"></div>
+              </div>
+            </div>
+            <div>
+              <% if (isMember) { %>
+                <button class="join-btn secondary" data-enter="<%= g.id %>" data-tipo="<%= tipo %>">Entrar</button>
+              <% } else { %>
+                <button class="join-btn" data-join="<%= g.id %>" data-tipo="<%= tipo %>">Unirse</button>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      <% }) %>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Hora: HH:mm / Ayer / día / dd/mm/yyyy
+  (function(){
+    function two(n){ return n<10?('0'+n):''+n; }
+    const WEEK = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+    const TZ = 'America/Argentina/Buenos_Aires';
+
+    function inTZ(date){
+      return new Date(date.toLocaleString('en-US', { timeZone: TZ }));
+    }
+
+    function parseTS(ts){
+      if (!ts) return null;
+      let s = String(ts).trim();
+      if (!s) return null;
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(s)) s = s.replace(' ', 'T');
+      if (!/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) s += 'Z';
+      const d = new Date(s);
+      return isNaN(d.getTime()) ? null : d;
+    }
+
+    function sod(d){ const x=new Date(d); x.setHours(0,0,0,0); return x; }
+    function label(ts){
+      const dUTC = parseTS(ts); if (!dUTC) return '';
+      const d = inTZ(dUTC);
+      const now = inTZ(new Date());
+
+      const dd = Math.round((sod(now)-sod(d))/(24*60*60*1000));
+      if (dd===0) return two(d.getHours())+':'+two(d.getMinutes());
+      if (dd===1) return 'Ayer';
+      if (dd<7) { const s=WEEK[d.getDay()]; return s.charAt(0).toUpperCase()+s.slice(1); }
+      return two(d.getDate())+'/'+two(d.getMonth()+1)+'/'+d.getFullYear();
+    }
+    document.querySelectorAll('.time[data-ts]').forEach(el=>{ el.textContent = label(el.dataset.ts||''); });
+  })();
+
+  // Unirse / Entrar (Cursos/Finales)
+  document.addEventListener('click', async (e)=>{
+    const enterBtn = e.target.closest('[data-enter]');
+    if (enterBtn) {
+      const id = enterBtn.getAttribute('data-enter');
+      const tipo = enterBtn.getAttribute('data-tipo') || 'finales';
+      location.href = `/app/grupos/${id}?tipo=${encodeURIComponent(tipo)}`;
+      return;
+    }
+
+    const joinBtn = e.target.closest('[data-join]');
+    if (joinBtn) {
+      const id = joinBtn.getAttribute('data-join');
+      const tipo = joinBtn.getAttribute('data-tipo') || 'finales';
+      joinBtn.disabled = true;
+      try{
+        const r = await fetch(`/app/grupos/${id}/unirse?tipo=${encodeURIComponent(tipo)}`, { method:'POST', headers:{'Content-Type':'application/json'} });
+        const j = await r.json();
+        if (j && j.ok) {
+          location.href = `/app/grupos/${id}?tipo=${encodeURIComponent(tipo)}`;
+        } else {
+          alert(j && j.error ? j.error : 'No se pudo unir');
+        }
+      }catch{ alert('Error de red'); }
+      joinBtn.disabled = false;
+    }
+  });
+
+  // Búsqueda en tiempo real (por nombre)
+  const live = document.getElementById('liveSearch');
+  const items = Array.from(document.querySelectorAll('.g-item'));
+  function applyFilter(){
+    const q = (live?.value || '').toLowerCase().trim();
+    items.forEach(el=>{
+      const name = (el.getAttribute('data-name') || '');
+      el.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+  }
+  live?.addEventListener('input', applyFilter);
+  applyFilter();
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function(){
+    try { document.body.dataset.page = 'grupos'; } catch(e){}
+  });
+
+  (function(){
+    function startGruposTour(ev){
+      try {
+        document.dispatchEvent(new Event('open:tutorial', {bubbles:true}));
+        document.dispatchEvent(new Event('open-tutorial:grupos', {bubbles:true}));
+      } catch(_){
+        var ev1 = document.createEvent('Event'); ev1.initEvent('open:tutorial', true, true); document.dispatchEvent(ev1);
+        var ev2 = document.createEvent('Event'); ev2.initEvent('open-tutorial:grupos', true, true); document.dispatchEvent(ev2);
+      }
+      ev?.preventDefault?.();
+      ev?.stopPropagation?.();
+    }
+
+    document.addEventListener('click', function(e){
+      const layoutHelp = e.target.closest && e.target.closest('#helpFab');
+      if (!layoutHelp) return;
+      if (document.body.dataset.page === 'grupos') startGruposTour(e);
+    }, true);
+  })();
+</script>
+
+<script type="module" src="/public/js/grupos-tour.js"></script>

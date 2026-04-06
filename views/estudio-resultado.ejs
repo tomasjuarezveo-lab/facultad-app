@@ -1,0 +1,198 @@
+<%
+  const todayPlan = (schedule && schedule.weekly && schedule.weekly[schedule.todayIndex]) ? schedule.weekly[schedule.todayIndex] : { entries: [], studyBlocks: [] };
+  const allDays = (schedule && schedule.weekly) ? schedule.weekly : [];
+  const HOURS = Array.from({ length: 18 }, (_, i) => i + 6);
+%>
+<style>
+  .study-resultShell{ width:min(1140px, calc(100vw - 28px)); margin:14px auto 22px; display:grid; gap:18px; }
+  .study-resultCard,
+  .study-resultSide{ position:relative; border-radius:34px; background:rgba(255,255,255,.56); border:1px solid rgba(255,255,255,.42); box-shadow:0 28px 80px rgba(15,23,42,.12); backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%); overflow:hidden; }
+  .study-resultCard{ padding:24px; }
+  .study-resultHead{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:20px; }
+  .study-resultKicker{ display:inline-flex; padding:8px 12px; border-radius:999px; background:rgba(248,193,96,.26); color:#7c5a13; font-size:11px; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+  .study-resultTitle{ margin:10px 0 6px; font-size:34px; line-height:1.02; font-weight:950; color:#0f172a; letter-spacing:-.04em; }
+  .study-resultSub{ margin:0; max-width:760px; font-size:14px; line-height:1.6; color:rgba(15,23,42,.72); }
+  .study-linkBtn{ display:inline-flex; align-items:center; justify-content:center; min-height:44px; padding:0 18px; border-radius:999px; text-decoration:none; border:1px solid rgba(15,23,42,.12); background:rgba(255,255,255,.78); color:#0f172a; font-size:13px; font-weight:900; }
+  .study-linkBtn.is-primary{ background:#F8C160; border-color:rgba(248,193,96,.36); color:#000; }
+  .study-layout{ display:grid; grid-template-columns:minmax(0, 1.3fr) 360px; gap:18px; }
+  .study-hero{ padding:22px; border-radius:30px; background:linear-gradient(135deg, rgba(248,193,96,.24), rgba(255,255,255,.38)); border:1px solid rgba(255,255,255,.44); box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }
+  .study-methodTitle{ margin:0; font-size:28px; line-height:1.04; font-weight:950; color:#0f172a; letter-spacing:-.04em; }
+  .study-methodChip{ display:inline-flex; align-items:center; margin-top:10px; padding:8px 12px; border-radius:999px; background:rgba(15,23,42,.08); color:#0f172a; font-size:12px; font-weight:900; }
+  .study-widgetMsg{ margin-top:14px; padding:14px 16px; border-radius:22px; background:rgba(15,23,42,.06); color:#0f172a; font-size:14px; line-height:1.55; font-weight:800; }
+  .study-methodReason{ margin:14px 0 0; font-size:15px; line-height:1.7; color:rgba(15,23,42,.76); }
+  .study-section{ margin-top:18px; padding:18px; border-radius:28px; background:rgba(255,255,255,.58); border:1px solid rgba(255,255,255,.42); }
+  .study-sectionTitle{ margin:0 0 12px; font-size:20px; font-weight:900; color:#0f172a; }
+  .study-indexList{ display:grid; gap:12px; }
+  .study-indexRow{ display:grid; grid-template-columns:150px 1fr 52px; align-items:center; gap:12px; }
+  .study-indexName{ font-size:13px; font-weight:900; color:#0f172a; }
+  .study-indexBar{ height:12px; border-radius:999px; background:rgba(15,23,42,.08); overflow:hidden; }
+  .study-indexFill{ height:100%; border-radius:999px; background:linear-gradient(90deg, #F8C160 0%, #ffd47f 100%); }
+  .study-indexVal{ font-size:13px; font-weight:900; color:#0f172a; text-align:right; }
+  .study-dayList{ display:grid; gap:12px; }
+  .study-dayCard{ padding:14px 16px; border-radius:22px; background:rgba(255,255,255,.78); border:1px solid rgba(15,23,42,.08); }
+  .study-dayHead{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+  .study-dayTitle{ font-size:15px; font-weight:900; color:#0f172a; }
+  .study-dayBadge{ font-size:11px; font-weight:900; color:rgba(15,23,42,.62); text-transform:uppercase; letter-spacing:.10em; }
+  .study-entryList{ display:grid; gap:8px; }
+  .study-entry{ padding:10px 12px; border-radius:16px; background:rgba(15,23,42,.05); font-size:13px; line-height:1.45; color:#0f172a; font-weight:700; }
+  .study-entry.is-break{ background:rgba(248,193,96,.18); color:#7c5a13; }
+  .study-resultSide{ padding:22px; display:grid; gap:16px; align-content:start; }
+  .study-miniTitle{ margin:0; font-size:18px; font-weight:900; color:#0f172a; }
+  .study-miniWeek{ display:grid; grid-template-columns:72px repeat(7, 1fr); gap:6px; overflow:auto; }
+  .study-miniWeekHead,
+  .study-miniHour,
+  .study-miniCell{ min-width:34px; min-height:28px; border-radius:12px; }
+  .study-miniWeekHead,
+  .study-miniHour{ display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.76); border:1px solid rgba(15,23,42,.08); font-size:11px; font-weight:900; color:#0f172a; }
+  .study-miniCell{ background:rgba(255,255,255,.56); border:1px solid rgba(15,23,42,.08); }
+  .study-miniCell.is-on{ background:#F8C160; border-color:rgba(248,193,96,.36); }
+  .study-sideText{ font-size:13px; line-height:1.6; color:rgba(15,23,42,.72); }
+  .study-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+  html.cw-dark .study-resultCard,
+  html.cw-dark .study-resultSide,
+  html.cw-dark .study-hero,
+  html.cw-dark .study-section,
+  html.cw-dark .study-dayCard,
+  html.cw-dark .study-miniWeekHead,
+  html.cw-dark .study-miniHour,
+  html.cw-dark .study-miniCell,
+  html.cw-dark .study-linkBtn{ background:rgba(15,23,42,.74) !important; border-color:rgba(255,255,255,.08) !important; color:rgba(243,244,246,.96) !important; }
+  html.cw-dark .study-resultTitle,
+  html.cw-dark .study-methodTitle,
+  html.cw-dark .study-sectionTitle,
+  html.cw-dark .study-indexName,
+  html.cw-dark .study-indexVal,
+  html.cw-dark .study-dayTitle,
+  html.cw-dark .study-entry,
+  html.cw-dark .study-miniTitle,
+  html.cw-dark .study-miniWeekHead,
+  html.cw-dark .study-miniHour{ color:rgba(243,244,246,.96) !important; }
+  html.cw-dark .study-resultSub,
+  html.cw-dark .study-sideText,
+  html.cw-dark .study-methodReason,
+  html.cw-dark .study-dayBadge{ color:rgba(203,213,225,.88) !important; }
+  html.cw-dark .study-widgetMsg{ background:rgba(255,255,255,.08) !important; color:rgba(243,244,246,.96) !important; }
+  html.cw-dark .study-linkBtn.is-primary,
+  html.cw-dark .study-miniCell.is-on{ background:#F8C160 !important; color:#000 !important; }
+  html.cw-dark .study-entry.is-break{ background:rgba(248,193,96,.16) !important; color:#f8c160 !important; }
+  @media (max-width: 980px){ .study-layout{ grid-template-columns:1fr; } }
+  @media (max-width: 720px){
+    .study-resultCard, .study-resultSide{ border-radius:26px; }
+    .study-resultCard{ padding:18px; }
+    .study-resultTitle{ font-size:28px; }
+    .study-methodTitle{ font-size:24px; }
+  }
+</style>
+
+<div class="study-resultShell">
+  <div class="study-resultCard">
+    <div class="study-resultHead">
+      <div>
+        <div class="study-resultKicker">Diagnóstico guardado</div>
+        <h1 class="study-resultTitle">Tu perfil es <%= profileLabel %></h1>
+        <p class="study-resultSub">La app combinó tus 5 índices con tu disponibilidad semanal y te asignó un método principal para estudiar sin chocar con tus horarios ocupados.</p>
+      </div>
+      <div class="study-actions">
+        <a class="study-linkBtn" href="/app/perfil">Perfil</a>
+        <a class="study-linkBtn" href="/estudio/diagnostico?modo=horarios">Editar horarios</a>
+        <form action="/estudio/reset" method="POST" style="margin:0;">
+          <button class="study-linkBtn is-primary" type="submit">Rehacer test</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="study-layout">
+      <div>
+        <div class="study-hero">
+          <h2 class="study-methodTitle"><%= method.title %></h2>
+          <div class="study-methodChip"><%= method.workMin %>/<%= method.breakMin %> · trabajo/pausa</div>
+          <div class="study-widgetMsg"><%= schedule.widgetMessage %></div>
+          <p class="study-methodReason"><%= method.explanation %></p>
+        </div>
+
+        <section class="study-section">
+          <h3 class="study-sectionTitle">Tus 5 índices</h3>
+          <div class="study-indexList">
+            <div class="study-indexRow">
+              <div class="study-indexName">Foco profundo</div>
+              <div class="study-indexBar"><div class="study-indexFill" style="width:<%= Number(indices.focus || 0) %>%"></div></div>
+              <div class="study-indexVal"><%= Number(indices.focus || 0) %></div>
+            </div>
+            <div class="study-indexRow">
+              <div class="study-indexName">Estructura</div>
+              <div class="study-indexBar"><div class="study-indexFill" style="width:<%= Number(indices.structure || 0) %>%"></div></div>
+              <div class="study-indexVal"><%= Number(indices.structure || 0) %></div>
+            </div>
+            <div class="study-indexRow">
+              <div class="study-indexName">Resistencia</div>
+              <div class="study-indexBar"><div class="study-indexFill" style="width:<%= Number(indices.stamina || 0) %>%"></div></div>
+              <div class="study-indexVal"><%= Number(indices.stamina || 0) %></div>
+            </div>
+            <div class="study-indexRow">
+              <div class="study-indexName">Memoria activa</div>
+              <div class="study-indexBar"><div class="study-indexFill" style="width:<%= Number(indices.recall || 0) %>%"></div></div>
+              <div class="study-indexVal"><%= Number(indices.recall || 0) %></div>
+            </div>
+            <div class="study-indexRow">
+              <div class="study-indexName">Autonomía</div>
+              <div class="study-indexBar"><div class="study-indexFill" style="width:<%= Number(indices.autonomy || 0) %>%"></div></div>
+              <div class="study-indexVal"><%= Number(indices.autonomy || 0) %></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="study-section">
+          <h3 class="study-sectionTitle">Cronograma sugerido</h3>
+          <div class="study-dayList">
+            <% allDays.forEach((day) => { %>
+              <div class="study-dayCard">
+                <div class="study-dayHead">
+                  <div class="study-dayTitle"><%= day.dayName %></div>
+                  <div class="study-dayBadge"><%= day.studyBlocks.length ? `${day.studyBlocks.length} bloques` : 'sin bloques' %></div>
+                </div>
+                <% if (!day.entries.length) { %>
+                  <div class="study-entry">Ese día quedó libre o completamente ocupado, por eso no se asignaron sesiones.</div>
+                <% } else { %>
+                  <div class="study-entryList">
+                    <% day.entries.forEach((entry) => { %>
+                      <div class="study-entry <%= entry.type === 'break' ? 'is-break' : '' %>"><%= entry.text %></div>
+                    <% }) %>
+                  </div>
+                <% } %>
+              </div>
+            <% }) %>
+          </div>
+        </section>
+      </div>
+
+      <aside class="study-resultSide">
+        <h3 class="study-miniTitle">Semana visual</h3>
+        <div class="study-sideText">La grilla resalta sólo los bloques que la app sugiere para estudiar. No muestra tus horas ocupadas.</div>
+        <div class="study-miniWeek">
+          <div class="study-miniWeekHead">Hora</div>
+          <% ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach((day) => { %>
+            <div class="study-miniWeekHead"><%= day %></div>
+          <% }) %>
+
+          <% HOURS.forEach((hour) => { %>
+            <div class="study-miniHour"><%= String(hour).padStart(2, '0') %></div>
+            <% allDays.forEach((day) => { %>
+              <div class="study-miniCell <%= day.hourHighlights.includes(hour) ? 'is-on' : '' %>"></div>
+            <% }) %>
+          <% }) %>
+        </div>
+
+        <h3 class="study-miniTitle" style="margin-top:4px;">Hoy</h3>
+        <% if (!todayPlan.entries.length) { %>
+          <div class="study-sideText">Hoy no hay bloques sugeridos. La app reservó el próximo hueco útil para otro día.</div>
+        <% } else { %>
+          <div class="study-dayList">
+            <% todayPlan.entries.forEach((entry) => { %>
+              <div class="study-entry <%= entry.type === 'break' ? 'is-break' : '' %>"><%= entry.text %></div>
+            <% }) %>
+          </div>
+        <% } %>
+      </aside>
+    </div>
+  </div>
+</div>

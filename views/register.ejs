@@ -1,0 +1,1126 @@
+﻿<style>
+.ios-input{
+  width:100%;
+  height:42px;
+  border-radius:12px;
+  border:1px solid rgba(15,23,42,.12);
+  padding:0 12px;
+  background:#F5F8FB;
+  color:#0f172a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+}
+.ios-input:focus{
+  outline:none;
+  border-color:#F8C160;
+  box-shadow:0 0 0 3px rgba(248,193,96,.14);
+}
+.ios-label{
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  margin-bottom:4px;
+  color:#0f172a;
+}
+.ios-input-wrap{ position:relative; }
+.ios-pw-toggle{
+  position:absolute; right:10px; top:50%; transform:translateY(-50%);
+  font-weight:700; background:transparent; border:0; cursor:pointer;
+}
+
+.native-select{
+  position:absolute !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+  width:0; height:0; padding:0; margin:0; border:0;
+}
+
+.cs-select{ position: relative; display:block; margin-top:4px; }
+.cs-trigger{
+  width:100%; height:42px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 12px;
+  background:#F5F8FB;
+  color:#0F172A;
+  border:1px solid #0000001c;
+  border-radius:12px;
+  cursor:pointer;
+}
+.cs-chevron{ width:18px; height:18px; color:#000; }
+.cs-value{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.cs-menu{
+  position:absolute; left:0; right:0; top: calc(100% + 4px);
+  background:#F5F8FB;
+  color:#0F172A;
+  border:1px solid #0000001c;
+  border-radius:12px;
+  box-shadow: 0 10px 24px rgba(15,23,42,.10);
+  padding:6px;
+  list-style:none; margin:0;
+  z-index: 1000;
+  display:none;
+}
+.cs-select.is-open .cs-menu{ display:block; }
+
+.cs-option{ padding:8px 10px; border-radius:10px; cursor:pointer; }
+.cs-option:hover{ background:#E8EEF6; }
+.cs-option.is-selected{ background:#FFE9C9; font-weight:700; }
+
+/* ============ AUTH MOBILE FIX (solo register) ============ */
+@media (max-width: 640px){
+
+  html.auth-html, html.auth-html body{
+    height: auto !important;
+    min-height: 100dvh !important;
+    overflow: auto !important;
+  }
+
+  /* ✅ Espacio arriba para que el header/logo NO tape el título */
+  .auth-split{
+    height: auto !important;
+    min-height: 100dvh !important;
+    align-items: flex-start !important;
+    padding-top: calc(92px + env(safe-area-inset-top)) !important;
+    padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+  }
+
+
+/* ✅ Logo auth-brand (arriba izquierda) — más chico y siempre visible */
+html.auth-html .auth-brand{
+  position: fixed !important;
+  left: 14px !important;
+  top: calc(10px + env(safe-area-inset-top)) !important;
+  z-index: 60 !important;
+  display: block !important;
+}
+html.auth-html .auth-brand img{
+  height: 22px !important;
+  width: auto !important;
+  max-width: 160px !important;
+  display:block !important;
+  object-fit: contain !important;
+}
+
+  /* ✅ Header/logo fijo, chico y centrado (solo mobile) */
+  .auth-header, .header, .top-header, .brand-header{
+    position: fixed !important;
+    left: 0; right: 0; top: 0;
+    height: 76px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 50 !important;
+    padding-top: env(safe-area-inset-top) !important;
+    background: rgba(255,255,255,.72) !important;
+    backdrop-filter: blur(12px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
+    border-bottom: 1px solid rgba(15,23,42,.08) !important;
+  }
+
+  .auth-header img, .header img, .top-header img, .brand-header img,
+  .auth-header .logo, .header .logo, .top-header .logo, .brand-header .logo{
+    max-height: 22px !important;
+    width: auto !important;
+  }
+
+  /* ✅ sacamos transforms que “suben” el bloque */
+  .auth-center{
+    transform: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-items: start !important;
+  }
+
+  /* ✅ Form full width */
+  #registerForm{ max-width: 100% !important; }
+
+  /* ✅ “¿Ya tenés cuenta?” siempre visible (sin depender de scroll) */
+  .mt-8.text-sm.text-slate-500{
+    position: sticky !important;
+    bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    background: rgba(255,255,255,.82) !important;
+    backdrop-filter: blur(10px) saturate(140%) !important;
+    -webkit-backdrop-filter: blur(10px) saturate(140%) !important;
+    padding: 10px 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(15,23,42,.08) !important;
+    margin-top: 14px !important;
+    text-align: center !important;
+  }
+
+  /* ✅ Tap targets más cómodos */
+  .ios-input, .cs-trigger{ height: 44px; }
+
+  .cs-menu{
+    max-height: min(52vh, 320px);
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@media (max-width: 430px){
+  html.auth-html .auth-brand img{
+    height: 18px !important;
+  }
+}
+    .auth-social{
+    display:grid;
+    gap:12px;
+    margin:0 0 16px;
+  }
+  .auth-social__btn{
+    width:100%;
+    min-height:52px;
+    border-radius:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding:14px 18px;
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(255,255,255,.78);
+    box-shadow:0 10px 28px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.68);
+    backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);
+    color:#0f172a;
+    font-weight:700;
+    letter-spacing:-.01em;
+    text-decoration:none;
+    transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+  }
+  .auth-social__btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 14px 34px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .auth-social__btn:active{ transform:translateY(0); }
+  .auth-social__icon{
+    width:20px;
+    height:20px;
+    display:block;
+    flex:0 0 20px;
+  }
+  .auth-social__divider{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:12px 0 18px;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+  .auth-social__divider::before,
+  .auth-social__divider::after{
+    content:'';
+    width: 32px;
+    height: 1px;
+    background: rgba(15,23,42,.15);
+    flex: 0 0 32px;
+  }
+  .auth-social__divider span{
+    position:relative;
+    z-index:1;
+    padding:0 10px;
+    background: transparent;
+  }
+  html.cw-dark .auth-social__btn{
+    background:rgba(15,23,42,.82);
+    border-color:rgba(255,255,255,.08);
+    box-shadow:0 14px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
+    color:rgba(248,250,252,.96);
+  }
+  html.cw-dark .auth-social__divider{
+    color:rgba(203,213,225,.78);
+  }
+  html.cw-dark .auth-social__divider::before{
+    border-top-color:rgba(255,255,255,.08);
+  }
+  html.cw-dark .auth-social__divider span{
+    background:rgba(2,6,23,.82);
+  }
+  /* ===== Checkbox T&C ===== */
+.reg-terms-wrap{
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 4px 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  user-select: none;
+}
+.reg-terms-wrap input[type="checkbox"]{
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  margin-top: 1px;
+  accent-color: #F8C160;
+  cursor: pointer;
+}
+.reg-terms-wrap label{
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(15,23,42,.80);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.reg-terms-wrap label a{
+  color: #d97706;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.reg-terms-error{
+  font-size: 11px;
+  color: #dc2626;
+  font-weight: 600;
+  margin: 0 0 4px;
+  display: none;
+}
+.reg-terms-error.is-visible{ display: block; }
+.oauth-legal{
+  margin: 0 0 10px;
+}
+.oauth-legal__field{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:transparent;
+  transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.oauth-legal__field input[type="checkbox"]{
+  width:18px;
+  height:18px;
+  margin-top:2px;
+  flex:0 0 18px;
+  accent-color:#F8C160;
+  cursor:pointer;
+}
+.oauth-legal__field label{
+  font-size:12px;
+  font-weight:700;
+  line-height:1.5;
+  color:#334155;
+  cursor:pointer;
+}
+.oauth-legal__field label a{
+  color:#d97706;
+  font-weight:800;
+  text-decoration:underline;
+  text-underline-offset:2px;
+}
+.oauth-legal__error{
+  display:none;
+  margin-top:6px;
+  font-size:11px;
+  line-height:1.4;
+  font-weight:700;
+  color:#dc2626;
+}
+.oauth-legal__error.is-visible{
+  display:block;
+}
+.oauth-legal__field.is-invalid{
+  box-shadow:0 0 0 3px rgba(220,38,38,.08);
+}
+.oauth-legal__field.is-shaking,
+.auth-social__btn.is-shaking{
+  animation:cwShakeX .42s linear;
+}
+@keyframes cwShakeX{
+  0%,100%{ transform:translateX(0); }
+  20%{ transform:translateX(-6px); }
+  40%{ transform:translateX(6px); }
+  60%{ transform:translateX(-4px); }
+  80%{ transform:translateX(4px); }
+}
+html.cw-dark .oauth-legal__field{
+  background:transparent;
+  border-color:rgba(255,255,255,.08);
+}
+html.cw-dark .oauth-legal__field label{
+  color:rgba(241,245,249,.92);
+}
+
+/* ===== Modales T&C y Privacidad ===== */
+.reg-legal-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15,23,42,.52);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.reg-legal-overlay.is-open{ display: flex; }
+
+.reg-legal-card{
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  height: min(520px, calc(100dvh - 32px));
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.10);
+  box-shadow: 0 30px 70px rgba(15,23,42,.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.reg-legal-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  flex: 0 0 auto;
+}
+
+.reg-legal-title{
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -.01em;
+}
+
+.reg-legal-close{
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: rgba(15,23,42,.07);
+  border: none;
+  font-size: 16px;
+  color: rgba(15,23,42,.55);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  transition: background .15s ease;
+}
+.reg-legal-close:hover{ background: rgba(15,23,42,.13); }
+
+.reg-legal-body{
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 18px 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(15,23,42,.78);
+}
+.reg-legal-body h3{
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 14px 0 4px;
+}
+.reg-legal-body h3:first-child{ margin-top: 0; }
+.reg-legal-body p{ margin: 0 0 8px; }
+
+html.cw-dark .reg-legal-card{
+  background: #1e293b;
+  border-color: rgba(255,255,255,.10);
+}
+html.cw-dark .reg-legal-title{ color: #f1f5f9; }
+html.cw-dark .reg-legal-body{ color: rgba(241,245,249,.72); }
+html.cw-dark .reg-legal-body h3{ color: #f1f5f9; }
+html.cw-dark .reg-legal-close{
+  background: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.55);
+}
+#btnGoVerify,
+#btnGoVerify:focus,
+#btnGoVerify:focus-visible,
+.ios-btn-primary:focus,
+.ios-btn-primary:focus-visible{
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+</style>
+
+<%
+const ALLOWED_CAREERS = [
+  'Lic. en Administración de Empresas',
+  'Contabilidad',
+  'Lic. en Economía'
+];
+
+const PLANS_BY_CAREER = {
+  'Lic. en Administración de Empresas': ['6','7','8'],
+  'Contabilidad': ['6','7'],
+  'Lic. en Economía': ['6','7'],
+};
+
+const _form = (typeof form !== 'undefined' && form) ? form : {};
+
+const _careers = ALLOWED_CAREERS;
+
+// carrera inicial válida
+const initialCareer = _careers.includes(String(_form.career || '')) ? String(_form.career) : '';
+
+// plan inicial: si es 0 o inválido => vacío
+const rawPlan = String((_form.plan ?? '')).trim();
+const initialPlan =
+  rawPlan === '0' ? '' :
+  (initialCareer && (PLANS_BY_CAREER[initialCareer] || []).includes(rawPlan) ? rawPlan : '');
+
+// verificación
+const VERIFY_ENABLED = (typeof verifyEnabled !== 'undefined') ? !!verifyEnabled : false;
+
+// si el server renderiza con error de verificación, arrancamos en el paso "verify"
+const _errTxt = (typeof error !== "undefined" && error) ? String(error) : '';
+const START_ON_VERIFY =
+  VERIFY_ENABLED &&
+  (
+    String((_form._step || _form.step || '')).toLowerCase() === 'verify' ||
+    _errTxt.toLowerCase().includes('código de verificación') ||
+    _errTxt.toLowerCase().includes('codigo de verificación') ||
+    _errTxt.toLowerCase().includes('verificación') ||
+    _errTxt.toLowerCase().includes('verificacion')
+  );
+%>
+
+<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <section class="hidden lg:block"></section>
+
+    <section class="px-6 sm:px-10 lg:pl-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-3">Crear cuenta</h1>
+
+      <% if (typeof error !== "undefined" && error) { %>
+        <div class="mb-4 text-sm text-red-600"><%= error %></div>
+      <% } %>
+
+      <form id="registerForm" method="POST" action="/register" class="space-y-3 max-w-md" novalidate>
+        <!-- Paso A: Datos de cuenta -->
+        <div id="stepAccount" class="<%= START_ON_VERIFY ? 'hidden' : '' %>">
+          <label class="block">
+            <span class="ios-label">Nombre de usuario</span>
+            <input class="ios-input" type="text" name="name" required placeholder="Tu nombre de usuario"
+              value="<%= _form.name || '' %>" autocomplete="name" maxlength="19"/>
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Email</span>
+           <input class="ios-input" id="regEmail" type="email" name="email" required placeholder="tu@email.com"
+            autocapitalize="none" autocorrect="off" spellcheck="false"
+            value="<%= (typeof _form.email !== 'undefined') ? _form.email : '' %>" autocomplete="email"/>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="ios-label">Contraseña</span>
+              <div class="ios-input-wrap">
+                <input class="ios-input" id="regPw" type="password" name="password" required placeholder="••••••••" autocomplete="new-password"/>
+                <button type="button" class="ios-pw-toggle" data-pw-target="regPw" style="color: orange;">Mostrar</button>
+              </div>
+            </label>
+
+            <label class="block">
+              <span class="ios-label">Repetir contraseña</span>
+              <div class="ios-input-wrap">
+                <input class="ios-input" id="regPw2" type="password" name="password_repeat" required placeholder="••••••••" autocomplete="new-password"/>
+                <button type="button" class="ios-pw-toggle" data-pw-target="regPw2" style="color: orange;">Mostrar</button>
+              </div>
+            </label>
+          </div>
+          <p id="pwError" class="text-xs sm:text-sm text-red-600 hidden">Las contraseñas no coinciden.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label class="block">
+              <span class="ios-label">Carrera</span>
+
+              <select class="ios-input native-select" name="career" required aria-hidden="true" tabindex="-1" id="careerSelectNative">
+                <option value="">Elegir…</option>
+                <% _careers.forEach(function(c){ %>
+                  <option value="<%= c %>" <%= (initialCareer === c) ? 'selected' : '' %>><%= c %></option>
+                <% }) %>
+              </select>
+
+              <div class="cs-select" data-select="career" id="careerSelectCustom">
+                <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="cs-value"><%= initialCareer || 'Elegir…' %></span>
+                  <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                  </svg>
+                </button>
+                <ul class="cs-menu" role="listbox" tabindex="-1">
+                  <li class="cs-option <%= !initialCareer ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                  <% _careers.forEach(function(c){ %>
+                    <li class="cs-option <%= (initialCareer===c)?'is-selected':'' %>" data-value="<%= c %>"><%= c %></li>
+                  <% }) %>
+                </ul>
+              </div>
+            </label>
+
+            <label class="block">
+              <span class="ios-label">Plan</span>
+
+              <select class="ios-input native-select" name="plan" required aria-hidden="true" tabindex="-1" id="planSelectNative">
+                <option value="">Elegir…</option>
+                <% (initialCareer ? (PLANS_BY_CAREER[initialCareer]||[]) : []).forEach(function(p){ %>
+                  <option value="<%= p %>" <%= (initialPlan===p)?'selected':'' %>><%= 'Plan ' + p %></option>
+                <% }) %>
+              </select>
+
+              <div class="cs-select" data-select="plan" id="planSelectCustom">
+                <button type="button" class="cs-trigger" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="cs-value"><%= initialPlan ? ('Plan ' + initialPlan) : 'Elegir…' %></span>
+                  <svg class="cs-chevron" viewBox="0 0 24 24" aria-hidden="true">
+                    <polyline points="6,9 12,15 18,9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></polyline>
+                  </svg>
+                </button>
+                <ul class="cs-menu" role="listbox" tabindex="-1">
+                  <li class="cs-option <%= !initialPlan ? 'is-selected':'' %>" data-value="">Elegir…</li>
+                  <% (initialCareer ? (PLANS_BY_CAREER[initialCareer]||[]) : []).forEach(function(p){ %>
+                    <li class="cs-option <%= (initialPlan===p)?'is-selected':'' %>" data-value="<%= p %>"><%= 'Plan ' + p %></li>
+                  <% }) %>
+                </ul>
+              </div>
+            </label>
+          </div>
+
+                    <label class="block">
+            <span class="ios-label">Número de teléfono</span>
+            <input class="ios-input" type="tel" name="phone" inputmode="tel" placeholder="+54 9 11 1234-5678"
+              value="<%= _form.phone || '' %>" autocomplete="tel"/>
+          </label>
+          
+          <!-- Checkbox Términos y Condiciones -->
+          <div class="reg-terms-wrap" onclick="document.getElementById('regTermsCheck').click(); event.stopPropagation();">
+            <input type="checkbox" id="regTermsCheck" name="accept_legal" value="1" <%= _form.accept_legal === '1' ? 'checked' : '' %> onclick="event.stopPropagation();" />
+            <label for="regTermsCheck" onclick="event.stopPropagation();">
+              He leído y acepto los
+              <a href="/terminos-y-condiciones-de-uso" id="openTerms" target="_blank" rel="noopener" onclick="event.stopPropagation();">Términos y Condiciones</a>
+              y las
+              <a href="/politica-de-privacidad-y-proteccion-de-datos" id="openPrivacy" target="_blank" rel="noopener" onclick="event.stopPropagation();">Políticas de Privacidad</a>
+              de CleverWave.
+            </label>
+          </div>
+          <p id="termsError" class="reg-terms-error">Debés aceptar los Términos y Condiciones para continuar.</p>
+
+          <button id="btnGoVerify" class="ios-btn-primary w-full mt-1 bg-[#F8C160]" type="submit">Crear cuenta</button>
+
+          <% if (googleAuthEnabled) { %>
+            <div class="auth-social__divider" style="margin: 14px 0 10px;"><span>o con Google</span></div>
+
+            <a id="registerGoogleBtn" class="auth-social__btn" href="/auth/google?accept_legal=1"
+              style="border-radius: 14px; border: 1.5px solid #e2e8f0; font-weight: 500; background: #ffffff; min-height: 50px; padding: 12px 18px; font-size: 14px;">
+              <svg class="auth-social__icon" viewBox="0 0 24 24">
+                <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.23 1.27-.97 2.35-2.05 3.07l3.31 2.57c1.93-1.78 3.04-4.4 3.04-7.52 0-.72-.06-1.4-.19-2.03H12z"/>
+                <path fill="#34A853" d="M12 22c2.75 0 5.05-.91 6.74-2.48l-3.31-2.57c-.92.62-2.09.99-3.43.99-2.64 0-4.88-1.78-5.68-4.18l-3.42 2.64A9.99 9.99 0 0 0 12 22z"/>
+                <path fill="#4A90E2" d="M6.32 13.76A5.99 5.99 0 0 1 6 12c0-.61.11-1.21.32-1.76L2.9 7.6A10 10 0 0 0 2 12c0 1.61.39 3.13 1.09 4.4l3.23-2.64z"/>
+                <path fill="#FBBC05" d="M12 6.06c1.5 0 2.84.52 3.9 1.54l2.92-2.92C17.04 3.02 14.75 2 12 2A9.99 9.99 0 0 0 3.09 7.6l3.23 2.64C7.12 7.84 9.36 6.06 12 6.06z"/>
+              </svg>
+              <span>Registrate con Google</span>
+            </a>
+
+            <div class="oauth-legal" style="margin-top:10px;">
+              <div class="oauth-legal__field" id="registerGoogleLegalField">
+                <input type="checkbox" id="registerGoogleLegalCheck" />
+                <label for="registerGoogleLegalCheck">
+                  Acepto los
+                  <a href="/terminos-y-condiciones-de-uso" target="_blank" rel="noopener">Términos y Condiciones</a>
+                  y la
+                  <a href="/politica-de-privacidad-y-proteccion-de-datos" target="_blank" rel="noopener">Política de Privacidad</a>
+                </label>
+              </div>
+              <p id="registerGoogleLegalError" class="oauth-legal__error">Para continuar con Google tenés que aceptar los Términos y Condiciones y la Política de Privacidad.</p>
+            </div>
+          <% } %>
+        </div>
+
+        <!-- Paso B: Verificación (solo si está activa) -->
+        <div id="stepVerify" class="<%= START_ON_VERIFY ? '' : 'hidden' %>">
+          <div class="mb-3">
+            <div class="text-sm sm:text-base text-slate-600">
+              Para activar tu cuenta necesitás un <b>código de verificación</b>.
+            </div>
+            <div class="text-xs sm:text-sm text-slate-500 mt-1">
+              Pedilo por WhatsApp y pegalo abajo.
+            </div>
+          </div>
+
+          <a
+            id="waBtn"
+            class="w-full inline-flex items-center justify-center rounded-xl h-[42px] font-semibold shadow-sm"
+            href="https://wa.me/?text=Hola%20%F0%9F%91%8B%20Necesito%20mi%20c%C3%B3digo%20de%20verificaci%C3%B3n%20para%20activar%20mi%20cuenta."
+            target="_blank"
+            rel="noopener"
+            style="background:#F8C160;color:#0f172a;"
+          >
+            Pedir código por WhatsApp
+          </a>
+
+          <label class="block mt-3">
+            <span class="ios-label">Código de verificación</span>
+            <input
+              class="ios-input"
+              id="verificationCode"
+              type="text"
+              name="verification_code"
+              placeholder="Ej: ABC123"
+              value="<%= _form.verification_code || _form.verify_code || _form.code || '' %>"
+              autocomplete="one-time-code"
+            />
+          </label>
+
+          <button class="ios-btn-primary w-full mt-1 bg-[#F8C160]" type="submit">Crear cuenta</button>
+
+          <button
+            id="btnBackToAccount"
+            type="button"
+            class="w-full mt-2 text-sm font-semibold"
+            style="color: orange;"
+          >
+            Volver
+          </button>
+        </div>
+      </form>
+
+      <div class="mt-6 text-sm text-slate-500" style="text-align: center;">
+        ¿Ya tenés cuenta?
+        <a class="ios-link" href="/login" style="color: orange;">Iniciar sesión</a>
+      </div>
+    </section>
+  </div>
+<div id="modalTerms" class="reg-legal-overlay" role="dialog" aria-modal="true" aria-label="Términos y Condiciones">
+  <div class="reg-legal-card">
+    <div class="reg-legal-head">
+      <span class="reg-legal-title">Términos y Condiciones</span>
+      <button class="reg-legal-close" onclick="closeLegalModal('terms')" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="reg-legal-body">
+      <p style="font-size:11px; color:rgba(15,23,42,.45); margin-bottom:12px;">Última actualización: 18 de marzo de 2026</p>
+      <p>El presente contrato regula el uso de la plataforma CleverWave. Al registrarse, el Usuario acepta los siguientes puntos sin reserva alguna:</p>
+      <h3>PRIMERO: Naturaleza independiente y deslinde institucional</h3>
+      <p>CleverWave es una herramienta tecnológica de desarrollo privado y autónomo. Se deja constancia expresa de que la Aplicación NO ha sido creada, ni está gestionada, ni financiada por ningún Centro de Estudiantes, agrupación política universitaria, ni por representantes de dichas entidades. CleverWave no posee vínculo oficial, jurídico ni académico con ninguna Facultad o Universidad. El uso de esta herramienta es responsabilidad exclusiva del estudiante y no representa una relación formal con la institución educativa.</p>
+      <h3>SEGUNDO: Propiedad intelectual y régimen de contenidos</h3>
+      <p>La Aplicación funciona como un soporte técnico para la organización del estudio.</p>
+      <p><strong>Material de Terceros:</strong> Los archivos (PDF, PowerPoint, resúmenes, finales anteriores) son compartidos por la comunidad estudiantil o recopilados de fuentes públicas. CleverWave no reclama autoría sobre materiales originales de las cátedras.</p>
+      <p><strong>Intervención de IA:</strong> Los resúmenes simplificados por Inteligencia Artificial son recursos didácticos derivados para facilitar la comprensión. CleverWave no garantiza la exactitud pedagógica de los mismos y el Usuario debe contrastarlos con la bibliografía oficial.</p>
+      <p><strong>Cláusula de Retiro (Safe Harbor):</strong> CleverWave eliminará cualquier material a solicitud fehaciente de su autor original o titular de derechos bajo el principio de buena fe, sin que esto implique reconocimiento de infracción alguna.</p>
+      <h3>TERCERO: Suscripciones y cargos por servicio (Modo Plus)</h3>
+      <p>El Usuario acepta que cualquier pago por suscripción "Plus" corresponde única y exclusivamente al derecho de uso de las herramientas de software, mantenimiento de infraestructura de servidores, seguridad de datos y soporte técnico. Bajo ningún concepto el pago constituye la venta de material de estudio protegido, el cual se mantiene como un recurso accesorio y gratuito dentro de la plataforma. El cobro es necesario para la sostenibilidad operativa de la herramienta.</p>
+      <h3>CUARTO: Autoevaluaciones, juegos y criterio académico</h3>
+      <p>Los cuestionarios, juegos y sistemas de autoevaluación son creados por CleverWave para fines pedagógicos. No son exámenes oficiales ni cuentan con la autorización de la Facultad. Obtener un resultado satisfactorio en la Aplicación no garantiza el éxito en las evaluaciones académicas institucionales.</p>
+      <h3>QUINTO: Limitación de responsabilidad</h3>
+      <p>El Usuario libera al desarrollador de CleverWave de toda responsabilidad civil, penal o académica derivada de:</p>
+<ul style="margin:6px 0 6px 16px;line-height:1.8;">
+  <li>Fallos técnicos, pérdida de datos o vulnerabilidades de seguridad externas.</li>
+  <li>Comentarios, calificaciones de profesores o contenido publicado por otros usuarios en las secciones interactivas y grupos de chat.</li>
+  <li>El uso de herramientas de gestión del tiempo o secciones psicológicas, las cuales se basan en estudios de acceso público en Internet y no constituyen asesoramiento profesional.</li>
+  <li>Errores en la agenda personal o pérdida de fechas de exámenes.</li>
+</ul>`
+    </div>
+  </div>
+</div>
+
+
+<script>
+  // ===== Modales legales =====
+  function openLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el){
+      el.classList.add('is-open');
+      document.documentElement.style.overflow = 'hidden';
+      // cerrar al click en overlay
+      el.addEventListener('click', function onOverlay(e){
+        if (e.target === el){
+          closeLegalModal(which);
+          el.removeEventListener('click', onOverlay);
+        }
+      });
+    }
+  }
+  function closeLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('is-open');
+    document.documentElement.style.overflow = '';
+  }
+  // cerrar con Escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){
+      closeLegalModal('terms');
+      closeLegalModal('privacy');
+    }
+  });
+</script>
+<script>
+  // Toggle mostrar/ocultar password
+  document.querySelectorAll('.ios-pw-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-pw-target');
+      const input = document.getElementById(id);
+      if (!input) return;
+      input.type = input.type === 'password' ? 'text' : 'password';
+      btn.textContent = input.type === 'password' ? 'Mostrar' : 'Ocultar';
+    });
+  });
+
+  // Validación contraseñas (server también valida)
+  const form = document.getElementById('registerForm');
+    // ✅ Email case-insensitive: normalizar antes de enviar
+  const regEmail = document.getElementById('regEmail');
+  if (regEmail){
+    const normalizeRegEmail = () => {
+      regEmail.value = String(regEmail.value || '').trim().toLowerCase();
+    };
+    regEmail.addEventListener('blur', normalizeRegEmail);
+    form && form.addEventListener('submit', normalizeRegEmail, true);
+  }
+  const pw1  = document.getElementById('regPw');
+  const pw2  = document.getElementById('regPw2');
+  const pwErr = document.getElementById('pwError');
+
+  function checkPwMatch() {
+    if (!pw1 || !pw2) return true;
+    const ok = pw1.value === pw2.value;
+    pwErr && pwErr.classList.toggle('hidden', ok);
+    return ok;
+  }
+  pw2 && pw2.addEventListener('input', checkPwMatch);
+
+  // ===== Habilitar/deshabilitar botón Crear cuenta =====
+  (function(){
+    const btn = document.getElementById('btnGoVerify');
+    if (!btn) return;
+
+    // Campos requeridos del paso A
+    const fields = [
+      document.getElementById('regEmail'),
+      document.getElementById('regPw'),
+      document.getElementById('regPw2'),
+      document.getElementById('careerSelectNative'),
+      document.getElementById('planSelectNative'),
+      document.querySelector('input[name="name"]'),
+    ].filter(Boolean);
+
+    const termsCheck = document.getElementById('regTermsCheck');
+
+    function updateBtn(){
+      const allFilled = fields.every(f => (f.value || '').trim() !== '');
+      const termsOk = termsCheck && termsCheck.checked;
+      const enabled = allFilled && termsOk;
+      btn.disabled = !enabled;
+      btn.style.opacity = enabled ? '1' : '0.45';
+      btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    }
+
+    // escuchar cambios en todos los campos
+    fields.forEach(f => f.addEventListener('input', updateBtn));
+    fields.forEach(f => f.addEventListener('change', updateBtn));
+    termsCheck && termsCheck.addEventListener('change', updateBtn);
+
+    // estado inicial
+    updateBtn();
+  })();
+    (function registerGoogleLegalGate(){
+    const registerGoogleLegalCheck = document.getElementById('registerGoogleLegalCheck');
+    const registerGoogleLegalField = document.getElementById('registerGoogleLegalField');
+    const registerGoogleLegalError = document.getElementById('registerGoogleLegalError');
+    const registerGoogleBtn = document.getElementById('registerGoogleBtn');
+
+    if (!registerGoogleLegalCheck || !registerGoogleLegalField || !registerGoogleLegalError || !registerGoogleBtn) return;
+
+    let registerGoogleAccepted = !!registerGoogleLegalCheck.checked;
+
+    const clearRegisterGoogleError = () => {
+      registerGoogleLegalField.classList.remove('is-invalid');
+      registerGoogleLegalField.classList.remove('is-shaking');
+      registerGoogleBtn.classList.remove('is-shaking');
+      registerGoogleLegalError.classList.remove('is-visible');
+    };
+
+    const playRegisterGoogleShake = () => {
+      registerGoogleLegalField.classList.remove('is-shaking');
+      registerGoogleBtn.classList.remove('is-shaking');
+      void registerGoogleLegalField.offsetWidth;
+      registerGoogleLegalField.classList.add('is-invalid', 'is-shaking');
+      registerGoogleBtn.classList.add('is-shaking');
+      registerGoogleLegalError.classList.add('is-visible');
+    };
+
+    registerGoogleLegalCheck.addEventListener('change', () => {
+      registerGoogleAccepted = !!registerGoogleLegalCheck.checked;
+      if (registerGoogleAccepted) clearRegisterGoogleError();
+    });
+
+    registerGoogleBtn.addEventListener('click', (e) => {
+      registerGoogleAccepted = !!registerGoogleLegalCheck.checked;
+      if (registerGoogleAccepted) {
+        clearRegisterGoogleError();
+        return;
+      }
+      e.preventDefault();
+      playRegisterGoogleShake();
+    });
+
+    registerGoogleLegalField.addEventListener('animationend', () => {
+      registerGoogleLegalField.classList.remove('is-shaking');
+    });
+
+    registerGoogleBtn.addEventListener('animationend', () => {
+      registerGoogleBtn.classList.remove('is-shaking');
+    });
+  })();
+  // Paso verify: ocultar datos y mostrar código (sin recargar) cuando la verificación está activa
+  (function registerVerifyStep(){
+    const VERIFY_ENABLED = <%= VERIFY_ENABLED ? 'true' : 'false' %>;
+    if (!VERIFY_ENABLED) return;
+
+    const stepAccount = document.getElementById('stepAccount');
+    const stepVerify  = document.getElementById('stepVerify');
+    const codeInput   = document.getElementById('verificationCode');
+    const backBtn     = document.getElementById('btnBackToAccount');
+    const waBtn       = document.getElementById('waBtn');
+    const emailInput  = document.getElementById('regEmail');
+
+    function showVerify(){
+      if (stepAccount) stepAccount.classList.add('hidden');
+      if (stepVerify)  stepVerify.classList.remove('hidden');
+      // enriquecer link de whatsapp con el email si está
+      try {
+        const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+        const msg = email
+          ? `Hola 👋 Necesito mi código de verificación para activar mi cuenta. Mi email es: ${email}`
+          : `Hola 👋 Necesito mi código de verificación para activar mi cuenta.`;
+        if (waBtn) waBtn.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      } catch(_){}
+      setTimeout(()=>{ codeInput && codeInput.focus(); }, 50);
+    }
+
+    function showAccount(){
+      if (stepVerify)  stepVerify.classList.add('hidden');
+      if (stepAccount) stepAccount.classList.remove('hidden');
+      setTimeout(()=>{ emailInput && emailInput.focus(); }, 50);
+    }
+
+    // Si el server ya renderizó en verify step, solo ajustamos el link
+    if (stepVerify && !stepVerify.classList.contains('hidden')) {
+      try {
+        const email = (emailInput && emailInput.value) ? emailInput.value.trim() : '';
+        const msg = email
+          ? `Hola 👋 Necesito mi código de verificación para activar mi cuenta. Mi email es: ${email}`
+          : `Hola 👋 Necesito mi código de verificación para activar mi cuenta.`;
+        if (waBtn) waBtn.href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+      } catch(_){}
+    }
+
+    // Interceptar submit: si estamos en paso A, pasamos a paso B (sin enviar)
+    const REG_BLOCKED_WORDS = [
+    'puto','puta','putos','putas','pelotudo','pelotuda','pelotudos','pelotudas',
+    'boludo','boluda','boludos','boludas','forro','forra','forros','forras',
+    'hdp','hijo de puta','hija de puta','concha','conchudo','conchuda',
+    'mierda','mierdas','culo','culos','ctm','conchatumadre',
+    'cogido','cogida','coger','cagar','cago','cagada','cagado',
+    'marica','maricon','maricón','tortillera','trolo','trola',
+    'negro de mierda','gil','otario','otaria','estupido','estupida',
+    'idiota','idiotas','imbecil','imbécil','tarado','tarada',
+    'fuck','shit','bitch','asshole','bastard','cunt','dick','pussy','faggot',
+    'pija','verga','chota','chotas','sorete','soretes'
+  ];
+
+  function regContainsBadWord(text){
+    const lower = (text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    return REG_BLOCKED_WORDS.some(w => {
+      const wn = w.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const re = new RegExp('(^|\\s|[^a-z])' + wn.replace(/[.*+?^${}()|[\]\\]/g,'\\$&') + '($|\\s|[^a-z])', 'i');
+      return re.test(lower);
+    });
+  }
+
+    form.addEventListener('submit', (e) => {
+      const inAccount = stepAccount && !stepAccount.classList.contains('hidden');
+      const inVerify  = stepVerify && !stepVerify.classList.contains('hidden');
+
+      if (inAccount) {
+        // validar checkbox de términos
+        const termsCheck = document.getElementById('regTermsCheck');
+        const termsError = document.getElementById('termsError');
+        if (termsCheck && !termsCheck.checked){
+          e.preventDefault();
+          if (termsError) termsError.classList.add('is-visible');
+          termsCheck.closest('.reg-terms-wrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        if (termsError) termsError.classList.remove('is-visible');
+
+        // validar match de contraseñas antes de pasar
+        if (!checkPwMatch()) { e.preventDefault(); pw2 && pw2.focus(); return; }
+
+        // validar nombre sin malas palabras
+        const nameInput = form.querySelector('input[name="name"]');
+        const nameVal = nameInput ? nameInput.value.trim() : '';
+        if (regContainsBadWord(nameVal)){
+          e.preventDefault();
+          alert('El nombre de usuario contiene palabras no permitidas. Por favor elegí otro.');
+          nameInput && nameInput.focus();
+          return;
+        }
+
+        e.preventDefault();
+        showVerify();
+        return;
+      }
+
+      // si está en verify, exige código
+      if (inVerify) {
+        const codeVal = (codeInput && codeInput.value) ? codeInput.value.trim() : '';
+        if (!codeVal) {
+          e.preventDefault();
+          codeInput && codeInput.focus();
+        }
+      }
+    });
+
+    backBtn && backBtn.addEventListener('click', showAccount);
+  })();
+
+  // Selects custom + dependencia de plan por carrera
+  (function(){
+    const PLANS_BY_CAREER = {
+      "Lic. en Administración de Empresas": ["6","7","8"],
+      "Contabilidad": ["6","7"],
+      "Lic. en Economía": ["6","7"]
+    };
+
+    function setupCsSelect(root){
+      const trigger = root.querySelector('.cs-trigger');
+      const valueEl = root.querySelector('.cs-value');
+      const menu    = root.querySelector('.cs-menu');
+      let options   = Array.from(root.querySelectorAll('.cs-option'));
+      const native  = root.parentElement.querySelector('select.native-select');
+
+      function close(){ root.classList.remove('is-open'); trigger.setAttribute('aria-expanded','false'); }
+      function open(){ root.classList.add('is-open'); trigger.setAttribute('aria-expanded','true'); }
+      function setVal(val, label){
+        valueEl.textContent = label || val || 'Elegir…';
+        if (native){
+          native.value = val;
+          native.dispatchEvent(new Event('change', { bubbles:true }));
+        }
+      }
+      function select(li){
+        options.forEach(o=>o.classList.remove('is-selected'));
+        li.classList.add('is-selected');
+        setVal(li.getAttribute('data-value'), (li.textContent || '').trim());
+        close();
+      }
+
+      trigger.addEventListener('click', (e)=>{
+        e.preventDefault();
+        root.classList.contains('is-open') ? close() : open();
+      });
+
+      options.forEach(li=> li.addEventListener('click', ()=>select(li)));
+
+      document.addEventListener('click', (e)=>{
+        if (!root.contains(e.target)) close();
+      });
+
+      root._csRefresh = function(){
+        options = Array.from(root.querySelectorAll('.cs-option'));
+      };
+    }
+
+    document.querySelectorAll('.cs-select').forEach(setupCsSelect);
+
+    const nativeCareer = document.getElementById('careerSelectNative');
+    const nativePlan   = document.getElementById('planSelectNative');
+    const customPlan   = document.getElementById('planSelectCustom');
+
+    function rebuildPlanOptions(career){
+      const plans = (PLANS_BY_CAREER[career] || []);
+
+      // nativo
+      nativePlan.innerHTML = '';
+      const optEmpty = document.createElement('option');
+      optEmpty.value = '';
+      optEmpty.textContent = 'Elegir…';
+      nativePlan.appendChild(optEmpty);
+      plans.forEach(p=>{
+        const op = document.createElement('option');
+        op.value = p;
+        op.textContent = 'Plan ' + p;
+        nativePlan.appendChild(op);
+      });
+      nativePlan.value = '';
+
+      // custom
+      const menu = customPlan.querySelector('.cs-menu');
+      const valEl= customPlan.querySelector('.cs-value');
+      menu.innerHTML = '';
+
+      const liEmpty = document.createElement('li');
+      liEmpty.className = 'cs-option is-selected';
+      liEmpty.dataset.value = '';
+      liEmpty.textContent = 'Elegir…';
+      menu.appendChild(liEmpty);
+
+      plans.forEach(p=>{
+        const li = document.createElement('li');
+        li.className = 'cs-option';
+        li.dataset.value = p;
+        li.textContent = 'Plan ' + p;
+        menu.appendChild(li);
+      });
+
+      customPlan._csRefresh && customPlan._csRefresh();
+
+      menu.querySelectorAll('.cs-option').forEach(li=>{
+        li.addEventListener('click', ()=>{
+          menu.querySelectorAll('.cs-option').forEach(o=>o.classList.remove('is-selected'));
+          li.classList.add('is-selected');
+          const v = li.dataset.value || '';
+          nativePlan.value = v;
+          valEl.textContent = v ? ('Plan ' + v) : 'Elegir…';
+        });
+      });
+
+      valEl.textContent = 'Elegir…';
+    }
+
+    nativeCareer && nativeCareer.addEventListener('change', ()=> rebuildPlanOptions(nativeCareer.value));
+  })();
+// ✅ Fix logo de Dropbox en Safari/iPhone (auth-brand)
+(function fixAuthLogo(){
+  const authLogo = document.querySelector('.auth-brand img');
+  if (!authLogo) return;
+
+  const src = authLogo.getAttribute('src') || '';
+  if (src.includes('dropbox.com') && src.includes('clear-way.png') && src.includes('dl=1') && !src.includes('raw=1')){
+    authLogo.setAttribute('src', src.replace('dl=1','raw=1'));
+  }
+
+  authLogo.setAttribute('loading','eager');
+  authLogo.setAttribute('decoding','async');
+  authLogo.setAttribute('referrerpolicy','no-referrer');
+
+  authLogo.addEventListener('error', () => {
+    const s = authLogo.getAttribute('src') || '';
+    if (s.includes('raw=1')){
+      authLogo.setAttribute('src', s.replace('raw=1','dl=1'));
+    }
+  }, { once:true });
+})();
+
+
+</script>
+

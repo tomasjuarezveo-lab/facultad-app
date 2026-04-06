@@ -1,0 +1,749 @@
+<% const cursadasData = Array.isArray(cursadas) ? cursadas : []; %>
+
+<div class="cwPanelPage">
+
+  <%# ── Admin: carga masiva ── %>
+  <% if (user && user.role === 'admin') { %>
+  <section class="cwUploadCard">
+    <div class="cwUploadCopy">
+      <p class="cwEyebrow">Carga masiva</p>
+      <h2>Actualizar Cursadas desde un .txt</h2>
+      <p>El archivo nuevo reemplaza toda la información anterior de <strong>Cursadas</strong> y se muestra igual para todos los usuarios.</p>
+      <pre class="cwFormatExample">Materia: Matemática I
+        Año: 1
+        Comisión: A
+        Días y horarios: Lunes 18 a 22 | Miércoles 18 a 22
+        % Aprobación: 74
+        % Promoción: 41
+        Tipo: Presencial
+        Docentes: Pérez | Gómez
+        ---</pre>
+    </div>
+    <form class="cwUploadForm" method="POST" action="/admin/cursadas/upload" enctype="multipart/form-data">
+      <label class="cwFileField">
+        <span>Seleccionar archivo .txt</span>
+        <input type="file" name="cursadasFile" accept=".txt,text/plain" required>
+      </label>
+      <button type="submit" class="cwPrimaryBtn">Reemplazar cursadas</button>
+    </form>
+  </section>
+  <% } %>
+
+  <%# ── Switch Finales / Cursadas — centrado ── %>
+  <div class="cwSwitchWrap">
+    <section class="cwSwitchBar" aria-label="Cambiar sección">
+      <a href="/app/finales"  class="cwSwitchBtn">Finales</a>
+      <a href="/app/cursadas" class="cwSwitchBtn is-active">Cursadas</a>
+    </section>
+  </div>
+
+  <%# ── Disclaimer ── %>
+  <div class="cwDisclaimer">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <p><strong>Los porcentajes y datos son estimaciones orientativas.</strong> Pueden no reflejar la realidad actual y varían según la comisión, el docente y el cuatrimestre. No nos responsabilizamos por decisiones tomadas en base a esta información — usala como referencia, no como dato oficial.</p>
+  </div>
+
+  <%# ── Barra de filtros iOS-pill + búsqueda ── %>
+  <div class="cwCursadasTop">
+    <div class="cwCursadasTopLeft">
+
+      <div class="cwPillBox" aria-label="Filtrar por año">
+        <button type="button" class="cwPillBtn is-active" data-year="all">Todos</button>
+        <button type="button" class="cwPillBtn" data-year="1">1º</button>
+        <button type="button" class="cwPillBtn" data-year="2">2º</button>
+        <button type="button" class="cwPillBtn" data-year="3">3º</button>
+        <button type="button" class="cwPillBtn" data-year="4">4º</button>
+        <button type="button" class="cwPillBtn" data-year="5">5º</button>
+      </div>
+
+      <div class="cwPillBox" aria-label="Filtrar por tipo">
+        <button type="button" class="cwPillBtn is-active" data-tipo="all">Todos</button>
+        <button type="button" class="cwPillBtn" data-tipo="presencial">Presencial</button>
+        <button type="button" class="cwPillBtn" data-tipo="virtual">Virtual</button>
+      </div>
+
+    </div>
+
+    <div class="cwSearchWrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+           viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+           aria-hidden="true" focusable="false">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+      </svg>
+      <input id="cwCursadasSearch" type="text" placeholder="Buscar materia o docente…"
+             autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <%# ── Grid de cards ── %>
+  <section id="cwCursadasGrid" class="cwCursadasGrid">
+
+    <% if (!cursadasData.length) { %>
+    <article class="cwEmptyState">
+      <h3>Todavía no hay cursadas cargadas</h3>
+      <p>Cuando el administrador suba el archivo .txt, acá vas a ver horarios, porcentajes, comisión y docentes.</p>
+    </article>
+    <% } %>
+
+    <% cursadasData.forEach((item) => {
+         const yearNum  = parseInt(item.year) || 0;
+         const tipoNorm = String(item.classType || '').toLowerCase();
+         const approvalDisplay   = (!item.approvalPct  || item.approvalPct  == 0) ? 'N.I' : item.approvalPct  + '%';
+         const promotionDisplay  = (!item.promotionPct || item.promotionPct == 0) ? 'N.I' : item.promotionPct + '%';
+         const teachersList = (item.teachers || []);
+         const hasTeachers  = teachersList.length > 0;
+         const hasReactions = (item.reactions || []).length > 0;
+    %>
+
+    <%# ── Wrapper que agrupa card principal + panel docentes ── %>
+    <div class="cwCC-wrapper"
+         data-year="<%= yearNum %>"
+         data-tipo="<%= tipoNorm %>"
+         data-search="<%= `${item.subjectName} ${item.commission || ''} ${item.scheduleText} ${teachersList.join(' ')}`.toLowerCase() %>">
+
+      <%# ── Card principal ── %>
+      <article class="cwCC">
+
+        <%# ── Cabecera: año + nombre ── %>
+        <div class="cwCC-head">
+          <% if (item.year) { %><span class="cwCC-year"><%= item.year %>º año</span><% } %>
+          <h3 class="cwCC-title"><%= item.subjectName %></h3>
+          <p class="cwCC-commission"><%= item.commission ? `Comisión ${item.commission}` : 'Sin comisión informada' %></p>
+        </div>
+
+        <div class="cwCC-divider"></div>
+
+        <%# ── Horarios ── %>
+        <div class="cwCC-section">
+          <p class="cwCC-label">Horarios</p>
+          <div class="cwCC-scheduleRow">
+            <% if (item.classType) { %>
+            <span class="cwCC-typePill"><%= item.classType %></span>
+            <% } %>
+            <p class="cwCC-schedule"><%= item.scheduleText || 'Sin horarios cargados.' %></p>
+          </div>
+        </div>
+
+        <%# ── Estadísticas ── %>
+        <div class="cwCC-section">
+          <p class="cwCC-label">Estadísticas</p>
+          <div class="cwCC-bars">
+            <div class="cwCC-barRow">
+              <span class="cwCC-barName">Aprobación</span>
+              <div class="cwCC-barTrack">
+                <div class="cwCC-barFill" style="width:<%= item.approvalPct %>%"></div>
+              </div>
+              <span class="cwCC-barPct <%= (approvalDisplay === 'N.I') ? 'is-ni' : '' %>"><%= approvalDisplay %></span>
+            </div>
+            <div class="cwCC-barRow">
+              <span class="cwCC-barName">Promoción</span>
+              <div class="cwCC-barTrack">
+                <div class="cwCC-barFill promo" style="width:<%= item.promotionPct %>%"></div>
+              </div>
+              <span class="cwCC-barPct <%= (promotionDisplay === 'N.I') ? 'is-ni' : '' %>"><%= promotionDisplay %></span>
+            </div>
+          </div>
+        </div>
+
+      </article>
+
+      <%# ── Card de reacciones separada ── %>
+      <% if (hasReactions) { %>
+      <div class="cwCC-reactCard">
+        <div class="cwCC-reactions"
+             data-id="<%= item.id %>"
+             data-my-reaction="<%= item.myReaction || '' %>">
+          <% (item.reactions || []).forEach(reaction => { %>
+          <button type="button"
+                  class="cwCC-reactionBtn <%= item.myReaction === reaction.emoji ? 'is-active' : '' %>"
+                  data-emoji="<%= reaction.emoji %>">
+            <span class="cwCC-reactionEmoji" data-emoji-type="<%= reaction.emoji %>"><%= reaction.emoji %></span>
+            <span class="cwCC-reactionCount"><%= reaction.count %></span>
+          </button>
+          <% }) %>
+        </div>
+      </div>
+      <% } %>
+
+      <%# ── Panel docentes — sale desde atrás del card al hover del wrapper ── %>
+      <div class="cwCC-teachersPanel" aria-hidden="true">
+        <p class="cwCC-teachersPanelLabel">Docentes</p>
+        <div class="cwCC-teachersPanelList">
+          <% if (hasTeachers) { %>
+            <% teachersList.forEach(t => { %>
+            <span class="cwCC-teachersPanelName"><%= t %></span>
+            <% }) %>
+          <% } else { %>
+            <span class="cwCC-teachersPanelEmpty">Sin información</span>
+          <% } %>
+        </div>
+      </div>
+
+    </div><%# /cwCC-wrapper %>
+
+    <% }) %>
+
+  </section>
+
+  <div class="cwCursadasBottomHint">
+    Las reacciones son anónimas · Tu voto ayuda a otros estudiantes.
+  </div>
+
+</div>
+
+<style>
+/* ── Emoji animations ── */
+@keyframes emojiWait { 0%,72%{transform:none} 78%{transform:rotate(-9deg) translateY(-1px)} 84%{transform:rotate(9deg)} 90%{transform:rotate(-4deg)} 96%,100%{transform:none} }
+@keyframes emojiLove { 0%,100%{transform:rotate(0deg) scale(1)} 20%{transform:rotate(-14deg) scale(1.12)} 45%{transform:rotate(9deg) scale(1.06)} 65%{transform:rotate(-7deg) scale(1.09)} 85%{transform:rotate(4deg) scale(1.04)} }
+@keyframes emojiFire { 0%,100%{transform:scaleY(1) scaleX(1)} 25%{transform:scaleY(1.14) scaleX(.94)} 55%{transform:scaleY(.94) scaleX(1.07)} 78%{transform:scaleY(1.1) scaleX(.96)} }
+@keyframes emojiPoop { 0%,100%{transform:rotate(0deg)} 22%{transform:rotate(-7deg)} 52%{transform:rotate(6deg)} 80%{transform:rotate(-3deg)} }
+@keyframes emojiSick { 0%,100%{transform:translateY(0) rotate(0deg)} 25%{transform:translateY(-2px) rotate(-3deg)} 55%{transform:translateY(2px) rotate(2deg)} 80%{transform:translateY(-1px)} }
+
+/* ── Panel docentes animaciones ── */
+@keyframes cwDocDown {
+  from { opacity:0; transform:translateY(-12px) scaleY(.95); }
+  to   { opacity:1; transform:translateY(0)      scaleY(1);   }
+}
+@keyframes cwDocUp {
+  from { opacity:1; transform:translateY(0)      scaleY(1);   }
+  to   { opacity:0; transform:translateY(-12px) scaleY(.95); }
+}
+
+/* ── Variables ── */
+:root {
+  --cw-accent:      #F8C160;
+  --cw-accent-glow: rgba(248,193,96,.28);
+  --cw-accent-soft: rgba(248,193,96,.14);
+  --cw-ink:         #0f172a;
+  --cw-ink-2:       rgba(15,23,42,.60);
+  --cw-ink-3:       rgba(15,23,42,.38);
+  --cw-surface:     #ffffff;
+  --cw-border:      rgba(15,23,42,.09);
+  --cw-shadow-sm:   0 1px 3px rgba(15,23,42,.08), 0 1px 0 rgba(255,255,255,.9) inset;
+  --cw-radius-pill: 999px;
+  --cw-radius-md:   14px;
+}
+
+/* ── Página ── */
+.cwPanelPage { display:flex; flex-direction:column; gap:16px; padding:0 0 24px; }
+
+/* ── Admin upload ── */
+.cwUploadCard { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr); gap:18px; border-radius:28px; padding:20px; border:1px solid var(--cw-border); background:rgba(255,255,255,.92); backdrop-filter:blur(18px); box-shadow:0 18px 42px rgba(15,23,42,.08); }
+.cwUploadCopy h2 { margin:0; font-size:clamp(1.4rem,2vw,1.8rem); font-weight:900; letter-spacing:-.03em; color:var(--cw-ink); }
+.cwEyebrow { margin:0 0 8px; font-size:.78rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#64748b; }
+.cwFormatExample { margin:14px 0 0; padding:14px; border-radius:16px; background:#0f172a; color:#e2e8f0; font-size:.82rem; line-height:1.55; white-space:pre-wrap; }
+.cwUploadForm { display:flex; flex-direction:column; justify-content:center; gap:12px; }
+.cwFileField { display:flex; flex-direction:column; gap:8px; padding:18px; border-radius:18px; border:1px dashed rgba(15,23,42,.18); background:#fff; font-weight:700; color:var(--cw-ink); }
+.cwFileField input { font-weight:500; color:#334155; }
+.cwPrimaryBtn { height:46px; border-radius:var(--cw-radius-pill); border:none; background:var(--cw-accent); font-weight:900; color:#111827; cursor:pointer; box-shadow:0 8px 20px var(--cw-accent-glow); transition:transform .12s, box-shadow .12s; }
+.cwPrimaryBtn:hover { transform:translateY(-1px); box-shadow:0 12px 28px var(--cw-accent-glow); }
+
+/* ── Switch ── */
+.cwSwitchWrap { display:flex; justify-content:center; }
+.cwSwitchBar  { display:inline-flex; gap:6px; padding:5px; border-radius:var(--cw-radius-pill); background:var(--cw-surface); border:1.5px solid var(--cw-border); box-shadow:var(--cw-shadow-sm); }
+.cwSwitchBtn  { display:inline-flex; align-items:center; justify-content:center; min-width:130px; height:40px; padding:0 22px; border-radius:var(--cw-radius-pill); font-weight:800; font-size:14px; color:var(--cw-ink-2); text-decoration:none; transition:background .18s, color .18s, box-shadow .18s; }
+.cwSwitchBtn.is-active { background:#F8C160; color:#fff; box-shadow:0 4px 12px rgba(248,193,96,.35); }
+
+/* ── Disclaimer ── */
+.cwDisclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: rgba(248, 193, 96, .10);
+  border: 1px solid rgba(248, 193, 96, .40);
+  color: #7c5a04;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+.cwDisclaimer svg { color: #b07d10; margin-top: 2px; }
+.cwDisclaimer p { margin: 0; }
+.cwDisclaimer strong { font-weight: 700; color: #7c5a04; }
+
+/* ── Top bar ── */
+.cwCursadasTop     { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.cwCursadasTopLeft { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.cwPillBox { display:inline-flex; align-items:center; gap:3px; padding:4px; background:var(--cw-surface); border:1.5px solid var(--cw-border); border-radius:var(--cw-radius-pill); box-shadow:var(--cw-shadow-sm); }
+.cwPillBtn { height:30px; padding:0 13px; border-radius:var(--cw-radius-pill); border:none; background:transparent; color:var(--cw-ink-2); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; cursor:pointer; transition:color .12s, background .12s, box-shadow .12s, transform .1s; user-select:none; }
+.cwPillBtn:hover { color:var(--cw-ink); transform:translateY(-1px); }
+.cwPillBtn.is-active { background:#F8C160; color:#fff; box-shadow:0 3px 10px rgba(248,193,96,.35); }
+.cwSearchWrap { display:flex; align-items:center; gap:8px; padding:9px 14px; min-width:200px; max-width:320px; background:var(--cw-surface); border:1.5px solid var(--cw-border); border-radius:var(--cw-radius-pill); box-shadow:var(--cw-shadow-sm); transition:border-color .15s, box-shadow .15s; }
+.cwSearchWrap:focus-within { border-color:var(--cw-accent); box-shadow:0 0 0 3px var(--cw-accent-soft); }
+.cwSearchWrap svg { flex-shrink:0; color:var(--cw-ink-3); }
+.cwSearchWrap input { flex:1; border:none; outline:none; background:transparent; font-size:13.5px; font-weight:500; color:var(--cw-ink); min-width:0; }
+.cwSearchWrap input::placeholder { color:var(--cw-ink-3); }
+
+/* ── Hint ── */
+.cwCursadasBottomHint { font-size:12px; color:var(--cw-ink-3); padding:0 2px; text-align:center; }
+
+/* ── Grid ── */
+.cwCursadasGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; }
+
+/* ────────────────────────────────────────────────
+   WRAPPER: agrupa card + react-card + panel docentes
+   ──────────────────────────────────────────────── */
+.cwCC-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* sin overflow:hidden para que el panel pueda salir por abajo */
+}
+
+/* ── Card principal ── */
+.cwCC {
+  position: relative;
+  border-radius: 18px;
+  padding: 18px;
+  border: 1px solid var(--cw-border);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 1px 0 rgba(255,255,255,.9) inset;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  cursor: pointer;
+  transition: box-shadow .22s, transform .22s;
+  z-index: 2;
+}
+.cwCC-wrapper:hover .cwCC {
+  box-shadow: 0 8px 28px rgba(15,23,42,.11);
+  transform: translateY(-2px);
+}
+
+/* ── Card de reacciones ── */
+.cwCC-reactCard {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--cw-border);
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15,23,42,.05), 0 1px 0 rgba(255,255,255,.9) inset;
+  overflow: visible;
+  padding: 0 6px 1px;
+  padding-top: 0;
+  z-index: 2;
+  transition: box-shadow .22s, transform .22s;
+}
+
+/* ── Grid de botones de reacción ── */
+.cwCC-reactions {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0,1fr));
+  gap: 0;
+}
+
+.cwCC-reactionBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* gap negativo: el emoji "flota" encima del recuadro del reactCard */
+  gap: 2px;
+  padding: 0 2px 2px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  appearance: none;
+  transition: transform .2s cubic-bezier(.34,1.6,.64,1);
+  /* permite al emoji salir por arriba del reactCard */
+  overflow: visible;
+  position: relative;
+}
+.cwCC-reactionBtn:hover {
+  transform: scale(1.28) translateY(-4px);
+  background: transparent;
+  box-shadow: none;
+  border: none;
+  z-index: 10;
+}
+.cwCC-reactionBtn.is-active {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+/* El emoji es grande y sobresale por arriba */
+.cwCC-reactionEmoji {
+  font-size: 2.1rem;
+  line-height: 1;
+  display: block;
+  transform: translateY(-10px);
+  filter: grayscale(0.7) drop-shadow(0 2px 4px rgba(0,0,0,.10));
+  transition: filter .22s ease;
+  animation-play-state: paused; /* sin animación cuando está gris */
+}
+/* Con color → animación activa */
+.cwCC-reactionBtn.is-top    .cwCC-reactionEmoji,
+.cwCC-reactionBtn.is-active .cwCC-reactionEmoji,
+.cwCC-reactionBtn:hover     .cwCC-reactionEmoji { animation-play-state: running; }
+
+.cwCC-reactionCount {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--cw-ink-3);
+  transform: translateY(-8px);
+  transition: color .22s;
+}
+
+/* ── Estados de color ──────────────────────────────
+   Por defecto: gris.
+   .is-top   = más votado → color completo + glow suave
+   .is-active = elegido por el usuario → color completo
+   hover     → color completo
+   ─────────────────────────────────────────────── */
+.cwCC-reactionBtn.is-top    .cwCC-reactionEmoji { filter: grayscale(0) drop-shadow(0 2px 8px rgba(0,0,0,.14)); }
+.cwCC-reactionBtn.is-active .cwCC-reactionEmoji { filter: grayscale(0) drop-shadow(0 2px 8px rgba(0,0,0,.14)); }
+.cwCC-reactionBtn:hover     .cwCC-reactionEmoji { filter: grayscale(0) drop-shadow(0 3px 10px rgba(0,0,0,.18)); }
+
+.cwCC-reactionBtn.is-top    .cwCC-reactionCount { color: var(--cw-accent); font-weight: 900; }
+.cwCC-reactionBtn.is-active .cwCC-reactionCount { color: var(--cw-ink); }
+
+/* Brillo pulsante para el más votado */
+@keyframes cwTopGlow {
+  0%,100% { filter: grayscale(0) drop-shadow(0 0 0px rgba(248,193,96,0)); }
+  50%     { filter: grayscale(0) drop-shadow(0 0 7px rgba(248,193,96,.70)) drop-shadow(0 2px 8px rgba(0,0,0,.12)); }
+}
+.cwCC-reactionBtn.is-top .cwCC-reactionEmoji {
+  animation-name: cwTopGlow !important;
+  animation-duration: 2.4s !important;
+  animation-timing-function: ease-in-out !important;
+  animation-iteration-count: infinite !important;
+}
+
+/* Idle animations — todas parten de translateY(-10px) */
+@keyframes emojiWait { 0%,72%{transform:translateY(-10px)} 78%{transform:translateY(-10px) rotate(-9deg)} 84%{transform:translateY(-10px) rotate(9deg)} 90%{transform:translateY(-10px) rotate(-4deg)} 96%,100%{transform:translateY(-10px)} }
+@keyframes emojiLove { 0%,100%{transform:translateY(-10px) rotate(0deg) scale(1)} 20%{transform:translateY(-12px) rotate(-14deg) scale(1.12)} 45%{transform:translateY(-10px) rotate(9deg) scale(1.06)} 65%{transform:translateY(-11px) rotate(-7deg) scale(1.09)} 85%{transform:translateY(-10px) rotate(4deg) scale(1.04)} }
+@keyframes emojiFire { 0%,100%{transform:translateY(-10px) scaleY(1) scaleX(1)} 25%{transform:translateY(-12px) scaleY(1.14) scaleX(.94)} 55%{transform:translateY(-9px) scaleY(.94) scaleX(1.07)} 78%{transform:translateY(-11px) scaleY(1.1) scaleX(.96)} }
+@keyframes emojiPoop { 0%,100%{transform:translateY(-10px) rotate(0deg)} 22%{transform:translateY(-10px) rotate(-7deg)} 52%{transform:translateY(-10px) rotate(6deg)} 80%{transform:translateY(-10px) rotate(-3deg)} }
+@keyframes emojiSick { 0%,100%{transform:translateY(-10px) rotate(0deg)} 25%{transform:translateY(-12px) rotate(-3deg)} 55%{transform:translateY(-8px) rotate(2deg)} 80%{transform:translateY(-11px)} }
+
+/* Las animaciones idle se aplican al emoji — el is-top las sobreescribe con cwTopGlow */
+.cwCC-reactionEmoji[data-emoji-type="😐"] { animation: emojiWait 4s   ease-in-out infinite; }
+.cwCC-reactionEmoji[data-emoji-type="😍"] { animation: emojiLove 2.5s ease-in-out infinite; }
+.cwCC-reactionEmoji[data-emoji-type="🔥"] { animation: emojiFire 1.2s ease-in-out infinite; }
+.cwCC-reactionEmoji[data-emoji-type="💩"] { animation: emojiPoop 3s   ease-in-out infinite; }
+.cwCC-reactionEmoji[data-emoji-type="🤮"] { animation: emojiSick 2.8s ease-in-out infinite; }
+
+/* ────────────────────────────────────────────────
+   PANEL DOCENTES
+   Vive detrás del card principal (z-index 1).
+   Al hover sube desde atrás del card hacia arriba.
+   ─────────────────────────────────────────────── */
+.cwCC-teachersPanel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* lo anclamos en la parte superior del wrapper = top del cwCC */
+  bottom: calc(100% + 10px); /* gap de 10px entre panel y card */
+  z-index: 1;
+  background: #fff;
+  border: 1px solid var(--cw-border);
+  border-radius: 16px; /* 4 esquinas redondeadas */
+  padding: 12px 16px 14px;
+  box-shadow: 0 -4px 18px rgba(15,23,42,.08), 0 4px 12px rgba(15,23,42,.05);
+  opacity: 0;
+  transform: translateY(calc(100% + 10px));
+  pointer-events: none;
+  transition:
+    opacity   .26s cubic-bezier(.4,0,.2,1),
+    transform .30s cubic-bezier(.34,1.1,.64,1);
+}
+
+.cwCC-wrapper:hover .cwCC-teachersPanel {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.cwCC-teachersPanelLabel {
+  margin: 0 0 7px;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--cw-ink-3);
+}
+.cwCC-teachersPanelList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.cwCC-teachersPanelName {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: var(--cw-radius-pill);
+  background: rgba(248,193,96,.12);
+  border: 1px solid rgba(248,193,96,.30);
+  color: #8a5c08;
+}
+.cwCC-teachersPanelEmpty {
+  font-size: 11px;
+  font-style: italic;
+  color: var(--cw-ink-3);
+  padding: 2px 0;
+}
+
+/* ── Cabecera ── */
+.cwCC-head  { display:flex; flex-direction:column; gap:4px; }
+.cwCC-year  { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--cw-ink-3); }
+.cwCC-title { margin:0; font-size:.95rem; font-weight:800; letter-spacing:-.025em; color:var(--cw-ink); line-height:1.3; }
+.cwCC-commission { margin:0; font-size:.82rem; font-weight:800; color:#b45309; line-height:1.2; }
+
+/* Divisor */
+.cwCC-divider { height:1px; background:var(--cw-border); }
+
+/* Secciones */
+.cwCC-section { display:flex; flex-direction:column; gap:8px; }
+.cwCC-label   { margin:0; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--cw-ink-3); }
+
+/* Horario */
+.cwCC-scheduleRow { display:flex; flex-direction:column; gap:6px; }
+.cwCC-typePill    { display:inline-flex; align-self:flex-start; padding:3px 10px; border-radius:var(--cw-radius-pill); background:#fff7ed; border:1px solid rgba(245,158,11,.25); font-size:10.5px; font-weight:800; color:#b45309; text-transform:uppercase; letter-spacing:.06em; }
+.cwCC-schedule    { margin:0; font-size:12.5px; line-height:1.55; color:var(--cw-ink-2); }
+
+/* Barras */
+.cwCC-bars    { display:flex; flex-direction:column; gap:7px; }
+.cwCC-barRow  { display:flex; align-items:center; gap:8px; }
+.cwCC-barName  { font-size:12px; font-weight:600; color:var(--cw-ink-2); width:72px; flex-shrink:0; }
+.cwCC-barTrack { flex:1; height:5px; border-radius:var(--cw-radius-pill); background:rgba(15,23,42,.08); overflow:hidden; }
+.cwCC-barFill  { height:100%; border-radius:inherit; background:linear-gradient(90deg,#fbbf24,#f59e0b); }
+.cwCC-barFill.promo { background:linear-gradient(90deg,#4ade80,#16a34a); }
+.cwCC-barPct   { font-size:11px; font-weight:800; color:var(--cw-ink); width:32px; text-align:right; flex-shrink:0; }
+.cwCC-barPct.is-ni { font-size:10px; font-weight:700; color:var(--cw-ink-3); letter-spacing:.04em; }
+
+/* Empty state */
+.cwEmptyState { grid-column:1/-1; text-align:center; padding:40px 24px; background:transparent; border:none; box-shadow:none; border-radius:18px; }
+.cwEmptyState h3 { margin:0 0 10px; font-size:1.15rem; font-weight:900; color:var(--cw-ink); }
+.cwEmptyState p  { margin:0; color:#475569; }
+
+/* ── Responsive ── */
+@media(max-width:1100px) {
+  .cwCursadasGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .cwUploadCard   { grid-template-columns:1fr; }
+}
+@media(max-width:720px) {
+  .cwCursadasGrid  { grid-template-columns:1fr; }
+  .cwSwitchWrap    { width:100%; }
+  .cwSwitchBar     { width:100%; }
+  .cwSwitchBtn     { flex:1; min-width:0; }
+  .cwCursadasTop   { flex-direction:column; align-items:stretch; }
+  .cwSearchWrap    { max-width:100%; min-width:0; }
+  .cwPillBox       { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .cwPillBox::-webkit-scrollbar { display:none; }
+  .cwPillBtn       { flex:0 0 auto; height:36px; }
+}
+
+/* ── Dark mode ── */
+html.cw-dark {
+  --cw-surface: rgba(28,28,30,1);      /* iOS dark systemBackground */
+  --cw-border:  rgba(255,255,255,.08);
+  --cw-ink:     rgba(242,242,247,.96); /* iOS label */
+  --cw-ink-2:   rgba(174,174,178,.92); /* iOS secondaryLabel */
+  --cw-ink-3:   rgba(99,99,102,.95);   /* iOS tertiaryLabel */
+}
+
+/* ── Switch Cursadas/Finales ── */
+html.cw-dark .cwSwitchBar {
+  background: transparent !important;
+  border-color: rgba(255,255,255,.15) !important;
+  box-shadow: none !important;
+}
+html.cw-dark .cwSwitchBtn { color: rgba(174,174,178,.9) !important; }
+html.cw-dark .cwSwitchBtn:hover { color: rgba(242,242,247,.96) !important; }
+html.cw-dark .cwSwitchBtn.is-active {
+  background: #F8C160 !important;
+  color: #1c1c1e !important;
+  box-shadow: 0 2px 10px rgba(248,193,96,.30) !important;
+}
+
+/* ── PillBoxes (años + tipo) ── */
+html.cw-dark .cwPillBox {
+  background: transparent !important;
+  border-color: rgba(255,255,255,.15) !important;
+  box-shadow: none !important;
+}
+html.cw-dark .cwPillBtn { color: rgba(174,174,178,.9) !important; }
+html.cw-dark .cwPillBtn:hover { color: rgba(242,242,247,.96) !important; background: rgba(255,255,255,.06) !important; }
+html.cw-dark .cwPillBtn.is-active {
+  background: #F8C160 !important;
+  color: #1c1c1e !important;
+  box-shadow: 0 2px 8px rgba(248,193,96,.28) !important;
+}
+
+/* ── Barra de búsqueda ── */
+html.cw-dark .cwSearchWrap {
+  background: transparent !important;
+  border-color: rgba(255,255,255,.15) !important;
+  box-shadow: none !important;
+}
+html.cw-dark .cwSearchWrap:focus-within {
+  border-color: rgba(248,193,96,.55) !important;
+  box-shadow: 0 0 0 3px rgba(248,193,96,.10) !important;
+}
+html.cw-dark .cwSearchWrap svg { color: rgba(99,99,102,.9) !important; }
+html.cw-dark .cwSearchWrap input { color: rgba(242,242,247,.96) !important; }
+html.cw-dark .cwSearchWrap input::placeholder { color: rgba(99,99,102,.9) !important; }
+
+/* ── Cards ── */
+html.cw-dark .cwUploadCard  { background:rgba(28,28,30,.96)!important; border-color:rgba(255,255,255,.08)!important; box-shadow:0 20px 44px rgba(0,0,0,.4)!important; }
+html.cw-dark .cwUploadCopy h2 { color:rgba(242,242,247,.96)!important; }
+html.cw-dark .cwFileField   { background:rgba(44,44,46,.8)!important; border-color:rgba(255,255,255,.10)!important; color:rgba(242,242,247,.96)!important; }
+html.cw-dark .cwCC,
+html.cw-dark .cwCC-reactCard { background:rgba(28,28,30,.97)!important; border-color:rgba(255,255,255,.08)!important; box-shadow:0 1px 3px rgba(0,0,0,.4)!important; }
+html.cw-dark .cwCC-wrapper:hover .cwCC,
+html.cw-dark .cwCC-wrapper:hover .cwCC-reactCard { box-shadow:0 8px 28px rgba(0,0,0,.55)!important; }
+html.cw-dark .cwCC-title     { color:rgba(242,242,247,.96)!important; }
+html.cw-dark .cwCC-year,
+html.cw-dark .cwCC-label { color:rgba(99,99,102,.95)!important; }
+html.cw-dark .cwCC-commission { color:#f8c160!important; }
+html.cw-dark .cwCC-divider   { background:rgba(255,255,255,.07)!important; }
+html.cw-dark .cwCC-schedule  { color:rgba(174,174,178,.92)!important; }
+html.cw-dark .cwCC-typePill  { background:rgba(245,158,11,.10)!important; color:#f8c160!important; border-color:rgba(245,158,11,.20)!important; }
+html.cw-dark .cwCC-barName   { color:rgba(174,174,178,.92)!important; }
+html.cw-dark .cwCC-barTrack  { background:rgba(255,255,255,.09)!important; }
+html.cw-dark .cwCC-barPct    { color:rgba(242,242,247,.96)!important; }
+html.cw-dark .cwCC-reactionBtn { background:transparent!important; border:none!important; box-shadow:none!important; }
+html.cw-dark .cwCC-reactionBtn:hover { background:transparent!important; }
+html.cw-dark .cwCC-reactionCount { color:rgba(99,99,102,.95)!important; }
+html.cw-dark .cwCC-reactionBtn.is-top .cwCC-reactionCount { color:#f8c160!important; }
+html.cw-dark .cwCC-reactionBtn.is-active .cwCC-reactionCount { color:rgba(242,242,247,.96)!important; }
+html.cw-dark .cwCursadasBottomHint { color:rgba(99,99,102,.9)!important; }
+html.cw-dark .cwEmptyState p { color:rgba(174,174,178,.92)!important; }
+html.cw-dark .cwCC-teachersPanel { background:rgba(28,28,30,.97)!important; border-color:rgba(255,255,255,.08)!important; box-shadow:0 -6px 20px rgba(0,0,0,.4)!important; }
+html.cw-dark .cwCC-teachersPanelName { background:rgba(248,193,96,.09)!important; border-color:rgba(248,193,96,.18)!important; color:#f8c160!important; }
+html.cw-dark .cwCC-teachersPanelLabel { color:rgba(99,99,102,.95)!important; }
+html.cw-dark .cwCC-teachersPanelEmpty { color:rgba(99,99,102,.95)!important; }
+</style>
+
+<script>
+(function(){
+  const search   = document.getElementById('cwCursadasSearch');
+  const wrappers = Array.from(document.querySelectorAll('.cwCC-wrapper'));
+  const allowed  = new Set(['💩','🤮','😐','😍','🔥']);
+
+  let YEAR_FILTER = 'all';
+  let TIPO_FILTER = 'all';
+  let SEARCH_Q    = '';
+
+  function applyFilters(){
+    wrappers.forEach(w => {
+      const yearOk   = YEAR_FILTER === 'all' || String(w.dataset.year) === YEAR_FILTER;
+      const tipoOk   = TIPO_FILTER === 'all' || (w.dataset.tipo || '').includes(TIPO_FILTER);
+      const hay      = (w.dataset.search || '').toLowerCase();
+      const searchOk = !SEARCH_Q || hay.includes(SEARCH_Q);
+      w.style.display = (yearOk && tipoOk && searchOk) ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll('.cwPillBtn[data-year]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cwPillBtn[data-year]').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      YEAR_FILTER = btn.dataset.year;
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll('.cwPillBtn[data-tipo]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cwPillBtn[data-tipo]').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      TIPO_FILTER = btn.dataset.tipo;
+      applyFilters();
+    });
+  });
+
+  search?.addEventListener('input', () => {
+    SEARCH_Q = search.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  /* ── Panel docentes: z-index dinámico para no quedar tapado ── */
+  wrappers.forEach(w => {
+    w.addEventListener('mouseenter', () => { w.style.zIndex = '50'; });
+    w.addEventListener('mouseleave', () => { setTimeout(() => { w.style.zIndex = ''; }, 320); });
+  });
+
+  /* ── Marcar el emoji más votado con .is-top ── */
+  function updateTopEmoji(box) {
+    let maxCount = -1;
+    let topBtn   = null;
+    box.querySelectorAll('.cwCC-reactionBtn').forEach(b => {
+      const n = parseInt(b.querySelector('.cwCC-reactionCount')?.textContent, 10) || 0;
+      if (n > maxCount) { maxCount = n; topBtn = b; }
+    });
+    box.querySelectorAll('.cwCC-reactionBtn').forEach(b => b.classList.remove('is-top'));
+    if (topBtn && maxCount > 0) topBtn.classList.add('is-top');
+  }
+
+  /* Inicializar al cargar */
+  document.querySelectorAll('.cwCC-reactions').forEach(box => updateTopEmoji(box));
+
+  /* ── Reacciones con actualización optimista inmediata ── */
+  document.querySelectorAll('.cwCC-reactions').forEach(box => {
+    box.querySelectorAll('.cwCC-reactionBtn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const emoji = btn.getAttribute('data-emoji');
+        if (!allowed.has(emoji)) return;
+
+        /* ── Optimistic update: cambio inmediato en UI ── */
+        const prevReaction = box.getAttribute('data-my-reaction') || '';
+        const isToggleOff  = prevReaction === emoji;
+        const newReaction  = isToggleOff ? '' : emoji;
+
+        box.querySelectorAll('.cwCC-reactionBtn').forEach(b => {
+          const bEmoji   = b.getAttribute('data-emoji');
+          const countEl  = b.querySelector('.cwCC-reactionCount');
+          const wasActive = bEmoji === prevReaction;
+          const willBeActive = bEmoji === newReaction;
+
+          b.classList.toggle('is-active', willBeActive);
+
+          if (countEl) {
+            let n = parseInt(countEl.textContent, 10) || 0;
+            if (wasActive && !willBeActive)  n = Math.max(0, n - 1);
+            if (!wasActive && willBeActive)  n = n + 1;
+            countEl.textContent = n;
+          }
+        });
+        box.setAttribute('data-my-reaction', newReaction);
+        updateTopEmoji(box);
+
+        /* ── Sync con servidor en background ── */
+        try {
+          const id  = box.getAttribute('data-id');
+          const res = await fetch(`/app/cursadas/${id}/react`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({ emoji })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.ok) throw new Error(data.error || 'Error');
+          /* Reconciliar con conteos reales del servidor */
+          box.setAttribute('data-my-reaction', data.myReaction || '');
+          box.querySelectorAll('.cwCC-reactionBtn').forEach(b => {
+            b.classList.toggle('is-active', b.getAttribute('data-emoji') === data.myReaction);
+            const countEl = b.querySelector('.cwCC-reactionCount');
+            const key = b.getAttribute('data-emoji');
+            if (countEl && key in data.counts) countEl.textContent = data.counts[key];
+          });
+          updateTopEmoji(box);
+        } catch(err) {
+          /* Revertir si falla */
+          box.setAttribute('data-my-reaction', prevReaction);
+          box.querySelectorAll('.cwCC-reactionBtn').forEach(b => {
+            b.classList.toggle('is-active', b.getAttribute('data-emoji') === prevReaction);
+          });
+          updateTopEmoji(box);
+          console.warn('Reaction sync failed:', err);
+        }
+      });
+    });
+  });
+
+})();
+</script>

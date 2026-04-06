@@ -1,0 +1,24 @@
+<div class="max-w-md mx-auto mt-10 card glass p-6">
+  <h1 class="text-2xl font-semibold mb-4">Crear cuenta</h1>
+  <form method="POST" action="/register" class="space-y-3">
+    <input class="w-full search" name="name" placeholder="Nombre" required />
+    <input class="w-full search" type="email" name="email" placeholder="Email" required />
+    <input class="w-full search" type="password" name="password" placeholder="Contraseña" required />
+
+    <div class="grid grid-cols-2 gap-3">
+      <select class="search" name="career" required>
+        <option value="">Carrera</option>
+        <option value="Administracion">Lic. en Administración de Empresas</option>
+        <option value="Economia">Lic. en Economía</option>
+        <option value="Contabilidad">Contabilidad</option>
+      </select>
+      <select class="search" name="plan" required>
+        <option value="">Plan</option>
+        <option value="7">Plan 7</option>
+        <option value="8">Plan 8</option>
+      </select>
+    </div>
+
+    <button class="btn w-full">Crear cuenta</button>
+  </form>
+</div>

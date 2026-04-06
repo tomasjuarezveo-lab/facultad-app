@@ -1,0 +1,864 @@
+<% const finalsData = Array.isArray(finals) ? finals : []; %>
+
+<div class="cwPanelPage">
+
+  <%# ── Admin: carga masiva ── %>
+  <% if (user && user.role === 'admin') { %>
+  <section class="cwUploadCard">
+    <div class="cwUploadCopy">
+      <p class="cwEyebrow">Carga masiva</p>
+      <h2>Actualizar Finales desde un .txt</h2>
+      <p>El archivo nuevo reemplaza toda la información anterior de <strong>Finales</strong> y se muestra igual para todos los usuarios.</p>
+      <pre class="cwFormatExample">Materia: Administración I
+Año: 1
+Regular: Se rinde con 2 partes escritas y oral final.
+Libre: Se rinde con escrito integrador y defensa oral.
+Rinde libre: Sí
+% Aprobación regular: 68
+% Aprobación libre: 29
+Unidades probables: Unidad 2 | Unidad 5 | Unidad 1 | Unidad 4 | Unidad 7
+Mejores meses: Julio | Agosto
+Peores meses: Diciembre | Febrero
+---</pre>
+    </div>
+    <form class="cwUploadForm" method="POST" action="/admin/finales/upload" enctype="multipart/form-data">
+      <label class="cwFileField">
+        <span>Seleccionar archivo .txt</span>
+        <input type="file" name="finalesFile" accept=".txt,text/plain" required>
+      </label>
+      <button type="submit" class="cwPrimaryBtn">Reemplazar finales</button>
+    </form>
+  </section>
+  <% } %>
+
+  <%# ── Switch Finales / Cursadas ── %>
+  <div class="cwSwitchWrap">
+    <section class="cwSwitchBar" aria-label="Cambiar sección">
+      <a href="/app/finales"  class="cwSwitchBtn is-active">Finales</a>
+      <a href="/app/cursadas" class="cwSwitchBtn">Cursadas</a>
+    </section>
+  </div>
+
+  <%# ── Disclaimer ── %>
+  <div class="cwDisclaimer">
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <p><strong>Los porcentajes y datos son estimaciones orientativas.</strong> Pueden no reflejar la realidad actual y varían según la comisión, el docente y el cuatrimestre. No nos responsabilizamos por decisiones tomadas en base a esta información — usala como referencia, no como dato oficial.</p>
+  </div>
+
+  <%# ── Barra de filtros iOS-pill + búsqueda ── %>
+  <div class="cwFinalesTop">
+    <div class="cwFinalesTopLeft">
+
+      <div class="cwPillBox" aria-label="Filtrar por año">
+        <button type="button" class="cwPillBtn is-active" data-year="all">Todos</button>
+        <button type="button" class="cwPillBtn" data-year="1">1º</button>
+        <button type="button" class="cwPillBtn" data-year="2">2º</button>
+        <button type="button" class="cwPillBtn" data-year="3">3º</button>
+        <button type="button" class="cwPillBtn" data-year="4">4º</button>
+        <button type="button" class="cwPillBtn" data-year="5">5º</button>
+      </div>
+
+      <div class="cwPillBox" aria-label="Filtrar por modalidad">
+        <button type="button" class="cwPillBtn is-active" data-mode="all">Todos</button>
+        <button type="button" class="cwPillBtn" data-mode="libre">Libre</button>
+        <button type="button" class="cwPillBtn" data-mode="regular">Regular</button>
+      </div>
+
+    </div>
+
+    <div class="cwSearchWrap">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none"
+           viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+           aria-hidden="true" focusable="false">
+        <path stroke-linecap="round" stroke-linejoin="round"
+              d="M21 21l-4.35-4.35M17 10.5a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"/>
+      </svg>
+      <input id="cwFinalesSearch" type="text" placeholder="Buscar materia…"
+             autocomplete="off" spellcheck="false">
+    </div>
+  </div>
+
+  <%# ── Grid de cards ── %>
+  <section id="cwFinalesGrid" class="cwFinalesGrid">
+
+    <% if (!finalsData.length) { %>
+    <article class="cwEmptyState">
+      <h3>Todavía no hay finales cargados</h3>
+      <p>Cuando el administrador suba el archivo .txt, acá vas a ver las materias, condiciones y probabilidades.</p>
+    </article>
+    <% } %>
+
+    <% finalsData.forEach((item, idx) => {
+         const yearNum = parseInt(item.year) || 0;
+         const unitNums = (item.topUnits || []).map(u => {
+           const m = String(u).match(/\d+/);
+           return m ? m[0] : String(u);
+         });
+         const hasExtra = unitNums.length || (item.bestMonths||[]).length || (item.worstMonths||[]).length;
+    %>
+
+    <%# Wrapper posicional — el panel flota fuera sin afectar la altura de la fila %>
+    <div class="cwFC-wrapper"
+         data-year="<%= yearNum %>"
+         data-allows-libre="<%= item.allowsLibre ? '1' : '0' %>"
+         data-search="<%= `${item.subjectName} ${(item.topUnits||[]).join(' ')} ${(item.bestMonths||[]).join(' ')} ${(item.worstMonths||[]).join(' ')}`.toLowerCase() %>">
+
+      <%# SVG dos libros — FUERA del article, en el wrapper, para quedar detrás del card ── %>
+      <div class="cwFC-bookDrop" aria-hidden="true">
+        <div class="cwFC-bookLeft">
+          <svg version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" xml:space="preserve">
+            <path style="fill:#C61C31;" d="M440,16h-96v496h96c17.672,0,32-14.328,32-32V48C472,30.328,457.672,16,440,16z"/>
+            <path style="fill:#B4172B;" d="M344,496h72c0,8.84-7.16,16-16,16h-56V496z"/>
+            <path style="fill:#E2E7F0;" d="M432,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C456,42.744,445.256,32,432,32z"/>
+            <path style="fill:#E2E7F0;" d="M416,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C440,42.744,429.256,32,416,32z"/>
+            <path style="fill:#C9D5E3;" d="M400,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C424,42.744,413.256,32,400,32z"/>
+            <path style="fill:#DE333F;" d="M408,480c0,17.672-14.328,32-32,32H56c-8.84,0-16-7.16-16-16V32c0-8.84,7.16-16,16-16h320c17.672,0,32,14.328,32,32V480z"/>
+            <path style="fill:#F19920;" d="M336,0c-8.84,0-16,7.16-16,16h32C352,7.16,344.84,0,336,0z"/>
+            <path style="fill:#F6B545;" d="M336,0h-80c-8.84,0-16,7.16-16,16v112l40-16l40,16V16C320,7.16,327.16,0,336,0z"/>
+            <path style="fill:#C61C31;" d="M152,336h176c4.416,0,8,3.584,8,8c0,4.416-3.584,8-8,8H152c-4.416,0-8-3.584-8-8C144,339.584,147.584,336,152,336z"/>
+            <path style="fill:#C61C31;" d="M184,368h112c4.416,0,8,3.584,8,8c0,4.416-3.584,8-8,8H184c-4.416,0-8-3.584-8-8C176,371.584,179.584,368,184,368z"/>
+            <path style="fill:#C61C31;" d="M288,296v-16c0-20.56-23.44-24-32-32h-32c-8.56,8-32,11.44-32,32v16H288z"/>
+            <circle style="fill:#C61C31;" cx="240" cy="208" r="24"/>
+            <path style="fill:#C61C31;" d="M56,16h24v496H56c-8.84,0-16-7.16-16-16V32C40,23.16,47.16,16,56,16z"/>
+            <path style="fill:#C61C31;" d="M392,64v416c0,8.84-7.16,16-16,16H128c-8.84,0-16,7.16-16,16h264c17.672,0,32-14.328,32-32V48C399.16,48,392,55.16,392,64z"/>
+            <rect x="80" y="16" style="fill:#B4172B;" width="16" height="496"/>
+          </svg>
+        </div>
+        <div class="cwFC-bookRight">
+          <svg version="1.1" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" xml:space="preserve">
+            <path style="fill:#C61C31;" d="M440,16h-96v496h96c17.672,0,32-14.328,32-32V48C472,30.328,457.672,16,440,16z"/>
+            <path style="fill:#B4172B;" d="M344,496h72c0,8.84-7.16,16-16,16h-56V496z"/>
+            <path style="fill:#E2E7F0;" d="M432,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C456,42.744,445.256,32,432,32z"/>
+            <path style="fill:#E2E7F0;" d="M416,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C440,42.744,429.256,32,416,32z"/>
+            <path style="fill:#C9D5E3;" d="M400,32h-16c13.256,0,24,10.744,24,24v416c0,13.256-10.744,24-24,24h16c13.256,0,24-10.744,24-24V56C424,42.744,413.256,32,400,32z"/>
+            <path style="fill:#DE333F;" d="M408,480c0,17.672-14.328,32-32,32H56c-8.84,0-16-7.16-16-16V32c0-8.84,7.16-16,16-16h320c17.672,0,32,14.328,32,32V480z"/>
+            <path style="fill:#F19920;" d="M336,0c-8.84,0-16,7.16-16,16h32C352,7.16,344.84,0,336,0z"/>
+            <path style="fill:#F6B545;" d="M336,0h-80c-8.84,0-16,7.16-16,16v112l40-16l40,16V16C320,7.16,327.16,0,336,0z"/>
+            <path style="fill:#C61C31;" d="M152,336h176c4.416,0,8,3.584,8,8c0,4.416-3.584,8-8,8H152c-4.416,0-8-3.584-8-8C144,339.584,147.584,336,152,336z"/>
+            <path style="fill:#C61C31;" d="M184,368h112c4.416,0,8,3.584,8,8c0,4.416-3.584,8-8,8H184c-4.416,0-8-3.584-8-8C176,371.584,179.584,368,184,368z"/>
+            <path style="fill:#C61C31;" d="M288,296v-16c0-20.56-23.44-24-32-32h-32c-8.56,8-32,11.44-32,32v16H288z"/>
+            <circle style="fill:#C61C31;" cx="240" cy="208" r="24"/>
+            <path style="fill:#C61C31;" d="M56,16h24v496H56c-8.84,0-16-7.16-16-16V32C40,23.16,47.16,16,56,16z"/>
+            <path style="fill:#C61C31;" d="M392,64v416c0,8.84-7.16,16-16,16H128c-8.84,0-16,7.16-16,16h264c17.672,0,32-14.328,32-32V48C399.16,48,392,55.16,392,64z"/>
+            <rect x="80" y="16" style="fill:#B4172B;" width="16" height="496"/>
+          </svg>
+        </div>
+      </div>
+
+      <article class="cwFinalCard">
+
+        <%# ── Cabecera ── %>
+        <div class="cwFC-head">
+          <% if (item.year) { %><span class="cwFC-year"><%= item.year %>º año</span><% } %>
+          <h3 class="cwFC-title"><%= item.subjectName %></h3>
+        </div>
+
+        <div class="cwFC-divider"></div>
+
+        <%# ── % Aprobación ── %>
+        <div class="cwFC-section">
+          <p class="cwFC-label">% de aprobación</p>
+          <div class="cwFC-bars">
+            <div class="cwFC-barRow">
+              <span class="cwFC-barName">Regular</span>
+              <div class="cwFC-barTrack">
+                <div class="cwFC-barFill" style="width:<%= item.probRegular %>%"></div>
+              </div>
+              <span class="cwFC-barPct"><%= item.probRegular %>%</span>
+            </div>
+            <% if (item.allowsLibre) { %>
+            <div class="cwFC-barRow">
+              <span class="cwFC-barName">Libre</span>
+              <div class="cwFC-barTrack">
+                <div class="cwFC-barFill libre" style="width:<%= item.probLibre %>%"></div>
+              </div>
+              <span class="cwFC-barPct"><%= item.probLibre %>%</span>
+            </div>
+            <% } %>
+          </div>
+        </div>
+
+        <%# ── Botones modalidad ── %>
+        <div class="cwFC-actions">
+          <button type="button" class="cwFC-btn"
+                  data-id="<%= item.id %>"
+                  data-mode="regular">
+            Cómo es regular
+          </button>
+          <% if (item.allowsLibre) { %>
+          <button type="button" class="cwFC-btn libre"
+                  data-id="<%= item.id %>"
+                  data-mode="libre">
+            Cómo es libre
+          </button>
+          <% } %>
+        </div>
+
+        <%# ── Toggle expandible ── %>
+        <% if (hasExtra) { %>
+        <div class="cwFC-expandToggle" role="button" tabindex="0" aria-expanded="false" aria-label="Ver más información">
+          <span class="cwFC-toggleText is-open">Ver más info</span>
+          <span class="cwFC-toggleText is-close">Cerrar</span>
+          <svg class="cwFC-toggleChevron" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M3 5l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <% } %>
+
+      </article>
+
+      <%# ── Panel expandible — FUERA del article, dentro del wrapper ── %>
+      <% if (hasExtra) { %>
+      <div class="cwFC-expandPanel">
+        <div class="cwFC-expandPanelInner">
+
+          <% if (unitNums.length) { %>
+          <div class="cwFC-section">
+            <p class="cwFC-label">Unidades más repetidas</p>
+            <div class="cwFC-units">
+              <% unitNums.forEach((n, i) => { %>
+              <div class="cwFC-unitRow rank-<%= i+1 %>">
+                <span class="cwFC-unitBadge">#<%= i+1 %></span>
+                <span class="cwFC-unitName">Unidad <%= n %></span>
+                <div class="cwFC-unitBar">
+                  <div class="cwFC-unitBarFill rank-<%= i+1 %>" style="width:<%= Math.max(100 - i*18, 20) %>%"></div>
+                </div>
+              </div>
+              <% }) %>
+            </div>
+          </div>
+          <% } %>
+
+          <% if ((item.bestMonths||[]).length || (item.worstMonths||[]).length) { %>
+          <div class="cwFC-section">
+            <p class="cwFC-label">Meses para rendir</p>
+            <div class="cwFC-monthsGrid">
+              <div class="cwFC-monthCol">
+                <% if ((item.bestMonths||[]).length) { %>
+                <span class="cwFC-monthColLabel good">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M5 8.5V1.5M2 4.5l3-3 3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Mejores
+                </span>
+                <div class="cwFC-monthTags">
+                  <% (item.bestMonths||[]).forEach(m => { %><span class="cwFC-monthTag good"><%= m %></span><% }) %>
+                </div>
+                <% } %>
+              </div>
+              <div class="cwFC-monthDivider"></div>
+              <div class="cwFC-monthCol">
+                <% if ((item.worstMonths||[]).length) { %>
+                <span class="cwFC-monthColLabel bad">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M5 1.5v7M2 5.5l3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Peores
+                </span>
+                <div class="cwFC-monthTags">
+                  <% (item.worstMonths||[]).forEach(m => { %><span class="cwFC-monthTag bad"><%= m %></span><% }) %>
+                </div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+          <% } %>
+
+        </div>
+      </div>
+      <% } %>
+
+    </div><%# ── fin cwFC-wrapper ── %>
+    <% }) %>
+
+  </section>
+
+  <div class="cwFinalesBottomHint">
+    Tocá <span class="cwHintChip">Libre</span> o <span class="cwHintChip">Regular</span> en cada card para ver las condiciones del final.
+  </div>
+
+</div>
+
+<%# ── Modal ── %>
+<div id="cwInfoModal" class="cwModal hidden" aria-hidden="true">
+  <div class="cwModalBackdrop" data-close="1"></div>
+  <div class="cwModalCard">
+    <button type="button" class="cwModalClose" data-close="1" aria-label="Cerrar">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <p id="cwModalMode" class="cwEyebrow"></p>
+    <h3 id="cwModalTitle"></h3>
+    <div id="cwModalBody" class="cwModalBody"></div>
+  </div>
+</div>
+
+<script id="cwFinalesPayload" type="application/json"><%- JSON.stringify(finalsData || []).replace(/<\//g, '<\\/') %></script>
+
+<style>
+@keyframes cwPop {
+  0%   { opacity:0; transform:scale(.97) translateY(10px); }
+  100% { opacity:1; transform:scale(1)   translateY(0); }
+}
+@keyframes cwFadeIn { from{opacity:0} to{opacity:1} }
+@keyframes cwBooksUp   { from { opacity:0; transform:translateY(28px) scale(.92); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes cwBooksDown { from { opacity:1; transform:translateY(0) scale(1); } to { opacity:0; transform:translateY(28px) scale(.92); } }
+@keyframes cwExpandIn  { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+:root {
+  --cw-accent:      #F8C160;
+  --cw-accent-dark: #e0a435;
+  --cw-accent-glow: rgba(248,193,96,.28);
+  --cw-accent-soft: rgba(248,193,96,.14);
+  --cw-ink:         #0f172a;
+  --cw-ink-2:       rgba(15,23,42,.60);
+  --cw-ink-3:       rgba(15,23,42,.38);
+  --cw-surface:     #ffffff;
+  --cw-border:      rgba(15,23,42,.09);
+  --cw-shadow-sm:   0 1px 3px rgba(15,23,42,.08), 0 1px 0 rgba(255,255,255,.9) inset;
+  --cw-radius-pill: 999px;
+  --cw-radius-md:   14px;
+  --cw-radius-lg:   18px;
+  --cw-card-bg:     #ffffff;
+}
+
+.cwPanelPage { display:flex; flex-direction:column; gap:16px; padding:0 0 24px; }
+
+/* ── Admin upload ── */
+.cwUploadCard { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(280px,.7fr); gap:18px; border-radius:28px; padding:20px; border:1px solid var(--cw-border); background:rgba(255,255,255,.92); backdrop-filter:blur(18px); box-shadow:0 18px 42px rgba(15,23,42,.08); }
+.cwUploadCopy h2 { margin:0; font-size:clamp(1.4rem,2vw,1.8rem); font-weight:900; letter-spacing:-.03em; color:var(--cw-ink); }
+.cwEyebrow { margin:0 0 8px; font-size:.78rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#64748b; }
+.cwFormatExample { margin:14px 0 0; padding:14px; border-radius:16px; background:#0f172a; color:#e2e8f0; font-size:.82rem; line-height:1.55; white-space:pre-wrap; }
+.cwUploadForm { display:flex; flex-direction:column; justify-content:center; gap:12px; }
+.cwFileField { display:flex; flex-direction:column; gap:8px; padding:18px; border-radius:18px; border:1px dashed rgba(15,23,42,.18); background:#fff; font-weight:700; color:var(--cw-ink); }
+.cwFileField input { font-weight:500; color:#334155; }
+.cwPrimaryBtn { height:46px; border-radius:var(--cw-radius-pill); border:none; background:var(--cw-accent); font-weight:900; color:#fff; cursor:pointer; box-shadow:0 8px 20px var(--cw-accent-glow); transition:transform .12s, box-shadow .12s; }
+.cwPrimaryBtn:hover { transform:translateY(-1px); box-shadow:0 12px 28px var(--cw-accent-glow); }
+
+/* ── Switch ── */
+.cwSwitchWrap { display:flex; justify-content:center; }
+.cwSwitchBar { display:inline-flex; gap:6px; padding:5px; border-radius:var(--cw-radius-pill); background:var(--cw-surface); border:1.5px solid var(--cw-border); box-shadow:var(--cw-shadow-sm); }
+
+/* ── Disclaimer ── */
+.cwDisclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 16px;
+  border-radius: 12px;
+  background: rgba(248, 193, 96, .10);
+  border: 1px solid rgba(248, 193, 96, .40);
+  color: #7c5a04;
+  font-size: .82rem;
+  line-height: 1.5;
+}
+.cwDisclaimer svg { color: #b07d10; margin-top: 2px; }
+.cwDisclaimer p { margin: 0; }
+.cwDisclaimer strong { font-weight: 700; color: #7c5a04; }
+.cwSwitchBtn { display:inline-flex; align-items:center; justify-content:center; min-width:130px; height:40px; padding:0 22px; border-radius:var(--cw-radius-pill); font-weight:800; font-size:14px; color:var(--cw-ink-2); text-decoration:none; transition:background .18s, color .18s, box-shadow .18s; }
+.cwSwitchBtn.is-active { background:var(--cw-accent); color:#fff; box-shadow:0 4px 12px var(--cw-accent-glow); }
+
+/* ── Top bar ── */
+.cwFinalesTop { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.cwFinalesTopLeft { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.cwPillBox { display:inline-flex; align-items:center; gap:3px; padding:4px; background:var(--cw-surface); border:1.5px solid var(--cw-border); border-radius:var(--cw-radius-pill); box-shadow:var(--cw-shadow-sm); }
+.cwPillBtn { height:30px; padding:0 13px; border-radius:var(--cw-radius-pill); border:none; background:transparent; color:var(--cw-ink-2); font-weight:700; font-size:13px; letter-spacing:-.01em; white-space:nowrap; cursor:pointer; transition:color .12s, background .12s, box-shadow .12s, transform .1s; user-select:none; }
+.cwPillBtn:hover { color:var(--cw-ink); transform:translateY(-1px); }
+.cwPillBtn.is-active { background:var(--cw-accent); color:#fff; box-shadow:0 3px 10px var(--cw-accent-glow); }
+.cwSearchWrap { display:flex; align-items:center; gap:8px; padding:9px 14px; min-width:200px; max-width:300px; background:var(--cw-surface); border:1.5px solid var(--cw-border); border-radius:var(--cw-radius-pill); box-shadow:var(--cw-shadow-sm); transition:border-color .15s, box-shadow .15s; }
+.cwSearchWrap:focus-within { border-color:var(--cw-accent); box-shadow:0 0 0 3px var(--cw-accent-soft); }
+.cwSearchWrap svg { flex-shrink:0; color:var(--cw-ink-3); }
+.cwSearchWrap input { flex:1; border:none; outline:none; background:transparent; font-size:13.5px; font-weight:500; color:var(--cw-ink); min-width:0; }
+.cwSearchWrap input::placeholder { color:var(--cw-ink-3); }
+
+/* ── Hint ── */
+.cwFinalesBottomHint { font-size:12px; color:var(--cw-ink-3); padding:0 2px; }
+.cwHintChip { display:inline-flex; align-items:center; height:20px; padding:0 9px; border-radius:var(--cw-radius-pill); background:var(--cw-accent-soft); color:#b47c10; font-weight:800; font-size:11.5px; }
+
+/* ── Grid ── */
+.cwFinalesGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+
+/* ── Wrapper: ocupa el espacio en el grid, panel flota fuera sin afectar la fila ── */
+.cwFC-wrapper {
+  position:relative;
+  z-index:1;
+}
+.cwFC-wrapper:hover {
+  z-index:10;
+}
+
+/* ── Card ── */
+.cwFinalCard {
+  position:relative;
+  border-radius:18px;
+  padding:18px;
+  border:1px solid var(--cw-border);
+  background:var(--cw-card-bg);
+  box-shadow:0 1px 3px rgba(15,23,42,.05), 0 1px 0 rgba(255,255,255,.9) inset;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  overflow:visible;
+  transition:box-shadow .22s, transform .22s;
+  z-index:1;
+  cursor: pointer;
+}
+.cwFinalCard:hover {
+  box-shadow:0 8px 28px rgba(15,23,42,.11);
+  transform:translateY(-2px);
+}
+
+/* SVG dos libros — en el wrapper con z-index 0, card tiene z-index 1 → libros quedan DETRÁS */
+.cwFC-bookDrop {
+  position:absolute;
+  bottom:calc(100% - 28px);
+  left:0;
+  right:0;
+  display:flex;
+  justify-content:center;
+  align-items:flex-end;
+  pointer-events:none;
+  opacity:0;
+  z-index:0;
+}
+.cwFC-bookLeft,
+.cwFC-bookRight {
+  width:62px;
+  flex-shrink:0;
+  filter:drop-shadow(0 6px 16px rgba(0,0,0,.22));
+}
+.cwFC-bookLeft  { transform:rotate(-14deg) translateX(10px); transform-origin:bottom center; }
+.cwFC-bookRight { transform:rotate(14deg)  translateX(-10px); transform-origin:bottom center; }
+.cwFC-bookLeft svg,
+.cwFC-bookRight svg { width:100%; height:auto; display:block; }
+
+/* Hover en el wrapper activa la animación del bookDrop */
+.cwFC-wrapper:hover .cwFC-bookDrop {
+  animation: cwBooksUp .28s cubic-bezier(.34,1.4,.64,1) forwards;
+}
+.cwFC-bookDrop.is-leaving {
+  animation: cwBooksDown .22s ease forwards;
+}
+
+/* Cabecera */
+.cwFC-head { display:flex; flex-direction:column; gap:4px; min-height:66px; justify-content:flex-end; padding-bottom:14px; }
+.cwFC-year { font-size:10.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--cw-ink-3); }
+.cwFC-title { margin:0; font-size:.95rem; font-weight:800; letter-spacing:-.025em; color:var(--cw-ink); line-height:1.3; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+/* Divisor */
+.cwFC-divider { height:1px; background:var(--cw-border); margin:0 0 14px; flex-shrink:0; }
+
+/* Sección genérica */
+.cwFC-section { display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
+.cwFC-section:last-child { margin-bottom:0; }
+.cwFC-label { margin:0; font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--cw-ink-3); }
+
+/* Barras */
+.cwFC-bars { display:flex; flex-direction:column; gap:7px; min-height:47px; }
+.cwFC-barRow { display:flex; align-items:center; gap:8px; }
+.cwFC-barName { font-size:12px; font-weight:600; color:var(--cw-ink-2); width:44px; flex-shrink:0; }
+.cwFC-barTrack { flex:1; height:5px; border-radius:var(--cw-radius-pill); background:rgba(15,23,42,.08); overflow:hidden; }
+.cwFC-barFill { height:100%; border-radius:inherit; background:linear-gradient(90deg,#fbbf24,#f59e0b); }
+.cwFC-barFill.libre { background:linear-gradient(90deg,#60a5fa,#818cf8); }
+.cwFC-barPct { font-size:12px; font-weight:800; color:var(--cw-ink); width:32px; text-align:right; flex-shrink:0; }
+
+/* Botones */
+.cwFC-actions { display:flex; gap:7px; margin-bottom:10px; }
+.cwFC-btn { flex:1; display:inline-flex; align-items:center; justify-content:center; height:36px; border-radius:var(--cw-radius-pill); border:none; background:var(--cw-accent); color:#fff; font-size:12px; font-weight:800; cursor:pointer; letter-spacing:-.01em; box-shadow:0 3px 10px var(--cw-accent-glow); transition:background .15s, transform .1s, box-shadow .15s; white-space:nowrap; }
+.cwFC-btn:hover { background:var(--cw-accent-dark); transform:translateY(-1px); box-shadow:0 6px 18px var(--cw-accent-glow); }
+.cwFC-btn:active { transform:translateY(0); box-shadow:none; }
+.cwFC-btn.libre { background:rgba(248,193,96,.18); color:#8a5a00; box-shadow:none; border:1.5px solid rgba(248,193,96,.55); height:36px; }
+.cwFC-btn.libre:hover { background:var(--cw-accent); color:#fff; border-color:var(--cw-accent); box-shadow:0 6px 18px var(--cw-accent-glow); }
+
+/* Toggle */
+.cwFC-expandToggle { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 0 2px; border:none; background:transparent; cursor:pointer; color:var(--cw-ink-3); font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; border-top:1px dashed rgba(15,23,42,.09); transition:color .15s; user-select:none; width:100%; }
+.cwFC-expandToggle:hover { color:var(--cw-accent-dark); }
+.cwFC-toggleText { pointer-events:none; }
+.cwFC-toggleText.is-close { display:none; }
+.cwFC-wrapper.is-expanded .cwFC-toggleText.is-open  { display:none; }
+.cwFC-wrapper.is-expanded .cwFC-toggleText.is-close { display:inline; }
+.cwFC-toggleChevron { flex-shrink:0; transition:transform .25s cubic-bezier(.34,1.4,.64,1); }
+.cwFC-wrapper.is-expanded .cwFC-toggleChevron { transform:rotate(180deg); }
+
+/* Cuando el wrapper está expandido, el card pierde el radio inferior */
+.cwFC-wrapper.is-expanded .cwFinalCard {
+  border-radius:18px 18px 0 0;
+  border-bottom-color:transparent;
+}
+
+/* ── Panel flotante — sale del wrapper por debajo, NO afecta la fila del grid ── */
+.cwFC-expandPanel {
+  display:none;
+  position:absolute;
+  left:0;
+  right:0;
+  top:100%;
+  z-index:50;
+  background:var(--cw-card-bg);
+  border:1px solid var(--cw-border);
+  border-top:none;
+  border-radius:0 0 18px 18px;
+  box-shadow:0 12px 32px rgba(15,23,42,.13);
+  overflow:hidden;
+}
+.cwFC-wrapper.is-expanded .cwFC-expandPanel {
+  display:block;
+  animation:cwExpandIn .25s cubic-bezier(.4,0,.2,1);
+}
+.cwFC-expandPanelInner { padding:14px 18px 18px; display:flex; flex-direction:column; gap:0; }
+
+/* Unidades */
+.cwFC-units { display:flex; flex-direction:column; gap:5px; }
+.cwFC-unitRow { display:flex; align-items:center; gap:8px; padding:4px; background:transparent; border:none; box-shadow:none; }
+.cwFC-unitBadge { flex-shrink:0; width:22px; height:22px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:900; }
+.cwFC-unitName { flex:1; font-size:12.5px; font-weight:700; color:var(--cw-ink); }
+.cwFC-unitBar { width:48px; height:3px; border-radius:var(--cw-radius-pill); background:rgba(15,23,42,.08); overflow:hidden; flex-shrink:0; }
+.cwFC-unitBarFill { height:100%; border-radius:inherit; }
+.cwFC-unitRow.rank-1 .cwFC-unitBadge { background:#fff0e0; color:#c2410c; }
+.cwFC-unitRow.rank-2 .cwFC-unitBadge { background:#fefce8; color:#a16207; }
+.cwFC-unitRow.rank-3 .cwFC-unitBadge { background:#f0fdf4; color:#15803d; }
+.cwFC-unitRow.rank-4 .cwFC-unitBadge { background:#eff6ff; color:#1d4ed8; }
+.cwFC-unitRow.rank-5 .cwFC-unitBadge { background:#faf5ff; color:#7e22ce; }
+.cwFC-unitBarFill.rank-1 { background:linear-gradient(90deg,#fb923c,#f97316); }
+.cwFC-unitBarFill.rank-2 { background:linear-gradient(90deg,#fbbf24,#f59e0b); }
+.cwFC-unitBarFill.rank-3 { background:linear-gradient(90deg,#4ade80,#22c55e); }
+.cwFC-unitBarFill.rank-4 { background:linear-gradient(90deg,#60a5fa,#3b82f6); }
+.cwFC-unitBarFill.rank-5 { background:linear-gradient(90deg,#c084fc,#a855f7); }
+
+/* Meses */
+.cwFC-monthsGrid { display:grid; grid-template-columns:1fr 1px 1fr; gap:0; align-items:start; }
+.cwFC-monthDivider { width:1px; background:var(--cw-border); align-self:stretch; margin:0 10px; }
+.cwFC-monthCol { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.cwFC-monthColLabel { display:inline-flex; align-items:center; justify-content:center; gap:4px; font-size:10.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+.cwFC-monthColLabel.good { color:#16a34a; }
+.cwFC-monthColLabel.bad  { color:#dc2626; }
+.cwFC-monthColLabel svg  { flex-shrink:0; }
+.cwFC-monthTags { display:flex; flex-direction:column; align-items:center; gap:4px; width:100%; }
+.cwFC-monthTag { font-size:11px; font-weight:600; padding:3px 10px; border-radius:var(--cw-radius-pill); border:1px solid transparent; text-align:center; width:fit-content; }
+.cwFC-monthTag.good { background:#f0fdf4; color:#15803d; border-color:rgba(22,163,74,.18); }
+.cwFC-monthTag.bad  { background:#fef2f2; color:#b91c1c; border-color:rgba(220,38,38,.12); }
+
+/* Empty state */
+.cwEmptyState { grid-column:1/-1; text-align:center; padding:40px 24px; background:transparent !important; border:none !important; box-shadow:none !important; border-radius:28px; }
+.cwEmptyState h3 { margin:0 0 10px; font-size:1.15rem; font-weight:900; color:var(--cw-ink); }
+.cwEmptyState p  { margin:0; color:#475569; }
+
+/* Modal */
+.cwModal { position:fixed; inset:0; z-index:100000; display:flex; align-items:center; justify-content:center; }
+.cwModal.hidden { display:none; }
+.cwModalBackdrop { position:absolute; inset:0; background:rgba(15,23,42,.42); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); animation:cwFadeIn .2s ease; }
+.cwModalCard { position:relative; width:min(720px,92vw); max-height:88vh; overflow-y:auto; border-radius:24px; padding:22px; background:var(--cw-surface); border:1.5px solid rgba(15,23,42,.12); box-shadow:0 24px 64px rgba(15,23,42,.18); animation:cwPop .2s cubic-bezier(.34,1.56,.64,1); }
+.cwModalCard::-webkit-scrollbar{width:5px}.cwModalCard::-webkit-scrollbar-thumb{background:rgba(15,23,42,.12);border-radius:10px}
+.cwModalClose { position:absolute; top:14px; right:14px; width:30px; height:30px; border-radius:var(--cw-radius-pill); border:1.5px solid var(--cw-border); background:#fff; display:flex; align-items:center; justify-content:center; color:var(--cw-ink-2); cursor:pointer; transition:background .12s, transform .1s; }
+.cwModalClose:hover { background:#f1f5f9; transform:scale(1.08); }
+.cwModalCard h3 { margin:0 36px 10px 0; font-size:1.25rem; font-weight:900; color:var(--cw-ink); }
+.cwModalBody { font-size:.97rem; line-height:1.75; color:#1e293b; white-space:pre-wrap; }
+
+/* ── Responsive ── */
+
+/* Tablet landscape / small desktop */
+@media(max-width:1100px){
+  .cwFinalesGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .cwUploadCard  { grid-template-columns:1fr; }
+}
+
+/* Tablet portrait (768px) */
+@media(max-width:820px){
+  .cwFinalesGrid     { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+  .cwPanelPage       { gap:12px; }
+  .cwSwitchWrap      { width:100%; }
+  .cwSwitchBar       { width:100%; }
+  .cwSwitchBtn       { flex:1; min-width:0; }
+  .cwFinalesTop      { flex-direction:column; align-items:stretch; gap:8px; }
+  .cwFinalesTopLeft  { gap:8px; }
+  .cwSearchWrap      { max-width:100%; min-width:0; width:100%; }
+  .cwPillBox         { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; justify-content:flex-start; }
+  .cwPillBox::-webkit-scrollbar { display:none; }
+  .cwPillBtn         { flex:0 0 auto; }
+}
+
+/* Mobile landscape + large phones (600px) */
+@media(max-width:640px){
+  .cwFinalesGrid     { grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+  .cwPanelPage       { gap:10px; padding:0 0 20px; }
+  .cwFinalesTopLeft  { flex-direction:column; align-items:stretch; gap:6px; }
+  .cwSwitchBtn       { height:38px; font-size:13px; padding:0 14px; }
+  .cwPillBtn         { height:32px; font-size:12.5px; }
+  .cwFinalCard       { padding:14px; border-radius:14px; }
+  .cwFC-head         { min-height:56px; }
+  .cwFC-title        { font-size:.88rem; }
+  .cwFC-bookLeft, .cwFC-bookRight { width:50px; }
+  .cwFC-expandPanel  { border-radius:0 0 14px 14px; }
+  .cwFC-wrapper.is-expanded .cwFinalCard { border-radius:14px 14px 0 0; }
+}
+
+/* Mobile portrait — phones (480px) */
+@media(max-width:480px){
+  .cwFinalesGrid     { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .cwPanelPage       { gap:8px; padding:0 0 16px; }
+  .cwSwitchBtn       { height:36px; font-size:12.5px; padding:0 10px; min-width:0; }
+  .cwPillBtn         { height:30px; font-size:12px; padding:0 10px; }
+  .cwSearchWrap      { padding:8px 12px; }
+  .cwFinalCard       { padding:12px; border-radius:12px; }
+  .cwFC-head         { min-height:50px; padding-bottom:10px; }
+  .cwFC-title        { font-size:.84rem; }
+  .cwFC-divider      { margin:0 0 10px; }
+  .cwFC-label        { font-size:9.5px; }
+  .cwFC-barName      { font-size:11px; width:38px; }
+  .cwFC-barPct       { font-size:11px; width:28px; }
+  .cwFC-actions      { gap:6px; margin-bottom:8px; }
+  .cwFC-btn          { height:40px; font-size:11.5px; }
+  .cwFC-expandPanel  { border-radius:0 0 12px 12px; left:-1px; right:-1px; }
+  .cwFC-expandPanelInner { padding:12px 12px 14px; }
+  .cwFC-wrapper.is-expanded .cwFinalCard { border-radius:12px 12px 0 0; }
+  .cwFC-bookLeft, .cwFC-bookRight { width:44px; }
+}
+
+/* Small phones (360px and below) */
+@media(max-width:380px){
+  .cwFinalesGrid     { grid-template-columns:1fr; gap:8px; }
+  .cwFinalCard       { padding:12px; border-radius:12px; }
+  .cwFC-actions      { flex-direction:column; gap:6px; }
+  .cwFC-btn          { height:52px; font-size:13px; }
+  .cwSwitchBtn       { font-size:12px; padding:0 8px; }
+  .cwFC-bookLeft, .cwFC-bookRight { width:40px; }
+  .cwFC-expandPanel  { left:-1px; right:-1px; }
+}
+
+/* ── Dark mode ── */
+html.cw-dark {
+  --cw-surface:   #1c1c1e;
+  --cw-border:    rgba(255,255,255,.10);
+  --cw-ink:       rgba(242,242,247,.96);
+  --cw-ink-2:     rgba(174,174,178,.95);
+  --cw-ink-3:     rgba(99,99,102,.95);
+  --cw-card-bg:   #2c2c2e;
+  --cw-shadow-sm: 0 1px 3px rgba(0,0,0,.3);
+}
+
+/* ── Dark mode ── */
+html.cw-dark {
+  --cw-surface:   transparent;
+  --cw-border:    rgba(255,255,255,.13);
+  --cw-ink:       rgba(242,242,247,.96);
+  --cw-ink-2:     rgba(174,174,178,.95);
+  --cw-ink-3:     rgba(99,99,102,.95);
+  --cw-card-bg:   rgba(255,255,255,.05);
+  --cw-shadow-sm: 0 1px 3px rgba(0,0,0,.25);
+}
+
+/* Switch Finales / Cursadas */
+html.cw-dark .cwSwitchBar {
+  background:transparent !important;
+  border-color:rgba(255,255,255,.13) !important;
+  box-shadow:none !important;
+}
+html.cw-dark .cwSwitchBtn {
+  color:rgba(174,174,178,.9) !important;
+}
+html.cw-dark .cwSwitchBtn.is-active {
+  background:var(--cw-accent) !important;
+  color:#fff !important;
+  box-shadow:0 3px 10px var(--cw-accent-glow) !important;
+}
+
+/* Pill boxes año / modalidad */
+html.cw-dark .cwPillBox {
+  background:transparent !important;
+  border-color:rgba(255,255,255,.13) !important;
+  box-shadow:none !important;
+}
+html.cw-dark .cwPillBtn {
+  color:rgba(174,174,178,.9) !important;
+}
+html.cw-dark .cwPillBtn:hover {
+  color:rgba(242,242,247,.96) !important;
+  background:rgba(255,255,255,.06) !important;
+}
+html.cw-dark .cwPillBtn.is-active {
+  background:var(--cw-accent) !important;
+  color:#fff !important;
+  box-shadow:0 2px 8px var(--cw-accent-glow) !important;
+}
+
+/* Barra de búsqueda */
+html.cw-dark .cwSearchWrap {
+  background:transparent !important;
+  border-color:rgba(255,255,255,.13) !important;
+  box-shadow:none !important;
+}
+html.cw-dark .cwSearchWrap:focus-within {
+  border-color:var(--cw-accent) !important;
+  box-shadow:0 0 0 3px var(--cw-accent-soft) !important;
+}
+html.cw-dark .cwSearchWrap svg {
+  color:rgba(99,99,102,.95) !important;
+}
+html.cw-dark .cwSearchWrap input {
+  color:rgba(242,242,247,.96) !important;
+}
+html.cw-dark .cwSearchWrap input::placeholder {
+  color:rgba(99,99,102,.95) !important;
+}
+
+/* Upload / Modal */
+html.cw-dark .cwUploadCard, html.cw-dark .cwModalCard { background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.13) !important; box-shadow:none !important; }
+html.cw-dark .cwModalCard h3 { color:rgba(242,242,247,.96) !important; }
+html.cw-dark .cwModalBody    { color:rgba(209,209,214,.96) !important; }
+html.cw-dark .cwModalClose   { background:rgba(255,255,255,.06) !important; border-color:rgba(255,255,255,.13) !important; color:rgba(174,174,178,.95) !important; }
+html.cw-dark .cwFileField    { background:rgba(255,255,255,.04) !important; border-color:rgba(255,255,255,.13) !important; color:rgba(242,242,247,.96) !important; }
+
+/* Hint */
+html.cw-dark .cwEmptyState p        { color:rgba(174,174,178,.95) !important; }
+html.cw-dark .cwFinalesBottomHint   { color:rgba(99,99,102,.95) !important; }
+
+/* Cards */
+html.cw-dark .cwFinalCard       { background:rgba(255,255,255,.05) !important; border-color:rgba(255,255,255,.13) !important; box-shadow:none !important; }
+html.cw-dark .cwFinalCard:hover { box-shadow:0 8px 28px rgba(0,0,0,.35) !important; }
+html.cw-dark .cwFC-title        { color:rgba(242,242,247,.96) !important; }
+html.cw-dark .cwFC-year, html.cw-dark .cwFC-label { color:rgba(99,99,102,.95) !important; }
+html.cw-dark .cwFC-divider      { background:rgba(255,255,255,.08) !important; }
+html.cw-dark .cwFC-barName      { color:rgba(174,174,178,.95) !important; }
+html.cw-dark .cwFC-barTrack     { background:rgba(255,255,255,.10) !important; }
+html.cw-dark .cwFC-barPct       { color:rgba(242,242,247,.96) !important; }
+html.cw-dark .cwFC-unitName     { color:rgba(209,209,214,.92) !important; }
+html.cw-dark .cwFC-unitBar      { background:rgba(255,255,255,.10) !important; }
+html.cw-dark .cwFC-monthDivider { background:rgba(255,255,255,.08) !important; }
+html.cw-dark .cwFC-monthColLabel.good { color:#34c759 !important; }
+html.cw-dark .cwFC-monthColLabel.bad  { color:#ff453a !important; }
+html.cw-dark .cwFC-monthTag.good { background:rgba(52,199,89,.14) !important; color:#34c759 !important; border-color:rgba(52,199,89,.18) !important; }
+html.cw-dark .cwFC-monthTag.bad  { background:rgba(255,69,58,.14) !important; color:#ff6961 !important; border-color:rgba(255,69,58,.18) !important; }
+html.cw-dark .cwFC-btn          { background:var(--cw-accent) !important; color:#fff !important; border:none !important; box-shadow:0 3px 10px rgba(248,193,96,.2) !important; }
+html.cw-dark .cwFC-btn:hover    { background:var(--cw-accent-dark) !important; }
+html.cw-dark .cwFC-btn.libre    { background:rgba(248,193,96,.10) !important; color:rgba(248,193,96,.9) !important; border:1.5px solid rgba(248,193,96,.22) !important; box-shadow:none !important; }
+html.cw-dark .cwFC-btn.libre:hover { background:var(--cw-accent) !important; color:#fff !important; border-color:var(--cw-accent) !important; box-shadow:0 6px 18px var(--cw-accent-glow) !important; }
+html.cw-dark .cwFC-expandPanel  { background:rgba(255,255,255,.05) !important; border-color:rgba(255,255,255,.13) !important; box-shadow:0 14px 36px rgba(0,0,0,.4) !important; }
+html.cw-dark .cwFC-expandToggle { border-top-color:rgba(255,255,255,.08) !important; color:rgba(99,99,102,.95) !important; }
+html.cw-dark .cwFC-expandToggle:hover { color:var(--cw-accent) !important; }
+</style>
+
+<script>
+(function(){
+  const search     = document.getElementById('cwFinalesSearch');
+  const modal      = document.getElementById('cwInfoModal');
+  const modalTitle = document.getElementById('cwModalTitle');
+  const modalMode  = document.getElementById('cwModalMode');
+  const modalBody  = document.getElementById('cwModalBody');
+  const payloadEl  = document.getElementById('cwFinalesPayload');
+
+  let finalsMap = new Map();
+
+  try {
+    const parsed = JSON.parse(payloadEl?.textContent || '[]');
+    finalsMap = new Map(
+      (Array.isArray(parsed) ? parsed : []).map(item => [String(item.id), item])
+    );
+  } catch (_) {
+    finalsMap = new Map();
+  }
+
+  let YEAR_FILTER = 'all';
+  let MODE_FILTER = 'all';
+  let SEARCH_Q    = '';
+
+  function getCards(){ return Array.from(document.querySelectorAll('.cwFC-wrapper[data-year]')); }
+
+  function applyFilters(){
+    getCards().forEach(card => {
+      const yearOk   = YEAR_FILTER === 'all' || String(card.dataset.year) === YEAR_FILTER;
+      const libre    = card.dataset.allowsLibre === '1';
+      const modeOk   = MODE_FILTER === 'all'
+                    || (MODE_FILTER === 'libre'   && libre)
+                    || (MODE_FILTER === 'regular');
+      const hay      = (card.dataset.search || '').toLowerCase();
+      const searchOk = !SEARCH_Q || hay.includes(SEARCH_Q);
+      card.style.display = (yearOk && modeOk && searchOk) ? '' : 'none';
+    });
+  }
+
+  document.querySelectorAll('.cwPillBtn[data-year]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cwPillBtn[data-year]').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      YEAR_FILTER = btn.dataset.year;
+      applyFilters();
+    });
+  });
+
+  document.querySelectorAll('.cwPillBtn[data-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.cwPillBtn[data-mode]').forEach(b => b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      MODE_FILTER = btn.dataset.mode;
+      applyFilters();
+    });
+  });
+
+  /* Hover animación libros — escucha en el wrapper */
+  document.querySelectorAll('.cwFC-wrapper').forEach(wrapper => {
+    const books = wrapper.querySelector('.cwFC-bookDrop');
+    if (!books) return;
+    wrapper.addEventListener('mouseleave', () => {
+      books.classList.add('is-leaving');
+      books.addEventListener('animationend', () => books.classList.remove('is-leaving'), { once:true });
+    });
+  });
+
+  /* Toggle expandible — ahora sobre .cwFC-wrapper */
+  document.querySelectorAll('.cwFC-expandToggle').forEach(toggle => {
+    function handleToggle(e) {
+      e.stopPropagation();
+      const wrapper = toggle.closest('.cwFC-wrapper');
+      wrapper.classList.toggle('is-expanded');
+      toggle.setAttribute('aria-expanded', String(wrapper.classList.contains('is-expanded')));
+    }
+    toggle.addEventListener('click', handleToggle);
+    toggle.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleToggle(e); }
+    });
+  });
+
+  search?.addEventListener('input', () => {
+    SEARCH_Q = search.value.trim().toLowerCase();
+    applyFilters();
+  });
+
+  /* Modal */
+  document.querySelectorAll('.cwFC-btn, .cwModeBtn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+
+      const finalId = String(btn.getAttribute('data-id') || '');
+      const current = finalsMap.get(finalId) || {};
+      const currentMode = btn.dataset.mode === 'libre' ? 'libre' : 'regular';
+      const currentBody = currentMode === 'libre'
+        ? String(current.libre || '').trim()
+        : String(current.regular || '').trim();
+
+      modalTitle.textContent = String(current.subjectName || 'Materia');
+      modalMode.textContent  = currentMode === 'libre' ? 'Condiciones para Libre' : 'Condiciones para Regular';
+      modalBody.textContent  = currentBody || 'Sin información cargada.';
+      modal.classList.remove('hidden');
+      modal.setAttribute('aria-hidden','false');
+    });
+  });
+
+  modal?.addEventListener('click', e => {
+    if (e.target.closest('[data-close="1"]')){
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden','true');
+    }
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !modal?.classList.contains('hidden')){
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden','true');
+    }
+  });
+
+})();
+</script>
+
+<script type="module" src="/public/js/tutorial-overlay.js"></script>
+<script type="module" src="/public/js/finales-tour.js"></script>

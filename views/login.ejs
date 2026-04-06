@@ -1,0 +1,712 @@
+﻿<style>
+/* ============ AUTH MOBILE FIX (solo login) ============ */
+  @media (max-width: 640px){
+
+    html.auth-html, html.auth-html body{
+      height: auto !important;
+      min-height: 100dvh !important;
+      overflow: auto !important;
+    }
+
+    /* ✅ En mobile damos espacio arriba para que el header/logo NO tape títulos */
+    .auth-split{
+      height: auto !important;
+      min-height: 100dvh !important;
+      align-items: flex-start !important;
+      padding-top: calc(92px + env(safe-area-inset-top)) !important;
+      padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+
+/* ✅ Logo auth-brand (arriba izquierda) — más chico y siempre visible */
+html.auth-html .auth-brand{
+  position: fixed !important;
+  left: 14px !important;
+  top: calc(10px + env(safe-area-inset-top)) !important;
+  z-index: 60 !important;
+  display: block !important;
+}
+html.auth-html .auth-brand img{
+  height: 22px !important;
+  width: auto !important;
+  max-width: 160px !important;
+  display:block !important;
+  object-fit: contain !important;
+}
+
+    }
+
+    /* ✅ Si el header/logo está fijo/absoluto, lo hacemos más chico y prolijo */
+    .auth-header, .header, .top-header, .brand-header{
+      position: fixed !important;
+      left: 0; right: 0; top: 0;
+      height: 76px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      z-index: 50 !important;
+      padding-top: env(safe-area-inset-top) !important;
+      background: rgba(255,255,255,.72) !important;
+      backdrop-filter: blur(12px) saturate(140%) !important;
+      -webkit-backdrop-filter: blur(12px) saturate(140%) !important;
+      border-bottom: 1px solid rgba(15,23,42,.08) !important;
+    }
+
+    /* ✅ Logo (si usa .logo o img dentro del header) */
+    .auth-header img, .header img, .top-header img, .brand-header img,
+    .auth-header .logo, .header .logo, .top-header .logo, .brand-header .logo{
+      max-height: 22px !important;
+      width: auto !important;
+    }
+
+    /* ✅ sacamos transforms que “suben” el bloque en mobile */
+    .auth-center{
+      transform: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      align-items: start !important;
+    }
+
+    /* ✅ Form full width */
+    form.max-w-md{ max-width: 100% !important; }
+
+    /* ✅ Inputs y botones cómodos */
+    .ios-input{ padding: 13px 14px !important; }
+    .ios-btn-primary{ padding: 13px 16px !important; }
+
+@media (max-width: 430px){
+  html.auth-html .auth-brand img{
+    height: 18px !important;
+  }
+}
+
+  }
+  .ios-checkbox {
+    accent-color: #F8C160;
+  }
+    .auth-social{
+    display:grid;
+    gap:12px;
+    margin:0 0 16px;
+  }
+  .auth-social__btn{
+    width:100%;
+    min-height:52px;
+    border-radius:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    padding:14px 18px;
+    border:1px solid rgba(15,23,42,.08);
+    background:rgba(255,255,255,.78);
+    box-shadow:0 10px 28px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.68);
+    backdrop-filter:blur(16px) saturate(140%);
+    -webkit-backdrop-filter:blur(16px) saturate(140%);
+    color:#0f172a;
+    font-weight:700;
+    letter-spacing:-.01em;
+    text-decoration:none;
+    transition:transform .16s ease, box-shadow .16s ease, background .16s ease;
+  }
+  .auth-social__btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 14px 34px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .auth-social__btn:active{ transform:translateY(0); }
+  .auth-social__icon{
+    width:20px;
+    height:20px;
+    display:block;
+    flex:0 0 20px;
+  }
+  .auth-social__divider{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 0;
+    margin:12px 0 18px;
+    color:#64748b;
+    font-size:12px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+  .auth-social__divider::before,
+  .auth-social__divider::after{
+    content:'';
+    width: 32px;
+    height: 1px;
+    background: rgba(15,23,42,.15);
+    flex: 0 0 32px;
+  }
+  .auth-social__divider span{
+    position:relative;
+    z-index:1;
+    padding:0 10px;
+    background: transparent;
+  }
+  html.cw-dark .auth-social__btn{
+    background:rgba(15,23,42,.82);
+    border-color:rgba(255,255,255,.08);
+    box-shadow:0 14px 34px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.04);
+    color:rgba(248,250,252,.96);
+  }
+  html.cw-dark .auth-social__divider{
+    color:rgba(203,213,225,.78);
+  }
+  html.cw-dark .auth-social__divider::before{
+    border-top-color:rgba(255,255,255,.08);
+  }
+  html.cw-dark .auth-social__divider span{
+    background:rgba(2,6,23,.82);
+  }
+  .oauth-legal{
+    margin: 0 0 10px;
+  }
+  .oauth-legal__field{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:12px 14px;
+    border-radius:16px;
+    background:transparent;
+    transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+  .oauth-legal__field input[type="checkbox"]{
+    width:18px;
+    height:18px;
+    margin-top:2px;
+    flex:0 0 18px;
+    accent-color:#F8C160;
+    cursor:pointer;
+  }
+  .oauth-legal__field label{
+    font-size:12px;
+    font-weight:700;
+    line-height:1.5;
+    color:#334155;
+    cursor:pointer;
+  }
+  .oauth-legal__field label a{
+    color:#d97706;
+    font-weight:800;
+    text-decoration:underline;
+    text-underline-offset:2px;
+  }
+  .oauth-legal__error{
+    display:none;
+    margin-top:6px;
+    font-size:11px;
+    line-height:1.4;
+    font-weight:700;
+    color:#dc2626;
+  }
+  .oauth-legal__error.is-visible{
+    display:block;
+  }
+  .oauth-legal__field.is-invalid{
+    border-color:rgba(220,38,38,.22);
+    box-shadow:0 0 0 3px rgba(220,38,38,.08);
+  }
+  .oauth-legal__field.is-shaking,
+  .auth-social__btn.is-shaking{
+    animation:cwShakeX .42s linear;
+  }
+  @keyframes cwShakeX{
+    0%,100%{ transform:translateX(0); }
+    20%{ transform:translateX(-6px); }
+    40%{ transform:translateX(6px); }
+    60%{ transform:translateX(-4px); }
+    80%{ transform:translateX(4px); }
+  }
+  html.cw-dark .oauth-legal__field{
+    background:transparent;
+    border-color:rgba(255,255,255,.08);
+  }
+  html.cw-dark .oauth-legal__field label{
+    color:rgba(241,245,249,.92);
+  }
+/* ===== Modales legales ===== */
+.reg-legal-overlay{
+  position:fixed; inset:0; z-index:99999;
+  display:none; align-items:center; justify-content:center; padding:16px;
+  background:rgba(15,23,42,.52);
+  backdrop-filter:blur(14px) saturate(140%);
+  -webkit-backdrop-filter:blur(14px) saturate(140%);
+}
+.reg-legal-overlay.is-open{ display:flex; }
+.reg-legal-card{
+  width:min(560px, calc(100vw - 32px));
+  height:min(520px, calc(100dvh - 32px));
+  max-height:calc(100dvh - 32px);
+  border-radius:22px; background:#fff;
+  border:1px solid rgba(15,23,42,.10);
+  box-shadow:0 30px 70px rgba(15,23,42,.22);
+  display:flex; flex-direction:column; overflow:hidden; position:relative;
+}
+.reg-legal-head{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:16px 18px 12px; border-bottom:1px solid rgba(15,23,42,.08); flex:0 0 auto;
+}
+.reg-legal-title{ font-size:15px; font-weight:800; color:#0f172a; letter-spacing:-.01em; }
+.reg-legal-close{
+  width:30px; height:30px; border-radius:9999px;
+  background:rgba(15,23,42,.07); border:none; font-size:16px;
+  color:rgba(15,23,42,.55); cursor:pointer; display:grid; place-items:center;
+  flex:0 0 30px; transition:background .15s ease;
+}
+.reg-legal-close:hover{ background:rgba(15,23,42,.13); }
+.reg-legal-body{
+  flex:1 1 auto; overflow-y:scroll;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+  padding:16px 18px 20px; font-size:13px; line-height:1.7; color:rgba(15,23,42,.78);
+}
+.reg-legal-body h3{ font-size:13px; font-weight:800; color:#0f172a; margin:14px 0 4px; }
+.reg-legal-body h3:first-child{ margin-top:0; }
+.reg-legal-body p{ margin:0 0 8px; }
+html.cw-dark .reg-legal-card{ background:#1e293b; border-color:rgba(255,255,255,.10); }
+html.cw-dark .reg-legal-title{ color:#f1f5f9; }
+html.cw-dark .reg-legal-body{ color:rgba(241,245,249,.72); }
+html.cw-dark .reg-legal-body h3{ color:#f1f5f9; }
+html.cw-dark .reg-legal-close{ background:rgba(255,255,255,.10); color:rgba(255,255,255,.55); }
+
+  /* ===== Modales T&C y Privacidad ===== */
+.reg-legal-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15,23,42,.52);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+}
+.reg-legal-overlay.is-open{ display: flex; }
+.reg-legal-card{
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  height: min(520px, calc(100dvh - 32px));
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(15,23,42,.10);
+  box-shadow: 0 30px 70px rgba(15,23,42,.22);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+.reg-legal-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(15,23,42,.08);
+  flex: 0 0 auto;
+}
+.reg-legal-title{
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -.01em;
+}
+.reg-legal-close{
+  width: 30px;
+  height: 30px;
+  border-radius: 9999px;
+  background: rgba(15,23,42,.07);
+  border: none;
+  font-size: 16px;
+  color: rgba(15,23,42,.55);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex: 0 0 30px;
+  transition: background .15s ease;
+}
+.reg-legal-close:hover{ background: rgba(15,23,42,.13); }
+.reg-legal-body{
+  flex: 1 1 auto;
+  overflow-y: scroll;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 16px 18px 20px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: rgba(15,23,42,.78);
+}
+.reg-legal-body h3{
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 14px 0 4px;
+}
+.reg-legal-body h3:first-child{ margin-top: 0; }
+.reg-legal-body p{ margin: 0 0 8px; }
+html.cw-dark .reg-legal-card{ background: #1e293b; border-color: rgba(255,255,255,.10); }
+html.cw-dark .reg-legal-title{ color: #f1f5f9; }
+html.cw-dark .reg-legal-body{ color: rgba(241,245,249,.72); }
+html.cw-dark .reg-legal-body h3{ color: #f1f5f9; }
+html.cw-dark .reg-legal-close{ background: rgba(255,255,255,.10); color: rgba(255,255,255,.55); }
+</style>
+
+<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <!-- IZQUIERDA: INICIO DE SESIÓN (sin tarjeta) -->
+    <section class="px-6 sm:px-10 lg:pr-20">
+  <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-2">Iniciar sesión</h1>
+  <p class="text-sm sm:text-base text-slate-500 mb-8">Accedé a tu carrera y planes de estudio.</p>
+
+  <% if (typeof error !== "undefined" && error) { %>
+    <div class="mb-5 text-sm text-red-600 font-medium bg-red-50 p-3 rounded-xl border border-red-100"><%= error %></div>
+  <% } %>
+
+  <form method="POST" action="/login" class="space-y-4 max-w-md">
+    <label class="block">
+      <span class="ios-label text-xs font-bold text-slate-400 uppercase ml-1">Email</span>
+      <input class="ios-input mt-1" type="email" name="email" required placeholder="tu@email.com" value="<%= (typeof email !== 'undefined' && email) ? email : '' %>" />
+    </label>
+
+    <label class="block">
+      <span class="ios-label text-xs font-bold text-slate-400 uppercase ml-1">Contraseña</span>
+      <div class="ios-input-wrap mt-1">
+        <input class="ios-input" id="loginPw" type="password" name="password" required placeholder="••••••••" />
+        <button type="button" class="ios-pw-toggle text-orange-500 font-bold" data-pw-target="loginPw">Mostrar</button>
+      </div>
+    </label>
+
+    <div class="flex items-center justify-between px-1">
+      <label class="flex items-center gap-2 cursor-pointer select-none">
+        <input type="checkbox" id="remember" name="remember" value="1" class="ios-checkbox w-4 h-4" <%= ((typeof remember !== 'undefined') && remember) ? 'checked' : '' %> />
+        <span class="text-sm text-slate-600">Mantener sesión iniciada</span>
+      </label>
+      <a href="/forgot" class="text-sm font-semibold text-slate-400 hover:text-orange-500 transition">¿Olvidaste tu clave?</a>
+    </div>
+
+    <button class="ios-btn-primary w-full mt-2 bg-[#F8C160] text-slate-900 font-bold" style="box-shadow:none;">Entrar</button>
+  </form>
+
+  <div class="mt-6 max-w-md space-y-3">
+    
+    <button id="btnGuest" type="button"
+      class="w-full rounded-2xl px-4 py-3 font-bold border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 transition shadow-sm">
+      Ingresar como Invitado
+    </button>
+
+    <div class="auth-social__divider"><span>o también podés</span></div>
+
+    <% if (googleAuthEnabled) { %>
+      <a id="loginGoogleBtn" class="auth-social__btn" href="/auth/google?accept_legal=1" style="border-radius: 16px; border: 1.5px solid #e2e8f0; font-weight: 500;">
+        <svg class="auth-social__icon" viewBox="0 0 24 24">
+          <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.23 1.27-.97 2.35-2.05 3.07l3.31 2.57c1.93-1.78 3.04-4.4 3.04-7.52 0-.72-.06-1.4-.19-2.03H12z"/>
+          <path fill="#34A853" d="M12 22c2.75 0 5.05-.91 6.74-2.48l-3.31-2.57c-.92.62-2.09.99-3.43.99-2.64 0-4.88-1.78-5.68-4.18l-3.42 2.64A9.99 9.99 0 0 0 12 22z"/>
+          <path fill="#4A90E2" d="M6.32 13.76A5.99 5.99 0 0 1 6 12c0-.61.11-1.21.32-1.76L2.9 7.6A10 10 0 0 0 2 12c0 1.61.39 3.13 1.09 4.4l3.23-2.64z"/>
+          <path fill="#FBBC05" d="M12 6.06c1.5 0 2.84.52 3.9 1.54l2.92-2.92C17.04 3.02 14.75 2 12 2A9.99 9.99 0 0 0 3.09 7.6l3.23 2.64C7.12 7.84 9.36 6.06 12 6.06z"/>
+        </svg>
+        <span>Continuar con Google</span>
+      </a>
+
+      <div class="oauth-legal" style="margin-top:10px;">
+        <div class="oauth-legal__field" id="loginGoogleLegalField">
+          <input type="checkbox" id="loginGoogleLegalCheck" />
+          <label for="loginGoogleLegalCheck">
+            Acepto los
+            <a href="/terminos-y-condiciones-de-uso" target="_blank" rel="noopener">Términos y Condiciones</a>
+            y la
+            <a href="/politica-de-privacidad-y-proteccion-de-datos" target="_blank" rel="noopener">Política de Privacidad</a>
+          </label>
+        </div>
+        <p id="loginGoogleLegalError" class="oauth-legal__error">Para continuar con Google tenés que aceptar los Términos y Condiciones y la Política de Privacidad.</p>
+      </div>
+    <% } %>
+
+    <div class="pt-6 text-center">
+      <p class="text-sm text-slate-500">
+        ¿No tenés cuenta? 
+        <a class="font-bold text-orange-300 hover:underline ml-1" href="/register">Crear cuenta</a>
+      </p>
+    </div>
+  </div>
+</section>
+
+    <!-- DERECHA VACÍA -->
+    <section class="hidden lg:block"></section>
+  </div>
+</div>
+
+
+
+  <!-- =========================
+      MODAL INVITADO (Carrera + Plan)
+      ========================= -->
+  <div id="guestModal" class="fixed inset-0 z-[9999] hidden" aria-hidden="true">
+    <div id="guestModalBg" class="absolute inset-0 bg-black/40"></div>
+
+    <div class="absolute left-1/2 top-1/2 w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-3xl border border-white/40 bg-white/80 backdrop-blur-2xl shadow-2xl p-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="text-lg font-extrabold text-slate-900">Ingresar como Invitado</div>
+          <div class="text-sm text-slate-600 mt-1">Elegí tu carrera y plan para ver contenido de muestra.</div>
+        </div>
+        <button id="guestClose" type="button" class="w-10 h-10 rounded-full bg-white/70 border border-white/60 shadow flex items-center justify-center">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M6 6L18 18" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M18 6L6 18" stroke="#0f172a" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="guestForm" method="POST" action="/guest" class="mt-4 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Carrera</label>
+          <select id="guestCareer" name="career"
+            class="w-full h-11 rounded-2xl border border-white/60 bg-white/70 px-3 font-semibold text-slate-900 shadow-sm outline-none">
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-600 mb-1">Plan</label>
+          <select id="guestPlan" name="plan"
+            class="w-full h-11 rounded-2xl border border-white/60 bg-white/70 px-3 font-semibold text-slate-900 shadow-sm outline-none">
+          </select>
+        </div>
+
+        <button type="submit" class="w-full rounded-2xl px-4 py-3 font-extrabold shadow-lg"
+          style="background:#F8C160; color:#0f172a;">
+          Entrar como invitado
+        </button>
+
+        <div class="text-xs text-slate-500 text-center">
+          ¿Querés desbloquear todo? <a href="/register" class="font-bold underline" style="color:#e59f12;">Crear cuenta</a>
+        </div>
+      </form>
+    </div>
+    <!-- Modal Términos y Condiciones -->
+  <div id="modalTerms" class="reg-legal-overlay" role="dialog" aria-modal="true" aria-label="Términos y Condiciones">
+    <div class="reg-legal-card">
+      <div class="reg-legal-head">
+        <span class="reg-legal-title">Términos y Condiciones</span>
+        <button class="reg-legal-close" onclick="closeLegalModal('terms')" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="reg-legal-body">
+        <h3>1. Aceptación</h3>
+        <p>Al crear una cuenta en CleverWave, aceptás estos Términos y Condiciones en su totalidad. Si no estás de acuerdo, no podés usar la plataforma.</p>
+        <h3>2. Uso de la plataforma</h3>
+        <p>CleverWave es una plataforma educativa. Te comprometés a usarla de forma responsable, sin compartir contenido inapropiado ni violar los derechos de otros usuarios.</p>
+        <h3>3. Cuenta</h3>
+        <p>Sos responsable de mantener la confidencialidad de tu contraseña y de todas las actividades que ocurran bajo tu cuenta.</p>
+        <h3>4. Modificaciones</h3>
+        <p>CleverWave se reserva el derecho de modificar estos términos en cualquier momento. Te notificaremos ante cambios importantes.</p>
+        <h3>5. Contacto</h3>
+        <p>Para consultas sobre estos términos, podés contactarnos a través de los canales oficiales de CleverWave.</p>
+        <p style="margin-top:16px; font-size:11px; color:rgba(15,23,42,.45);">— Reemplazá este texto por tus Términos y Condiciones definitivos —</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Políticas de Privacidad -->
+  <div id="modalPrivacy" class="reg-legal-overlay" role="dialog" aria-modal="true" aria-label="Políticas de Privacidad">
+    <div class="reg-legal-card">
+      <div class="reg-legal-head">
+        <span class="reg-legal-title">Políticas de Privacidad</span>
+        <button class="reg-legal-close" onclick="closeLegalModal('privacy')" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="reg-legal-body">
+        <h3>1. Datos que recopilamos</h3>
+        <p>Recopilamos tu nombre, email, carrera y plan de estudios al momento del registro, así como datos de uso de la plataforma.</p>
+        <h3>2. Uso de los datos</h3>
+        <p>Tus datos se utilizan exclusivamente para brindarte el servicio educativo de CleverWave. No los vendemos ni compartimos con terceros sin tu consentimiento.</p>
+        <h3>3. Seguridad</h3>
+        <p>Implementamos medidas de seguridad para proteger tu información. Sin embargo, ningún sistema es 100% seguro.</p>
+        <h3>4. Tus derechos</h3>
+        <p>Podés solicitar el acceso, rectificación o eliminación de tus datos personales en cualquier momento contactándonos.</p>
+        <h3>5. Cookies</h3>
+        <p>Usamos cookies esenciales para el funcionamiento de la plataforma. No usamos cookies de rastreo publicitario.</p>
+        <p style="margin-top:16px; font-size:11px; color:rgba(15,23,42,.45);">— Reemplazá este texto por tus Políticas de Privacidad definitivas —</p>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // === Invitado ===
+    const btnGuest = document.getElementById('btnGuest');
+    const guestModal = document.getElementById('guestModal');
+    const guestBg = document.getElementById('guestModalBg');
+    const guestClose = document.getElementById('guestClose');
+    const guestCareer = document.getElementById('guestCareer');
+    const guestPlan = document.getElementById('guestPlan');
+
+    const openGuest = () => { if(!guestModal) return; guestModal.classList.remove('hidden'); guestModal.setAttribute('aria-hidden','false'); };
+    const closeGuest = () => { if(!guestModal) return; guestModal.classList.add('hidden'); guestModal.setAttribute('aria-hidden','true'); };
+
+    if(btnGuest){
+      btnGuest.addEventListener('click', async () => {
+        openGuest();
+        try{
+          const r = await fetch('/options', { credentials:'include' });
+          const j = await r.json().catch(()=>null);
+          if(!r.ok || !j || !j.ok) return;
+
+          const careers = Array.isArray(j.careers) ? j.careers : [];
+          const plansByCareer = (j.plansByCareer && typeof j.plansByCareer==='object') ? j.plansByCareer : {};
+
+          if (guestCareer) guestCareer.innerHTML = careers.map(c=>`<option value="${String(c).replace(/"/g,'&quot;')}">${c}</option>`).join('');
+
+          const setPlans = () => {
+            const c = guestCareer ? guestCareer.value : '';
+            const plans = Array.isArray(plansByCareer[c]) ? plansByCareer[c] : [];
+            if (guestPlan) guestPlan.innerHTML = plans.map(p=>`<option value="${p}">Plan ${p}</option>`).join('');
+          };
+          guestCareer && guestCareer.addEventListener('change', setPlans);
+          setPlans();
+        }catch(e){}
+      });
+    }
+    if(guestBg) guestBg.addEventListener('click', closeGuest);
+    if(guestClose) guestClose.addEventListener('click', closeGuest);
+
+  // ✅ Fix logo de Dropbox en Safari/iPhone (auth-brand)
+  const authLogo = document.querySelector('.auth-brand img');
+  if (authLogo){
+    const src = authLogo.getAttribute('src') || '';
+    if (src.includes('dropbox.com') && src.includes('clear-way.png') && src.includes('dl=1') && !src.includes('raw=1')){
+      authLogo.setAttribute('src', src.replace('dl=1','raw=1'));
+    }
+    authLogo.setAttribute('loading','eager');
+    authLogo.setAttribute('decoding','async');
+    authLogo.setAttribute('referrerpolicy','no-referrer');
+    authLogo.addEventListener('error', () => {
+      const s = authLogo.getAttribute('src') || '';
+      if (s.includes('raw=1')){
+        authLogo.setAttribute('src', s.replace('raw=1','dl=1'));
+      }
+    }, { once:true });
+  }
+    // ✅ Email case-insensitive: normalizar antes de enviar
+    const loginEmail = document.querySelector('form[action="/login"] input[name="email"]');
+    if (loginEmail){
+      const normalizeLoginEmail = () => {
+        loginEmail.value = String(loginEmail.value || '').trim().toLowerCase();
+      };
+      loginEmail.addEventListener('blur', normalizeLoginEmail);
+      const loginForm = loginEmail.closest('form');
+      loginForm && loginForm.addEventListener('submit', normalizeLoginEmail);
+    }
+        const loginGoogleLegalCheck = document.getElementById('loginGoogleLegalCheck');
+    const loginGoogleLegalField = document.getElementById('loginGoogleLegalField');
+    const loginGoogleLegalError = document.getElementById('loginGoogleLegalError');
+    const loginGoogleBtn = document.getElementById('loginGoogleBtn');
+
+    if (loginGoogleLegalCheck && loginGoogleLegalField && loginGoogleLegalError && loginGoogleBtn) {
+      let loginGoogleAccepted = !!loginGoogleLegalCheck.checked;
+
+      const clearLoginGoogleError = () => {
+        loginGoogleLegalField.classList.remove('is-invalid');
+        loginGoogleLegalField.classList.remove('is-shaking');
+        loginGoogleBtn.classList.remove('is-shaking');
+        loginGoogleLegalError.classList.remove('is-visible');
+      };
+
+      const playLoginGoogleShake = () => {
+        loginGoogleLegalField.classList.remove('is-shaking');
+        loginGoogleBtn.classList.remove('is-shaking');
+        void loginGoogleLegalField.offsetWidth;
+        loginGoogleLegalField.classList.add('is-invalid', 'is-shaking');
+        loginGoogleBtn.classList.add('is-shaking');
+        loginGoogleLegalError.classList.add('is-visible');
+      };
+
+      loginGoogleLegalCheck.addEventListener('change', () => {
+        loginGoogleAccepted = !!loginGoogleLegalCheck.checked;
+        if (loginGoogleAccepted) clearLoginGoogleError();
+      });
+
+      loginGoogleBtn.addEventListener('click', (e) => {
+        loginGoogleAccepted = !!loginGoogleLegalCheck.checked;
+        if (loginGoogleAccepted) {
+          clearLoginGoogleError();
+          return;
+        }
+        e.preventDefault();
+        playLoginGoogleShake();
+      });
+
+      loginGoogleLegalField.addEventListener('animationend', () => {
+        loginGoogleLegalField.classList.remove('is-shaking');
+      });
+
+      loginGoogleBtn.addEventListener('animationend', () => {
+        loginGoogleBtn.classList.remove('is-shaking');
+      });
+    }
+
+    const input = document.getElementById('loginPw');
+    const btn   = document.querySelector('[data-pw-target="loginPw"]');
+    if (!input || !btn) return;
+
+      btn.addEventListener('click', () => {
+      const isPwd = input.getAttribute('type') === 'password';
+      input.setAttribute('type', isPwd ? 'text' : 'password');
+      btn.textContent = isPwd ? 'Ocultar' : 'Mostrar';
+    });
+  });
+
+  // ===== Modales legales =====
+  function openLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el){
+      el.classList.add('is-open');
+      document.documentElement.style.overflow = 'hidden';
+      el.addEventListener('click', function onOverlay(e){
+        if (e.target === el){
+          closeLegalModal(which);
+          el.removeEventListener('click', onOverlay);
+        }
+      });
+    }
+  }
+  function closeLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('is-open');
+    document.documentElement.style.overflow = '';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){
+      closeLegalModal('terms');
+      closeLegalModal('privacy');
+    }
+  });
+// ===== Modales legales =====
+  function openLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el){
+      el.classList.add('is-open');
+      document.documentElement.style.overflow = 'hidden';
+      el.addEventListener('click', function onOverlay(e){
+        if (e.target === el){
+          closeLegalModal(which);
+          el.removeEventListener('click', onOverlay);
+        }
+      });
+    }
+  }
+  function closeLegalModal(which){
+    const id = which === 'terms' ? 'modalTerms' : 'modalPrivacy';
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('is-open');
+    document.documentElement.style.overflow = '';
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape'){
+      closeLegalModal('terms');
+      closeLegalModal('privacy');
+    }
+  });
+</script>

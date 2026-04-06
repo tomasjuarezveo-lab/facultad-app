@@ -1,0 +1,92 @@
+﻿require('dotenv').config();
+const express = require('express');
+const path = require('path');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const passport = require('passport');
+const LocalStrategy = require('passport-local').Strategy;
+const bcrypt = require('bcrypt');
+const methodOverride = require('method-override');
+const expressLayouts = require('express-ejs-layouts');
+const { db, all, get, init } = require('./models/db');
+
+const app = express();
+// Ocultar tabbar en login/register
+app.use((req,res,next)=>{ res.locals.hideTabbar = /^\/(login|register)(\/|$)/.test(req.path); next(); });
+
+// View + estÃ¡ticos
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(expressLayouts);
+app.set('layout', 'layout');
+app.use('/public', express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'public', 'uploads')));
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(methodOverride('_method'));
+
+// SesiÃ³n
+app.use(session({
+  store: new SQLiteStore({ db: 'sessions.sqlite', dir: path.join(__dirname) }),
+  secret: process.env.SESSION_SECRET || 'supersecreto',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { maxAge: 1000*60*60*24*7 }
+}));
+
+// Passport
+passport.use(new LocalStrategy({ usernameField: 'email' }, async (email, password, done) => {
+  try {
+    const user = await get(`SELECT * FROM users WHERE email = ?`, [email]);
+    if (!user) return done(null, false, { message: 'Credenciales invÃ¡lidas' });
+    const ok = await bcrypt.compare(password, user.pass_hash);
+    if (!ok) return done(null, false, { message: 'Credenciales invÃ¡lidas' });
+    return done(null, { id: user.id, name: user.name, role: user.role, career: user.career, plan: user.plan, email: user.email });
+  } catch (e) { return done(e); }
+}));
+passport.serializeUser((user, done) => done(null, user.id));
+passport.deserializeUser(async (id, done) => {
+  const user = await get(`SELECT id, name, email, role, career, plan FROM users WHERE id=?`, [id]);
+  done(null, user);
+});
+app.use(passport.initialize());
+app.use(passport.session());
+
+// Helpers
+function ensureAuth(req, res, next) {
+  if (req.isAuthenticated()) return next();
+  res.redirect('/login');
+}
+function ensureAdmin(req, res, next) {
+  if (req.isAuthenticated() && req.user.role === 'admin') return next();
+  return res.status(403).send('Solo el administrador puede realizar esta acciÃ³n');
+}
+app.use((req, res, next) => {
+  res.locals.user = req.user;
+  next();
+});
+
+// Rutas
+const authRoutes = require('./routes/auth');
+const appRoutes = require('./routes/app');
+const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload');
+const pdfRoutes = require('./routes/pdf');
+
+app.use(authRoutes({ passport }));
+app.use('/app', ensureAuth, appRoutes({ ensureAdmin }));
+app.use('/admin', ensureAdmin, adminRoutes());
+app.use('/upload', ensureAdmin, uploadRoutes());
+app.use('/pdf-view', pdfRoutes());
+
+app.get('/', (req, res) => {
+  if (req.isAuthenticated()) return res.redirect('/app/materias');
+  res.redirect('/login');
+});
+
+// Init + listen
+init().then(() => {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => console.log(`âœ… Servidor en http://localhost:${PORT}`));
+});
+

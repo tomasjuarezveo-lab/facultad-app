@@ -1,0 +1,3592 @@
+<!-- ===========================
+  chat-group.ejs (COMPLETO)
+  - Fix admin delete (seleccionar / quitar / borrar seleccionados)
+  - Fix checkbox UI (no se superpone / no queda fuera)
+  - Panel lateral: mismo ALTO que el chat (desktop y mobile)
+  - Mobile panel: ancho ~ 2/3 del chat (no full-screen) + estética mejorada
+  - NO cambia IDs (para no romper nada)
+=========================== -->
+
+<!-- ===== Overlay Reset Banner (always rendered; does not affect layout) ===== -->
+<%
+  // === Reset banner: resolve text safely (no runtime errors if vars missing) ===
+  var __resetText = "";
+  try {
+    if (typeof nextResetText !== "undefined" && nextResetText) {
+      __resetText = nextResetText;
+    } else if (typeof group !== "undefined" && group) {
+      __resetText = (group.nextResetText || group.resetText || group.reset_at_text || group.resetAtText || "");
+    }
+  } catch (e) { __resetText = ""; }
+%>
+
+<div class="reset-banner-overlay" id="resetBannerOverlay" role="note" aria-live="polite">
+  <div class="reset-banner-pill">
+    <p class="text-xs text-slate-500">
+      <% if (__resetText) { %>
+        Los miembros y mensajes del grupo serán reseteados el <%= __resetText %> a las 23:59.
+      <% } else { %>
+        Los miembros y mensajes del grupo serán reseteados próximamente.
+      <% } %>
+    </p>
+  </div>
+</div>
+
+<style>
+  /* ===== Reset Banner (Glass iOS pill overlay) ===== */
+  .reset-banner-overlay{
+    position: fixed;
+    left: 50%;
+    top: calc(var(--reset-banner-top, 88px) + env(safe-area-inset-top, 0px));
+    transform: translateX(-50%) translateY(-12px);
+    z-index: 2147483647;
+    pointer-events: none;
+
+    width: auto;
+    max-width: min(1000px, 84%);
+
+    opacity: 0;
+    transition: opacity 280ms ease, transform 280ms ease;
+    will-change: opacity, transform;
+  }
+  .reset-banner-overlay.show{ opacity: 1; transform: translateX(-50%) translateY(0); }
+  .reset-banner-overlay.hide{ opacity: 0; transform: translateX(-50%) translateY(-12px); }
+
+  .reset-banner-pill{
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 18px;
+    min-height: 30px;
+    border-radius: 9999px;
+    background: rgba(255,255,255,0.36);
+    border: 1px solid rgba(255,255,255,0.55);
+    box-shadow: 0 10px 28px rgba(15,23,42,0.18);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    text-align: center;
+  }
+  .reset-banner-pill p{
+    margin: 0;
+    font-size: 0.75rem;
+    color: #475569;
+    line-height: 1.25rem;
+    white-space: nowrap;
+  }
+  @media (max-width: 640px){
+    .reset-banner-overlay{ max-width: 92%; }
+    .reset-banner-pill{ padding: 6px 14px; }
+    .reset-banner-pill p{ white-space: normal; }
+  }
+
+  /* ✅ Por las dudas: si quedó algo viejo en el layout, lo apagamos */
+  .reset-box{ display: none !important; }
+  .reset-banner{ display: none !important; }
+</style>
+
+<%
+  function cleanName(n){
+    return String(n || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+  }
+  function parseUTC(ts){
+    if(!ts) return null;
+    const s0 = String(ts).trim();
+    if(!s0) return null;
+    if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(s0)) return new Date(s0);
+    const iso = s0.replace(' ', 'T');
+    return new Date(iso + 'Z');
+  }
+  function fmt(ts){
+    const d = parseUTC(ts);
+    if(!d || isNaN(d.getTime())) return String(ts || '');
+    const s = d.toLocaleString('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit',
+      hour12:false
+    });
+    return s.replace(',', ' -');
+  }
+  const __chatTipo = (typeof tipo !== 'undefined' && String(tipo).toLowerCase() === 'cursos') ? 'cursos' : 'finales';
+  const __subjectName = cleanName(subject?.name);
+  const groupName    = (__chatTipo === 'cursos' ? 'Cursada de ' : 'Final de ') + __subjectName;
+  const groupInitial = (__subjectName && __subjectName[0] ? __subjectName[0] : 'G').toUpperCase();
+  const meId = user?.id;
+
+  // si tenés arrays opcionales, no rompe:
+  const __members = (typeof members !== "undefined" && members) ? members : (typeof groupMembers !== "undefined" && groupMembers ? groupMembers : []);
+%>
+
+<style>
+  :root{
+    --dock-offset: 233px;
+
+    --chat-bg: #eae6df;
+    --chat-paper: #ffffff;
+
+    --msg-me:  #F8C160;
+    --msg-oth: #cfe9ff;
+    --name-me: #ff9800;
+    --name-ot: #2196f3;
+
+    --ink: #0f172a;
+    --muted:#64748b;
+    --shadow: 0 10px 24px rgba(15,23,42,.10);
+
+    --hl-bg: #fff59d;
+    --hl-ring: #f59e0b;
+
+    --panel-glass: rgb(255, 255, 255);
+    --panel-stroke: rgb(255, 255, 255);
+    --panel-shadow: 0 18px 34px rgba(15,23,42,.18);
+
+    --btn-bg: rgba(255,255,255,.78);
+    --btn-stroke: rgba(15,23,42,.10);
+    --btn-shadow: 0 10px 22px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.9);
+  }
+
+  html.chat-no-scroll, body.chat-no-scroll { overflow: hidden !important; }
+  html, body{ overflow-x: hidden !important; }
+
+  /* ✅ evita corte horizontal (no puede exceder viewport) */
+  .chat-frame{
+    width: min(1100px, calc(100vw - 20px));
+    max-width: min(1100px, calc(100vw - 20px));
+    margin: 10px auto;
+
+    border-radius: 16px;
+    overflow: hidden;
+    height: calc(100dvh - var(--dock-offset));
+  }
+  @supports (height: env(safe-area-inset-bottom)){
+    .chat-frame{ height: calc(100vh - var(--dock-offset) - env(safe-area-inset-bottom)); }
+  }
+
+  .chat-card{
+    height: 100%;
+    position: relative;
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    overflow: hidden;
+    border-radius: 18px;
+    background: var(--chat-paper);
+  }
+
+  /* Header */
+  .chat-header{
+    background: #f7f7f7;
+    border-bottom: 1px solid #e5e7eb;
+    height: 64px;
+    padding: 0 12px 0 16px;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    position: relative;
+  }
+
+  .header-left{ display:flex; align-items:center; gap:12px; cursor: pointer; min-width: 0; }
+  .min-w-0{ min-width: 0; }
+
+  .avatar-wrap{ position: relative; width:44px; height:44px; flex:0 0 auto; }
+  .avatar-img{
+    width:44px; height:44px; border-radius:9999px; border:1px solid #e5e7eb;
+    object-fit:cover; background:#e5e7eb;
+    display:block;
+  }
+  .avatar-initial{ position:absolute; inset:0; display:grid; place-items:center; font-weight:800; color:#0f172a; }
+
+  .chat-header .title{ font-weight: 800; color: var(--ink); line-height: 1.1; }
+  .chat-header .subtitle{ font-size: .8rem; color: var(--muted); }
+
+  .truncate{
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-kebab{
+    justify-self: end; border:none; background: transparent; cursor:pointer;
+    width: 36px; height: 36px; border-radius: 9999px; font-size: 20px;
+  }
+  .header-kebab:hover{ background:#eceff3; }
+
+  .header-menu{
+    position: absolute; top: 56px; right: 8px; z-index: 120;
+    background:#fff; border:1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 10px 24px rgba(15,23,42,.15);
+    display: none; overflow: hidden; min-width: 180px;
+  }
+  .header-menu.open{ display:block; }
+  .header-menu .item{ padding:10px 14px; cursor:pointer; display:flex; align-items:center; gap:10px; }
+  .header-menu .item:hover{ background:#f6f7f9; }
+  .header-menu .item.danger{ color:#b42318; }
+  .header-menu svg{ width:18px; height:18px; }
+
+  /* Attach & Fullscreen */
+  .attach-btn{
+    width: 44px; height: 44px; border-radius: 9999px; border: 1px solid #e5e7eb;
+    background:#fff; display:grid; place-items:center; cursor:pointer;
+  }
+  .attach-btn:hover{ background:#f7f7f7; }
+
+  .attach-menu{
+    position: fixed; z-index: 2147483000;
+    display:none; flex-direction:column; gap:8px;
+    background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:10px;
+    box-shadow: var(--shadow); transform-origin: bottom right;
+    animation: popUp .18s ease-out;
+  }
+  .attach-menu.open{ display:flex; }
+
+  .attach-item{
+    height:38px; border-radius:9999px; padding:0 14px; display:flex; align-items:center; gap:10px;
+    border:1px solid #e5e7eb; cursor:pointer; user-select:none;
+  }
+  .attach-item:hover{ background:#f7f7f7; }
+
+  @keyframes popUp{
+    from{ opacity:0; transform: translateY(10px) scale(0.98); }
+    to  { opacity:1; transform: translateY(0)    scale(1.00); }
+  }
+
+  .chat-fs-btn{
+    width:40px; height:40px; border-radius:9999px;
+    border:1px solid transparent; background: transparent;
+    display:grid; place-items:center; cursor:pointer;
+    position:absolute; top:12px; right:54px; z-index: 110;
+    transform: translatex(-40px);
+  }
+  .chat-fs-btn:hover{ background:#f1f5f9; }
+
+  .chat-back-btn{ right: 50px; }
+  .chat-card.is-admin .chat-back-btn{ right: 182px; } /* deja lugar a herramientas admin */
+
+  .chat-card.chat-fs{
+    position: fixed; inset:0; width:100vw; height:100vh; z-index:2147483000; border-radius:0;
+    background: var(--chat-paper, #fff);
+  }
+
+  /* ===== Admin bulk tools (FIX) ===== */
+  .admin-bulk-tools{
+    position: absolute;
+    top: 12px;
+    right: 140px;
+    display:flex;
+    gap:8px;
+    align-items:center;
+    padding: 6px 8px;
+    border-radius: 9999px;
+    background: rgba(255,255,255,.78);
+    border: 1px solid rgba(15,23,42,.10);
+    box-shadow: 0 10px 22px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.9);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    z-index: 115;
+  }
+  .admin-bulk-tools button{
+    height: 32px;
+    padding: 0 10px;
+    border-radius: 9999px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255,255,255,.92);
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 12px;
+    color: #0f172a;
+  }
+  .admin-bulk-tools button:hover{ background: #fff; }
+  .admin-bulk-tools button:disabled{ opacity:.55; cursor:not-allowed; }
+  #btnDeleteSelected{
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+  }
+  #selectedCount{ font-size: 12px; color:#475569; padding: 0 4px; white-space: nowrap; }
+
+  /* Body (único con scroll) */
+  .chat-body{
+    background: var(--chat-bg) url('/public/img/whatsapp-pattern.png');
+    background-size: 400px 400px;
+    padding: 16px;
+    overflow-y: auto; overflow-x: hidden;
+    scroll-behavior: smooth;
+    position: relative;
+  }
+
+  /* Mensajes */
+  .row{
+    display: grid;
+    gap: 8px;
+    margin: 8px 0;
+    max-width: 50%;
+    position: relative;
+
+    /* ✅ espacio para checkbox admin */
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+  .row.other{
+    grid-template-columns: 36px minmax(0,1fr);
+    justify-items: start; align-items: end;
+  }
+  .row.me{
+    grid-template-columns: minmax(0,1fr) 36px;
+    justify-items: end; align-items: end; margin-left: auto;
+  }
+
+  /* ✅ checkbox admin (ARREGLADO: ahora el input es el checkbox) */
+  .msg-admin-check{
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    z-index: 3;
+    accent-color: #ef4444;
+  }
+  .row.other .msg-admin-check{ left: 6px; }
+  .row.me    .msg-admin-check{ right: 6px; }
+
+  /* ✅ resaltar fila seleccionada */
+  .row.is-selected .bubble{
+    outline: 2px solid rgba(239,68,68,.55);
+    box-shadow: 0 16px 34px rgba(239,68,68,.12);
+  }
+
+  .msg-avatar{
+    width: 36px; height: 36px; border-radius: 9999px; overflow: hidden;
+    border: 1px solid #e5e7eb; background: #e2e8f0; display: grid; place-items: center;
+    color:#0f172a; font-weight: 800; font-size: .85rem;
+  }
+  .msg-avatar img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+  .msg-avatar .initial{ display: none; }
+  .msg-avatar[data-fallback="1"] .initial{ display: grid; }
+  .msg-avatar[data-fallback="1"] img{ display: none; }
+
+  .bubble{
+    padding: 10px 12px;
+    border-radius: 22px;
+    font-size: .98rem; line-height: 1.25;
+    word-wrap: break-word; overflow-wrap: anywhere;
+    position: relative;
+    box-shadow: 0 10px 18px rgba(15,23,42,.06);
+  }
+  .row.me .bubble{ background: var(--msg-me); border-top-right-radius: 12px; }
+  .row.other .bubble{ background: var(--msg-oth); border-top-left-radius: 12px; }
+
+  .bubble-head{
+    display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  }
+  .row.other .bubble-head{ justify-content: flex-start; }
+  .row.me    .bubble-head{ justify-content: flex-end; }
+
+  .who{ font-weight: 900; }
+  .row.me .who{ color: var(--name-me); }
+  .row.other .who{ color: var(--name-ot); }
+
+  .menu-btn{
+    line-height: 0; background: transparent; border: none; cursor: pointer;
+    font-size: 18px; opacity: .85;
+  }
+  .menu-btn:hover{ opacity: 1; }
+
+  .ctx-menu{
+    position: absolute; top: 6px; right: 8px; z-index: 10;
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(15,23,42,.15); overflow: hidden;
+    display: none;
+  }
+  .ctx-menu.open{ display: block; }
+  .ctx-item{
+    padding: 10px 14px; font-size: .92rem; white-space: nowrap; cursor: pointer;
+  }
+  .ctx-item:hover{ background:#f6f7f9; }
+  .ctx-item.danger{ color:#b42318; }
+
+  .text{ white-space: pre-wrap; }
+
+  .stamp{
+    font-size: .68rem; color:#667085; white-space: nowrap; margin-top: 2px;
+  }
+  .row.other .stamp{ grid-column: 2; justify-self: start; }
+  .row.me    .stamp{ grid-column: 1; justify-self: end; }
+
+  /* Composer */
+  .chat-composer{
+    position: relative;
+    background: #f0f2f5; border-top: 1px solid #e5e7eb;
+    padding: 10px;
+    display: grid; grid-template-columns: 1fr auto auto auto; gap: 10px;
+  }
+  .chat-input{
+    height: 44px; border-radius: 9999px; padding: 0 14px;
+    border: 1px solid #e5e7eb; background: #fff; outline: none;
+  }
+  .emoji-btn{
+    width: 44px; height: 44px; border-radius: 9999px; border: 1px solid #e5e7eb;
+    background:#fff; display:grid; place-items:center; cursor:pointer;
+  }
+  .emoji-btn:hover{ background:#f7f7f7; }
+  .send-btn{
+    height: 44px; padding: 0 16px; border-radius: 9999px;
+    background: #F8C160;
+    color: #111827; font-weight: 900;
+    border: 1px solid rgba(254,132,25,.25);
+    box-shadow: 0 12px 22px rgba(15,23,42,.12), inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .send-btn[disabled]{ opacity:.6; cursor:not-allowed; }
+
+  /* Emoji picker (simple & estable) */
+  .emoji-picker{
+    position: absolute;
+    bottom: 60px; right: 64px;
+    width: 360px; max-width: 90vw;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(255,255,255,0.65);
+    border-radius: 18px;
+    box-shadow: 0 20px 40px rgba(15,23,42,.18);
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    padding: 10px;
+    display: none;
+    z-index: 1000;
+    height: 260px;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .emoji-picker.open{ display: flex; }
+
+  .emoji-pane{
+    flex: 1;
+    overflow: auto;
+    scrollbar-width: none;
+  }
+  .emoji-pane::-webkit-scrollbar{ display: none; }
+
+  .emoji-grid{
+    display:grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+    padding-right: 2px;
+  }
+  .emoji{
+    width: 36px;
+    height: 36px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.65);
+    background: rgba(255,255,255,0.7);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+    font-size: 20px;
+    box-shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 10px 18px rgba(15,23,42,.07);
+    transition: transform .12s ease;
+  }
+  .emoji:hover{ transform: translateY(-1px); }
+
+  .emoji-tabs{
+    display:flex;
+    gap: 8px;
+    overscroll-behavior-x: contain;
+    min-width: 0;
+    overflow-x:hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .emoji-tabs::-webkit-scrollbar{ display:none; }
+
+  .emoji-tab{
+    height: 36px;
+    padding: 0 12px;
+    border-radius: 9999px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255,255,255,.85);
+    cursor: pointer;
+    font-weight: 900;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .emoji-tab[aria-selected="true"]{
+    background: #0f172a;
+    color: #fff;
+    border-color: #0f172a;
+  }
+
+  /* ===== Search overlay ===== */
+  #searchOverlay{
+    position: absolute; top: 72px; right: 12px; z-index: 2147483100;
+    display: none; align-items: center; gap: 6px;
+    background: rgb(255, 255, 255);
+    border:1px solid rgba(15,23,42,.10);
+    border-radius: 9999px;
+    padding: 6px 8px;
+    box-shadow: 0 10px 24px rgba(15,23,42,.15);
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+  }
+  #searchOverlay.open{ display: flex; }
+  #findInput{
+    width: 190px; height: 34px;
+    border:1px solid rgba(15,23,42,.10);
+    border-radius: 9999px;
+    padding: 0 12px;
+    outline: none;
+    background: rgba(255,255,255,.95);
+  }
+  .find-btn, .close-find{
+    width: 34px; height: 34px;
+    border-radius: 9999px;
+    border:1px solid rgba(15,23,42,.10);
+    background:#fff;
+    display:grid; place-items:center;
+    cursor:pointer;
+  }
+  .find-btn:hover, .close-find:hover{ background:#f6f7f9; }
+  .find-count{ font-size: .8rem; color:#475569; padding: 0 4px; }
+
+  mark.hl{ background: var(--hl-bg); padding: 0 .15em; border-radius: 3px; }
+  .current-match mark.hl{ outline: 2px solid var(--hl-ring); }
+
+  /* ===== Side panel (FIX: mismo alto que el chat) ===== */
+  .panel-backdrop{
+    position: absolute;
+    inset: 64px 0 0 0; /* debajo del header del chat */
+    background: rgba(15,23,42,.25);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 180ms ease;
+    z-index: 88;
+  }
+  .panel-backdrop.open{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .side-panel{
+    position: absolute;
+    top: 64px; right: 0;
+    height: calc(100% - 64px); /* ✅ mismo alto que body+composer */
+    width: min(420px, 38%);
+    max-width: min(420px, 38%);
+
+    border-radius: 18px 0 0 18px;
+    border: 1px solid var(--panel-stroke);
+    box-shadow: var(--panel-shadow);
+
+    background: var(--panel-glass);
+    backdrop-filter: blur(12px) saturate(150%);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+
+    transform: translateX(110%);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 90;
+    transition: transform 220ms ease, opacity 220ms ease;
+    overflow: hidden;
+    display: grid;
+    grid-template-rows: auto 1fr;
+  }
+  .side-panel.open{
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .panel-header{
+    padding: 12px 12px;
+    display:flex;
+    align-items:center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(15,23,42,.08);
+    background: rgb(255, 255, 255);
+  }
+  .panel-avatar{
+    width: 44px; height: 44px;
+    border-radius: 9999px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255, 255, 255, 0.7);
+    display:grid;
+    place-items:center;
+    font-weight: 900;
+    color:#0f172a;
+    position: relative;
+    overflow: hidden;
+  }
+  .panel-avatar img{ width:100%; height:100%; object-fit: cover; display:block; }
+  .panel-avatar .panel-avatar-initial{ position:absolute; inset:0; display:grid; place-items:center; }
+
+  .panel-title{ font-weight: 950; color:#0f172a; line-height: 1.05; }
+  .panel-sub{ font-size: 12px; color:#475569; margin-top: 2px; }
+
+  .panel-close{
+    margin-left: auto;
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255,255,255,.85);
+    box-shadow: 0 10px 18px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.8);
+    display:grid; place-items:center;
+    cursor:pointer;
+  }
+  .panel-close:hover{ background:#fff; }
+
+  .panel-body{
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 12px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .panel-section-title{
+    font-weight: 950;
+    color:#0f172a;
+    font-size: 13px;
+    margin: 10px 2px 8px;
+  }
+
+  /* panel tools */
+  .panel-tools{
+    display:flex;
+    gap:10px;
+    padding: 10px;
+    border: 1px solid rgba(15,23,42,.08);
+    border-radius: 16px;
+    background: rgba(255,255,255,.55);
+    box-shadow: 0 12px 22px rgba(15,23,42,.10), inset 0 1px 0 rgba(255,255,255,.8);
+    position: sticky;
+    top: 8px;
+    z-index: 2;
+    backdrop-filter: blur(10px) saturate(140%);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+  }
+  .tool-btn{
+    flex: 1;
+    height: 42px;
+    border-radius: 9999px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255,255,255,.9);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap: 8px;
+    font-weight: 950;
+    cursor:pointer;
+  }
+  .tool-btn:hover{ background:#fff; }
+
+  /* member cards (mejor estética) */
+  .member-card{
+    display:grid;
+    grid-template-columns: 44px 1fr auto;
+    gap: 12px;
+    align-items:center;
+    border: 1px solid rgba(15,23,42,.08);
+    border-radius: 18px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: rgba(255,255,255,.92);
+    box-shadow: 0 12px 22px rgba(15,23,42,.08), inset 0 1px 0 rgba(255,255,255,.7);
+  }
+  .member-avatar{
+    width:44px; height:44px; border-radius:9999px; overflow:hidden;
+    border:1px solid rgba(15,23,42,.10); background:#e2e8f0;
+    display:grid; place-items:center;
+    color:#0f172a; font-weight:900; font-size: 1rem;
+    position: relative;
+  }
+  .member-avatar img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .member-avatar .initial{ display:none; }
+  .member-avatar[data-fallback="1"] .initial{ display:grid; position:absolute; inset:0; place-items:center; }
+  .member-avatar[data-fallback="1"] img{ display:none; }
+
+  .member-info .name{ font-weight: 950; color:#0f172a; }
+  .member-info .meta{ font-size: .85rem; color:#475569; margin-top: 2px; }
+
+  .member-menu-btn{
+    width: 38px;
+    height: 38px;
+    border-radius: 14px;
+    border: 1px solid rgba(15,23,42,.10);
+    background: rgba(255,255,255,.9);
+    display:grid;
+    place-items:center;
+    cursor:pointer;
+  }
+  .member-menu-btn:hover{ background:#fff; }
+
+  .member-menu{ position: relative; }
+  .member-menu-content{
+    position:absolute; top: 44px; right: 0;
+    z-index: 10; display:none;
+    background:#fff;
+    border:1px solid rgba(15,23,42,.10);
+    border-radius: 14px;
+    overflow:hidden;
+    box-shadow: 0 16px 30px rgba(15,23,42,.16);
+    min-width: 180px;
+  }
+  .member-menu-content.open{ display:block; }
+  .member-menu-item{ padding:10px 14px; cursor:pointer; font-weight: 800; }
+  .member-menu-item:hover{ background:#f6f7f9; }
+  .member-menu-item.danger{ color:#b42318; }
+
+  /* =========================
+    ✅ MOBILE PATCH (chat-group)
+    - panel 2/3 del chat + mismo alto (NO full screen)
+    ========================= */
+  @media (max-width: 640px){
+  :root{ --dock-offset: 166px; }
+
+  .chat-frame{
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+    margin: 6px auto 0;
+    border-radius: 18px;
+    height: calc(100dvh - var(--dock-offset));
+  }
+  @supports (height: env(safe-area-inset-bottom)){
+    .chat-frame{
+      height: calc(100dvh - var(--dock-offset) - env(safe-area-inset-bottom));
+    }
+  }
+
+  .chat-card{
+    min-width: 0;
+    border-radius: 18px;
+  }
+
+  .chat-header{
+    height: auto;
+    min-height: 58px;
+    padding: 9px 10px 9px 12px;
+    gap: 8px;
+    grid-template-columns: minmax(0,1fr) auto;
+  }
+
+  .header-left{
+    gap: 10px;
+    min-width: 0;
+    padding-right: 82px;
+  }
+
+  .avatar-wrap{ width:38px; height:38px; }
+  .avatar-img{ width:38px; height:38px; }
+
+  .chat-header .title{
+    font-size: 13px;
+    line-height: 1.15;
+  }
+
+  .chat-header .subtitle{
+    display: none;
+  }
+
+  .header-kebab{
+    width: 34px;
+    height: 34px;
+    position: relative;
+    z-index: 130;
+  }
+
+  .chat-fs-btn{
+    top: 12px;
+    width: 34px;
+    height: 34px;
+    transform: none;
+    z-index: 125;
+  }
+
+  #btnFullscreen{
+    display: none !important;
+  }
+
+  .chat-back-btn,
+  .chat-card.is-admin .chat-back-btn{
+    right: 44px !important;
+  }
+
+  #btnBulkDelete{
+    display: none !important;
+  }
+
+  .admin-bulk-tools{
+    top: 58px;
+    right: 8px;
+    left: 8px;
+    width: auto;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .admin-bulk-tools button{
+    flex: 1;
+    min-width: 0;
+    height: 34px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+
+  #selectedCount{
+    display: none;
+  }
+
+  .chat-body{
+    padding: 10px 8px 12px;
+    background-size: 280px 280px;
+  }
+
+  .row{
+    width: 100%;
+    max-width: 100%;
+    gap: 6px;
+    margin: 8px 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .row.other,
+  .row.me{
+    grid-template-columns: minmax(0,1fr);
+  }
+
+  .msg-avatar{
+    display: none;
+  }
+
+  .msg-admin-check{
+    top: 10px;
+    transform: none;
+    width: 16px;
+    height: 16px;
+  }
+
+  .row.other .msg-admin-check,
+  .row.me .msg-admin-check{
+    left: auto;
+    right: 4px;
+  }
+
+  .bubble{
+    max-width: min(86vw, 100%);
+    padding: 10px 12px;
+    border-radius: 18px;
+    font-size: .92rem;
+    line-height: 1.35;
+  }
+
+  .row.other .bubble{
+    margin-right: auto;
+  }
+
+  .row.me .bubble{
+    margin-left: auto;
+  }
+
+  .bubble-head{
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+
+  .who{
+    font-size: .78rem;
+  }
+
+  .menu-btn{
+    font-size: 16px;
+  }
+
+  .stamp{
+    font-size: .64rem;
+    margin-top: 1px;
+  }
+
+  .row.other .stamp{
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .row.me .stamp{
+    grid-column: 1;
+    justify-self: end;
+  }
+
+  .chat-composer{
+    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    gap: 8px;
+    grid-template-columns: 40px minmax(0,1fr) 40px 40px;
+    align-items: center;
+  }
+
+  .chat-input{
+    min-width: 0;
+    height: 40px;
+    padding: 0 12px;
+    font-size: 16px;
+  }
+
+  .emoji-btn,
+  .attach-btn,
+  .send-btn{
+    width: 40px;
+    height: 40px;
+  }
+
+  .send-btn{
+    padding: 0;
+    border-radius: 9999px;
+    font-size: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .send-btn::before{
+    content:"➤";
+    font-size: 17px;
+    line-height: 1;
+  }
+
+  .emoji-picker{
+    left: 8px;
+    right: 8px;
+    width: auto;
+    bottom: calc(60px + env(safe-area-inset-bottom));
+    max-height: 42vh;
+    overflow: auto;
+  }
+
+  .emoji-grid{
+    grid-template-columns: repeat(8, 1fr);
+  }
+
+  #searchOverlay{
+    left: 8px;
+    right: 8px;
+    top: 66px;
+  }
+
+  #findInput{
+    width: 100%;
+    min-width: 0;
+  }
+
+  .panel-backdrop{
+    inset: 0;
+    top: 0;
+  }
+
+  .side-panel{
+    top: 0;
+    height: 100%;
+    width: min(88vw, 360px);
+    max-width: none;
+    border-radius: 18px 0 0 18px;
+  }
+
+  .panel-header{
+    padding: 10px;
+  }
+
+  .panel-body{
+    padding: 10px;
+  }
+}
+
+  @media (max-width: 380px){
+    .chat-header .title{ font-size: 13px; }
+    .chat-header .subtitle{ font-size: 11px; }
+    .row{ max-width: 96%; }
+  }
+
+  /* ===== Optimistic send states ===== */
+.row.is-pending .bubble{ opacity: .78; }
+.row.is-pending .stamp{ opacity: .75; font-weight: 800; }
+.row.send-failed .bubble{ outline: 2px solid rgba(239,68,68,.65); }
+.row.send-failed .stamp{ color:#b42318; font-weight: 950; }
+
+/* ===== Mention highlight in text ===== */
+.mention-tag{ color: #F8C160; font-weight: 950; }
+
+/* ===== Scroll highlight when clicking mention banner ===== */
+.row.mention-focus .bubble{
+  outline: 2px solid rgba(248,193,96,.85);
+  box-shadow: 0 22px 44px rgba(248,193,96,.18);
+}
+/* Wrapper con flechas para tabs de emoji */
+.emoji-tabs-wrap{
+  display: grid;
+  grid-template-columns: 32px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+}
+
+.emoji-nav-btn{
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 1px solid rgba(15,23,42,.10);
+  background: rgba(255,255,255,.9);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 18px;
+  line-height: 1;
+  box-shadow: 0 6px 14px rgba(15,23,42,.08);
+}
+
+.emoji-nav-btn:hover{
+  background: #fff;
+}
+
+.emoji-tabs{
+  display:flex;
+  gap: 8px;
+  overflow-x:hidden;
+  overscroll-behavior-x: contain;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  scroll-behavior: smooth; /* ✅ scroll suave */
+}
+
+.emoji-tabs::-webkit-scrollbar{ display:none; }
+
+.emoji-tab{
+  flex: 0 0 auto; /* ✅ evita que se achiquen */
+}
+/* ===== WhatsApp share modal ===== */
+/* ===== WhatsApp share modal (iOS style) ===== */
+.wa-modal-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2147483646;
+  background: rgba(15,23,42,.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.wa-modal-overlay.open{ display:flex; }
+
+.wa-modal{
+  position: relative;
+  width: min(430px, 96vw);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.55);
+  background: rgba(255,255,255,.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow:
+    0 30px 60px rgba(15,23,42,.20),
+    inset 0 1px 0 rgba(255,255,255,.75);
+  overflow: hidden;
+}
+
+.wa-modal::before{
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(15,23,42,.18);
+}
+
+.wa-modal-head{
+  position: relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 16px 52px 10px;
+  border-bottom: 1px solid rgba(15,23,42,.06);
+  background: rgba(255,255,255,.35);
+}
+
+.wa-modal-title{
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 17px;
+  letter-spacing: -.01em;
+}
+
+.wa-modal-x{
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 9999px;
+  border: 1px solid rgba(15,23,42,.08);
+  background: rgba(255,255,255,.9);
+  color: #0f172a;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+}
+.wa-modal-x:hover{ background: #fff; }
+
+.wa-modal-body{
+  padding: 14px;
+}
+
+.wa-label{
+  display:block;
+  font-weight: 800;
+  color:#475569;
+  margin-bottom: 8px;
+  font-size: 12px;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.wa-input{
+  width: 100%;
+  height: 50px;
+  border-radius: 14px;
+  border: 1px solid rgba(15,23,42,.08);
+  background: rgba(242,242,247,.88);
+  padding: 0 14px;
+  outline: none;
+  font-size: 16px;
+  color: #0f172a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7);
+}
+.wa-input::placeholder{
+  color: #94a3b8;
+}
+.wa-input:focus{
+  border-color: rgba(52,199,89,.45);
+  box-shadow:
+    0 0 0 4px rgba(52,199,89,.14),
+    inset 0 1px 0 rgba(255,255,255,.9);
+  background: rgba(255,255,255,.95);
+}
+
+.wa-help{
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.wa-modal-actions{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid rgba(15,23,42,.06);
+  background: rgba(255,255,255,.30);
+}
+
+.wa-btn{
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 14px;
+  font-weight: 900;
+  border: 1px solid rgba(15,23,42,.08);
+  cursor: pointer;
+  font-size: 15px;
+  transition: transform .08s ease, opacity .12s ease, background .12s ease;
+}
+.wa-btn:active{
+  transform: scale(.985);
+}
+
+.wa-btn-ghost{
+  background: rgba(255,255,255,.85);
+  color:#0f172a;
+}
+.wa-btn-ghost:hover{
+  background: #fff;
+}
+
+.wa-btn-main{
+  background: rgba(52,199,89,.95); /* iOS green */
+  color: #fff;
+  border-color: rgba(34,160,68,.65);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25);
+}
+.wa-btn-main:hover{
+  background: rgba(49,191,84,1);
+}
+
+@media (max-width: 640px){
+  .wa-modal-overlay{
+    align-items: flex-end;
+    padding: 10px;
+  }
+  .wa-modal{
+    width: 100%;
+    border-radius: 22px 22px 16px 16px;
+  }
+}
+/* ===== WhatsApp card in chat ===== */
+.wa-card{
+  margin-top: 2px;
+  border-radius: 16px;
+  border: 1px solid rgba(15,23,42,.10);
+  background: rgba(255,255,255,.72);
+  padding: 10px;
+  box-shadow: 0 8px 18px rgba(15,23,42,.08);
+}
+.wa-card-title{
+  font-size: .82rem;
+  color:#475569;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+.wa-card-number{
+  font-weight: 900;
+  color:#0f172a;
+  margin-bottom: 8px;
+}
+.wa-card-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 9999px;
+  text-decoration: none;
+  font-weight: 900;
+  color: #0f172a;
+  border: 1px solid rgba(15,23,42,.10);
+  background: #fff;
+}
+.wa-card-btn:hover{ background:#f8fafc; }
+.attach-item{
+  justify-content: space-between;
+}
+
+.attach-item.is-soon{
+  opacity: .92;
+}
+
+.soon-chip{
+  display:inline-flex;
+  align-items:center;
+  height: 20px;
+  width: 20px;
+  padding: 0 8px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #475569;
+  background: rgba(15,23,42,.05);
+  border: 1px solid rgba(15,23,42,.10);
+  white-space: nowrap;
+}
+.send-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  width: 42px;
+  cursor: pointer;
+  border: none;
+  color: white;
+  border-radius: 50%; /* Lo hace circular */
+  transition: background-color 0.2s;
+}
+.send-btn svg {
+  /* Un pequeño ajuste para que el icono de avión se vea centrado visualmente */
+  transform: translate(-1px, 1px);
+}
+.wa-card-number{
+  overflow-wrap: anywhere;
+}
+/* =========================================================
+   THEME BRIDGE (solo chat-group)
+   - Light por defecto
+   - Dark SOLO cuando layout activa su clase/atributo
+========================================================= */
+
+/* Light por defecto (explícito) */
+#chatCard{
+  --cg-bg: #ffffff;
+  --cg-paper: #ffffff;
+  --cg-header: #f7f7f7;
+  --cg-header-border: #e5e7eb;
+  --cg-composer: #f0f2f5;
+  --cg-panel: rgba(255,255,255,.95);
+  --cg-panel-2: rgba(255,255,255,.92);
+  --cg-menu: #ffffff;
+  --cg-input: #ffffff;
+  --cg-input-border: #e5e7eb;
+  --cg-text: #0f172a;
+  --cg-muted: #64748b;
+  --cg-icon: #111827;
+  --cg-stroke: rgba(15,23,42,.10);
+  --cg-row-hover: #f6f7f9;
+  color-scheme: light;
+}
+
+/* ✅ Dark SOLO si layout marca dark con clase/atributo (soporta varios nombres) */
+html.dark #chatCard,
+body.dark #chatCard,
+html.darkmode #chatCard,
+body.darkmode #chatCard,
+html.theme-dark #chatCard,
+body.theme-dark #chatCard,
+html[data-theme="dark"] #chatCard,
+body[data-theme="dark"] #chatCard,
+html[data-bs-theme="dark"] #chatCard,
+body[data-bs-theme="dark"] #chatCard,
+#chatCard.is-dark{
+  --chat-bg: #0b1220;
+  --chat-paper: #0f172a;
+
+  --msg-me: #f8c160;
+  --msg-oth: #1f2a44;
+
+  --name-me: #fbbf24;
+  --name-ot: #93c5fd;
+
+  --ink: #e5e7eb;
+  --muted: #94a3b8;
+
+  --panel-glass: rgba(15,23,42,.92);
+  --panel-stroke: rgba(148,163,184,.18);
+  --panel-shadow: 0 18px 34px rgba(0,0,0,.45);
+
+  --btn-bg: rgba(30,41,59,.75);
+  --btn-stroke: rgba(148,163,184,.16);
+
+  --cg-bg: #0f172a;
+  --cg-paper: #0f172a;
+  --cg-header: #111827;
+  --cg-header-border: rgba(148,163,184,.14);
+  --cg-composer: #0b1220;
+  --cg-panel: rgba(15,23,42,.95);
+  --cg-panel-2: rgba(15,23,42,.88);
+  --cg-menu: #111827;
+  --cg-input: #0b1220;
+  --cg-input-border: rgba(148,163,184,.16);
+  --cg-text: #e5e7eb;
+  --cg-muted: #94a3b8;
+  --cg-icon: #e5e7eb;
+  --cg-stroke: rgba(148,163,184,.16);
+  --cg-row-hover: rgba(148,163,184,.08);
+
+  color-scheme: dark;
+}
+
+/* ===== superficies base ===== */
+#chatCard{
+  background: var(--cg-paper);
+  color: var(--cg-text);
+}
+#chatCard .chat-header{
+  background: var(--cg-header);
+  border-bottom-color: var(--cg-header-border);
+}
+#chatCard .chat-composer{
+  background: var(--cg-composer);
+  border-top-color: var(--cg-header-border);
+}
+#chatCard .chat-input{
+  background: var(--cg-input);
+  border-color: var(--cg-input-border);
+  color: var(--cg-text);
+}
+#chatCard .chat-input::placeholder{ color: var(--cg-muted); }
+
+#chatCard .header-menu,
+#chatCard .ctx-menu,
+#chatCard .attach-menu,
+#chatCard #searchOverlay,
+#chatCard .side-panel,
+#chatCard .emoji-picker{
+  background: var(--cg-menu);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+
+#chatCard .panel-header{
+  background: var(--cg-header);
+  border-bottom-color: var(--cg-stroke);
+}
+#chatCard .panel-title,
+#chatCard .panel-section-title,
+#chatCard .member-info .name,
+#chatCard .chat-header .title{
+  color: var(--cg-text);
+}
+#chatCard .panel-sub,
+#chatCard .member-info .meta,
+#chatCard .chat-header .subtitle,
+#chatCard .stamp,
+#chatCard .find-count{
+  color: var(--cg-muted);
+}
+
+#chatCard .member-card,
+#chatCard .panel-tools,
+#chatCard .tool-btn,
+#chatCard .member-menu-btn,
+#chatCard .panel-close{
+  background: var(--cg-panel-2);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+
+#chatCard .header-menu .item:hover,
+#chatCard .ctx-item:hover,
+#chatCard .member-menu-item:hover,
+#chatCard .tool-btn:hover,
+#chatCard .member-menu-btn:hover,
+#chatCard .panel-close:hover,
+#chatCard .attach-item:hover,
+#chatCard .find-btn:hover,
+#chatCard .close-find:hover,
+#chatCard .emoji-btn:hover,
+#chatCard .attach-btn:hover,
+#chatCard .header-kebab:hover,
+#chatCard .chat-fs-btn:hover{
+  background: var(--cg-row-hover);
+}
+
+/* ===== botones / iconos ===== */
+#chatCard .chat-fs-btn,
+#chatCard .attach-btn,
+#chatCard .emoji-btn,
+#chatCard .header-kebab,
+#chatCard .find-btn,
+#chatCard .close-find,
+#chatCard .menu-btn,
+#chatCard .js-member-menu{
+  color: var(--cg-icon);
+}
+
+#chatCard .attach-btn,
+#chatCard .emoji-btn,
+#chatCard .find-btn,
+#chatCard .close-find{
+  border-color: var(--cg-stroke);
+  background: var(--cg-input);
+}
+
+/* ✅ SVG outline ( + , fullscreen, back, etc ) */
+#chatCard .chat-fs-btn svg *,
+#chatCard .attach-btn svg *,
+#chatCard .find-btn svg *,
+#chatCard .close-find svg *{
+  stroke: currentColor !important;
+}
+#chatCard .chat-fs-btn svg [fill="none"],
+#chatCard .attach-btn svg [fill="none"],
+#chatCard .find-btn svg [fill="none"],
+#chatCard .close-find svg [fill="none"]{
+  fill: none !important;
+}
+
+/* ✅ SVG del menú (share/copy/leave) que viene con fill negro */
+#chatCard .header-menu .item{
+  color: var(--cg-text);
+}
+#chatCard .header-menu .item svg *{
+  stroke: currentColor !important;
+  fill: currentColor !important;
+}
+#chatCard .header-menu .item svg [fill="none"]{
+  fill: none !important;
+}
+
+/* ✅ botones admin arriba (dark visible) */
+#chatCard .admin-bulk-tools{
+  background: var(--btn-bg);
+  border-color: var(--btn-stroke);
+}
+#chatCard .admin-bulk-tools button{
+  background: var(--cg-input);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+#chatCard #selectedCount{ color: var(--cg-muted); }
+
+/* buscador */
+#chatCard #findInput{
+  background: var(--cg-input);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+#chatCard #findInput::placeholder{ color: var(--cg-muted); }
+
+/* emoji tabs */
+#chatCard .emoji-tab{
+  background: var(--cg-input);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+#chatCard .emoji-tab[aria-selected="true"]{
+  background: var(--cg-text);
+  color: var(--cg-bg);
+  border-color: var(--cg-text);
+}
+#chatCard .emoji{
+  background: var(--cg-panel-2);
+  border-color: var(--cg-stroke);
+}
+
+/* modal WhatsApp (si usás dark) */
+#chatCard .wa-modal{
+  background: var(--cg-menu);
+  border-color: var(--cg-stroke);
+}
+#chatCard .wa-modal-head,
+#chatCard .wa-modal-actions{
+  background: transparent;
+  border-color: var(--cg-stroke);
+}
+#chatCard .wa-modal-title,
+#chatCard .wa-label{
+  color: var(--cg-text);
+}
+#chatCard .wa-help{ color: var(--cg-muted); }
+#chatCard .wa-input{
+  background: var(--cg-input);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+#chatCard .wa-input::placeholder{ color: var(--cg-muted); }
+#chatCard .wa-btn-ghost{
+  background: var(--cg-input);
+  border-color: var(--cg-stroke);
+  color: var(--cg-text);
+}
+
+/* reset banner también legible */
+html.dark .reset-banner-pill,
+body.dark .reset-banner-pill,
+html.darkmode .reset-banner-pill,
+body.darkmode .reset-banner-pill,
+html.theme-dark .reset-banner-pill,
+body.theme-dark .reset-banner-pill,
+html[data-theme="dark"] .reset-banner-pill,
+body[data-theme="dark"] .reset-banner-pill,
+html[data-bs-theme="dark"] .reset-banner-pill,
+body[data-bs-theme="dark"] .reset-banner-pill{
+  background: rgba(15,23,42,.72);
+  border-color: rgba(148,163,184,.20);
+}
+html.dark .reset-banner-pill p,
+body.dark .reset-banner-pill p,
+html.darkmode .reset-banner-pill p,
+body.darkmode .reset-banner-pill p,
+html.theme-dark .reset-banner-pill p,
+body.theme-dark .reset-banner-pill p,
+html[data-theme="dark"] .reset-banner-pill p,
+body[data-theme="dark"] .reset-banner-pill p,
+html[data-bs-theme="dark"] .reset-banner-pill p,
+body[data-bs-theme="dark"] .reset-banner-pill p{
+  color: #cbd5e1;
+}
+<style>
+/* ===== FIX REAL MOBILE CHAT: evita choque con layout ===== */
+body.cw-chat-page .chat-frame,
+body.cw-chat-page .chat-card,
+body.cw-chat-page .chat-body{
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+
+@media (max-width: 900px){
+  /* el panel lateral del chat NO puede heredar el side-panel genérico del layout */
+  body.cw-chat-page .side-panel{
+    position: absolute !important;
+    top: 60px !important;
+    right: 0 !important;
+    left: auto !important;
+    bottom: auto !important;
+    width: min(76vw, 360px) !important;
+    max-width: min(76vw, 360px) !important;
+    height: calc(100% - 60px) !important;
+    margin: 0 !important;
+    border-radius: 18px 0 0 18px !important;
+    transform: translateX(110%) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: 90 !important;
+    display: grid !important;
+    grid-template-rows: auto 1fr !important;
+    overflow: hidden !important;
+  }
+
+  body.cw-chat-page .side-panel.open{
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  body.cw-chat-page .panel-backdrop{
+    position: absolute !important;
+    inset: 60px 0 0 0 !important;
+    z-index: 88 !important;
+  }
+
+  /* la mascota y ayuda chocan con el composer del chat en celular */
+  body.cw-chat-page .user-badge-fixed,
+  body.cw-chat-page .help-badge-fixed{
+    display: none !important;
+  }
+}
+
+@media (max-width: 640px){
+  body.cw-chat-page .container-main{
+    max-width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  body.cw-chat-page .chat-frame{
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    margin: 8px auto !important;
+    border-radius: 22px !important;
+    height: calc(100dvh - 184px - env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+  }
+
+  body.cw-chat-page .chat-card{
+    border-radius: 22px !important;
+    display: grid !important;
+    grid-template-rows: 60px minmax(0,1fr) auto !important;
+    overflow: hidden !important;
+  }
+
+  body.cw-chat-page .chat-header{
+    height: 60px !important;
+    min-height: 60px !important;
+  }
+
+  body.cw-chat-page .chat-body{
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 12px 10px 14px !important;
+    background-size: 320px 320px !important;
+  }
+
+  body.cw-chat-page .row{
+    max-width: 94% !important;
+    padding-left: 28px !important;
+    padding-right: 28px !important;
+  }
+
+  body.cw-chat-page .chat-composer{
+    grid-template-columns: minmax(0, 1fr) 42px 42px 42px !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom)) !important;
+    background: #eef2f7 !important;
+    border-top: 1px solid rgba(15,23,42,.08) !important;
+  }
+
+  body.cw-chat-page .chat-input{
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 42px !important;
+    padding: 0 14px !important;
+    border-radius: 9999px !important;
+    border: 1px solid rgba(15,23,42,.08) !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.72),
+      0 6px 14px rgba(15,23,42,.06) !important;
+    outline: none !important;
+    opacity: 1 !important;
+  }
+
+  body.cw-chat-page .chat-input::placeholder{
+    color: #94a3b8 !important;
+  }
+
+  body.cw-chat-page .emoji-btn,
+  body.cw-chat-page .attach-btn,
+  body.cw-chat-page .send-btn{
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    padding: 0 !important;
+    border-radius: 9999px !important;
+  }
+
+  body.cw-chat-page .emoji-btn,
+  body.cw-chat-page .attach-btn{
+    border: 1px solid rgba(15,23,42,.08) !important;
+    background: #ffffff !important;
+    box-shadow: 0 6px 14px rgba(15,23,42,.06) !important;
+  }
+
+  body.cw-chat-page .send-btn{
+    display: grid !important;
+    place-items: center !important;
+    background: #f8c160 !important;
+    border: 1px solid rgba(248,193,96,.45) !important;
+    box-shadow:
+      0 10px 18px rgba(15,23,42,.12),
+      inset 0 1px 0 rgba(255,255,255,.65) !important;
+    color: #0f172a !important;
+  }
+
+  /* mata el parche viejo del ::before */
+  body.cw-chat-page .send-btn::before{
+    content: none !important;
+    display: none !important;
+  }
+
+  body.cw-chat-page .send-btn svg{
+    width: 18px !important;
+    height: 18px !important;
+    display: block !important;
+  }
+
+  body.cw-chat-page .emoji-picker{
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    bottom: 70px !important;
+  }
+
+  body.cw-chat-page #searchOverlay{
+    left: 10px !important;
+    right: 10px !important;
+    top: 66px !important;
+  }
+
+  body.cw-chat-page #findInput{
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+}
+</style>
+</style>
+
+<div class="chat-frame">
+  <!-- WhatsApp Share Modal -->
+  <div id="waModal" class="wa-modal-overlay" aria-hidden="true">
+    <div class="wa-modal" role="dialog" aria-modal="true" aria-labelledby="waModalTitle">
+      <div class="wa-modal-head">
+        <div id="waModalTitle" class="wa-modal-title">Compartir WhatsApp</div>
+        <button id="waModalClose" type="button" class="wa-modal-x" aria-label="Cerrar">✕</button>
+      </div>
+
+      <div class="wa-modal-body">
+        <label for="waNumberInput" class="wa-label">Número o link de grupo de WhatsApp</label>
+          <input
+            id="waNumberInput"
+            class="wa-input"
+            type="text"
+            inputmode="text"
+            placeholder="+54 9 11 1234-5678 o https://chat.whatsapp.com/..."
+            maxlength="300"
+          />
+          <div class="wa-help">
+            Podés pegar un número o un link de invitación a grupo. Se guarda para próximas veces en este navegador.
+          </div>
+      </div>
+
+      <div class="wa-modal-actions">
+        <button id="waModalCancel" type="button" class="wa-btn wa-btn-ghost">Cancelar</button>
+        <button id="waModalSend" type="button" class="wa-btn wa-btn-main">Enviar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-card <%= (user && user.role === 'admin') ? 'is-admin' : '' %>" id="chatCard">
+    <script>
+      window.__IS_ADMIN__ = <%= (user && user.role === 'admin') ? 'true' : 'false' %>;
+    </script>
+
+    <!-- Header -->
+    <div class="chat-header">
+      <div id="btnTogglePanel" class="header-left" title="Ver información del grupo" aria-controls="panel" aria-expanded="false">
+        <div class="avatar-wrap">
+          <img id="chatGroupAvatar" class="avatar-img" alt="Avatar"
+               src="/app/grupos/<%= subject.id %>/avatar/view?ts=<%= Date.now() %>"
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
+          <span class="avatar-initial" style="display:none;"><%= groupInitial %></span>
+        </div>
+        <div class="min-w-0">
+          <div class="title truncate"><%= groupName %></div>
+          <div class="subtitle">Grupo · <%= subject.year %>º · Plan <%= subject.plan %></div>
+        </div>
+      </div>
+
+      <div></div>
+
+      <% if (user && user.role === 'admin') { %>
+        <div class="admin-bulk-tools" style="display:flex; align-items:center;">
+          <button id="btnSelectAllMsgs" type="button">Seleccionar todo</button>
+          <button id="btnClearSelection" type="button">Quitar selección</button>
+          <button id="btnDeleteSelected" type="button" disabled>Borrar</button>
+          <span id="selectedCount" style="opacity:.7; font-size:13px;">0</span>
+        </div>
+      <% } %>
+
+      <% if (user && user.role === 'admin') { %>
+        <button id="btnBulkDelete" class="chat-fs-btn" type="button" aria-label="Eliminar mensajes seleccionados" title="Eliminar mensajes seleccionados" style="right: 140px;">
+          <!-- icon trash simple -->
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M9 3h6l1 2h4v2H4V5h4l1-2Z" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M6 7l1 14h10l1-14" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M10 11v6M14 11v6" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </button>
+      <% } %>
+
+      <!-- Volver -->
+      <button id="btnBack" class="chat-fs-btn chat-back-btn" type="button" aria-label="Volver" title="Volver">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M15 18l-6-6 6-6" stroke="#111827" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <button id="btnFullscreen" class="chat-fs-btn" type="button" aria-pressed="false" aria-label="Pantalla completa" style="right: 10px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <button id="headerKebab" class="header-kebab" aria-haspopup="menu" aria-expanded="false" aria-label="Opciones">⋯</button>
+
+      <div id="headerMenu" class="header-menu" role="menu" aria-hidden="true">
+        <div class="item" id="menuShare" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M15.4306 7.70172C7.55045 7.99826 3.43929 15.232 2.17021 19.3956C2.07701 19.7014 2.31139 20 2.63107 20C2.82491 20 3.0008 19.8828 3.08334 19.7074C6.04179 13.4211 12.7066 12.3152 15.514 12.5639C15.7583 12.5856 15.9333 12.7956 15.9333 13.0409V15.1247C15.9333 15.5667 16.4648 15.7913 16.7818 15.4833L20.6976 11.6784C20.8723 11.5087 20.8993 11.2378 20.7615 11.037L16.8456 5.32965C16.5677 4.92457 15.9333 5.12126 15.9333 5.61253V7.19231C15.9333 7.46845 15.7065 7.69133 15.4306 7.70172Z" fill="#000000" stroke="#000000" stroke-linecap="round" stroke-linejoin="round"></path> </g></svg>
+          Compartir
+        </div>
+
+        <div class="item" id="menuCopy" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><g id="SVGRepo_bgCarrier" stroke-width="0"></g><g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g><g id="SVGRepo_iconCarrier"> <path d="M6 11C6 8.17157 6 6.75736 6.87868 5.87868C7.75736 5 9.17157 5 12 5H15C17.8284 5 19.2426 5 20.1213 5.87868C21 6.75736 21 8.17157 21 11V16C21 18.8284 21 20.2426 20.1213 21.1213C19.2426 22 17.8284 22 15 22H12C9.17157 22 7.75736 22 6.87868 21.1213C6 20.2426 6 18.8284 6 16V11Z" stroke="#1C274C" stroke-width="1.5"></path> <path opacity="0.5" d="M6 19C4.34315 19 3 17.6569 3 16V10C3 6.22876 3 4.34315 4.17157 3.17157C5.34315 2 7.22876 2 11 2H15C16.6569 2 18 3.34315 18 5" stroke="#1C274C" stroke-width="1.5"></path> </g></svg>
+           Copiar enlace
+        </div>
+
+        <div class="item danger" id="menuLeave" role="menuitem">
+          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 7V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-2" stroke="#111827" stroke-width="2"/><path d="M3 12h11" stroke="#111827" stroke-width="2" stroke-linecap="round"/><path d="M7 8l-4 4 4 4" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Salir
+        </div>
+      </div>
+    </div>
+
+    <!-- Backdrop panel (click outside closes) -->
+    <div id="panelBackdrop" class="panel-backdrop" aria-hidden="true"></div>
+
+    <!-- Side Panel -->
+    <aside id="sidePanel" class="side-panel" aria-hidden="true">
+      <div class="panel-header">
+        <div class="panel-avatar" aria-hidden="true">
+          <img src="/app/grupos/<%= subject.id %>/avatar/view?ts=<%= Date.now() %>"
+               alt=""
+               onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';">
+          <span class="panel-avatar-initial" style="display:none;"><%= groupInitial %></span>
+        </div>
+        <div class="min-w-0">
+          <div class="panel-title truncate"><%= groupName %></div>
+          <div class="panel-sub truncate"><%= (__members && __members.length) ? (__members.length + " miembros") : "Miembros" %></div>
+        </div>
+        <button id="btnClosePanel" class="panel-close" type="button" aria-label="Cerrar panel" title="Cerrar">✕</button>
+      </div>
+
+      <div class="panel-body">
+      <div class="panel-tools">
+        <button class="tool-btn" id="btnPanelSearch" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          Buscar
+        </button>
+        
+        <button class="tool-btn" id="btnPanelInvite" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          Invitar
+        </button>
+        
+        <button class="tool-btn" id="btnPanelLeave" type="button">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          Salir
+        </button>
+      </div>
+
+
+        <div class="panel-section-title">Miembros</div>
+
+        <% (__members || []).forEach(function(mem){ 
+            const mName = mem.name || mem.user_name || mem.username || 'Usuario';
+            const mId   = mem.user_id || mem.id || mem.uid || '';
+            const mInit = (mName && mName[0] ? mName[0] : 'U').toUpperCase();
+            const isMe  = (String(mId) === String(meId));
+        %>
+          <div class="member-card" data-userid="<%= mId %>">
+            <div class="member-avatar" data-userid="<%= mId %>">
+              <img src="/public/avatars/<%= mId %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial"><%= mInit %></span>
+            </div>
+            <div class="member-info">
+              <div class="name truncate"><%= mName %> <%= isMe ? "(vos)" : "" %></div>
+              <div class="meta truncate"><%= (mem.role || mem.member_role || '') %></div>
+            </div>
+
+            <div class="member-menu">
+              <button class=" js-member-menu" type="button" aria-label="Opciones de miembro">⋯</button>
+              <div class="member-menu-content">
+                <div  class="member-menu-item js-member-dm"  data-userid="<%= mId %>"  data-username="<%= mName %>">Mandar mensaje</div>
+
+                <% if (user && user.role === 'admin' && !isMe) { %>
+                  <div class="member-menu-item danger js-member-kick" data-userid="<%= mId %>">Eliminar del grupo</div>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+
+      </div>
+    </aside>
+
+    <!-- Body -->
+    <div id="chatBody" class="chat-body">
+      <% (messages || []).forEach(function(m){
+          const mine   = (m.user_id === meId);
+          const whoCls = mine ? 'me' : 'other';
+          const who    = mine ? user.name : (m.user_name || 'Usuario');
+          const init   = (who && who[0] ? who[0] : 'U').toUpperCase();
+          const text   = m.text || '';
+      %>
+        <div class="row <%= whoCls %>" data-msgid="<%= m.id %>">
+          <% if (user && user.role === 'admin') { %>
+            <input
+              type="checkbox"
+              class="msg-admin-check"
+              data-msg-id="<%= m.id %>"
+              aria-label="Seleccionar mensaje"
+            />
+          <% } %>
+
+          <% if (!mine) { %>
+            <div class="msg-avatar" data-userid="<%= m.user_id %>">
+              <img src="/public/avatars/<%= m.user_id %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial"><%= init %></span>
+            </div>
+          <% } %>
+
+          <div class="bubble">
+            <div class="bubble-head">
+              <% if (mine) { %>
+                <button class="menu-btn js-menu" type="button" aria-label="Más opciones">⋯</button>
+              <% } %>
+              <span class="who"><%= who %></span>
+            </div>
+            <div class="text"><%= text %></div>
+
+            <% if (mine) { %>
+              <div class="ctx-menu" role="menu">
+                <div class="ctx-item js-copy" role="menuitem">Copiar</div>
+                <div class="ctx-item danger js-delete" role="menuitem">Eliminar</div>
+              </div>
+            <% } %>
+          </div>
+
+          <% if (mine) { %>
+            <div class="msg-avatar" data-userid="<%= m.user_id %>">
+              <img src="/public/avatars/<%= m.user_id %>.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+              <span class="initial"><%= init %></span>
+            </div>
+          <% } %>
+
+          <div class="stamp"><%= fmt(m.created_at) %></div>
+        </div>
+      <% }) %>
+    </div>
+
+    <!-- Buscador mini -->
+    <div id="searchOverlay" aria-hidden="true">
+      <input id="findInput" type="text" placeholder="Buscar..." />
+      <button id="findPrev" class="find-btn" type="button" title="Anterior" aria-label="Anterior">‹</button>
+      <button id="findNext" class="find-btn" type="button" title="Siguiente" aria-label="Siguiente">›</button>
+      <span id="findCount" class="find-count">0/0</span>
+      <button id="findClose" class="close-find" type="button" title="Cerrar" aria-label="Cerrar">✕</button>
+    </div>
+
+    <!-- Composer -->
+    <form id="composer" class="chat-composer" autocomplete="off">
+      <input type="text" id="msgText" name="text" class="chat-input" maxlength="2000" placeholder="Escribir mensaje..." />
+      <button class="emoji-btn" id="emojiBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Emojis">😊</button>
+      <button class="attach-btn" id="attachBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Adjuntar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 5v14M5 12h14" stroke="#111827" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </button>
+
+      <button class="send-btn" id="sendBtn" type="submit" aria-label="Enviar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 1 9 22 2"></polygon>
+        </svg>
+      </button>
+
+      <div id="emojiPicker" class="emoji-picker" aria-hidden="true">
+        <div class="emoji-pane">
+          <div class="emoji-grid" id="emojiGrid"></div>
+        </div>
+            <div class="emoji-tabs-wrap">
+              <button id="emojiTabsPrev" class="emoji-nav-btn" type="button" aria-label="Categoría anterior" title="Anterior">‹</button>
+
+              <div class="emoji-tabs" id="emojiTabs" role="tablist" aria-label="Categorías de emojis">
+                <button class="emoji-tab" data-cat="faces"    role="tab" aria-selected="true"  type="button">Caras</button>
+                <button class="emoji-tab" data-cat="gestures" role="tab" aria-selected="false" type="button">Gestos</button>
+                <button class="emoji-tab" data-cat="hearts"   role="tab" aria-selected="false" type="button">Amor</button>
+                <button class="emoji-tab" data-cat="animals"  role="tab" aria-selected="false" type="button">Animales</button>
+                <button class="emoji-tab" data-cat="food"     role="tab" aria-selected="false" type="button">Comida</button>
+                <button class="emoji-tab" data-cat="travel"   role="tab" aria-selected="false" type="button">Viaje</button>
+                <button class="emoji-tab" data-cat="objects"  role="tab" aria-selected="false" type="button">Objetos</button>
+                <button class="emoji-tab" data-cat="study"    role="tab" aria-selected="false" type="button">Facu</button>
+                <button class="emoji-tab" data-cat="symbols"  role="tab" aria-selected="false" type="button">Símbolos</button>
+              </div>
+
+              <button id="emojiTabsNext" class="emoji-nav-btn" type="button" aria-label="Categoría siguiente" title="Siguiente">›</button>
+            </div>
+
+      </div>
+    </form>
+
+    <!-- Attach menu (simple) -->
+      <div id="attachMenu" class="attach-menu" aria-hidden="true">
+        <div class="attach-item" data-type="whatsapp">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3a9 9 0 0 0-7.76 13.56L3 21l4.6-1.2A9 9 0 1 0 12 3Z" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+            <path d="M9 8.5c.2 2 1.5 4 3.3 5.2 1 .7 1.9 1 2.6.7.4-.2.8-.7.9-1.2" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          Compartir WhatsApp
+        </div>
+        <div class="attach-item is-soon" data-type="image" aria-disabled="true">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" stroke="#111827" stroke-width="2"/>
+              <path d="M8 14l2.5-2.5L14 15l2-2 4 4" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M9 9.5a1.5 1.5 0 1 0 0 .01" stroke="#111827" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            Imagen
+          </div>
+          <span class="soon-chip">Próximamente</span>
+        </div>
+
+        <div class="attach-item is-soon" data-type="file" aria-disabled="true">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M8 12.5l6.2-6.2a3 3 0 1 1 4.2 4.2L10 18.9a5 5 0 1 1-7.1-7.1L12 2.7" stroke="#111827" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Archivo
+          </div>
+          <span class="soon-chip">Próximamente</span>
+        </div>
+
+
+  </div>
+</div>
+
+<script>
+(function(){
+  const IS_ADMIN = !!window.__IS_ADMIN__;
+  const chatCard = document.getElementById('chatCard');
+  // =========================================================
+  // THEME SYNC (solo chat-group)
+  // - NO usa prefers-color-scheme
+  // - Solo copia el estado que ya tenga layout en html/body
+  // =========================================================
+  const chatBody = document.getElementById('chatBody');
+
+  // Tipo de chat (cursos/finales)
+  const CHAT_TIPO = <%- JSON.stringify(tipo || 'finales') %>;
+  const CHAT_QS   = '?tipo=' + encodeURIComponent(CHAT_TIPO);
+
+  // ===== Reset banner show/hide (si hay texto) =====
+  const resetBanner = document.getElementById('resetBannerOverlay');
+  if(resetBanner){
+    resetBanner.classList.add('show');
+    // auto hide suave
+    setTimeout(()=>{ resetBanner.classList.add('hide'); resetBanner.classList.remove('show'); }, 6500);
+  }
+
+  // ===== Back button =====
+  const btnBack = document.getElementById('btnBack');
+  if(btnBack){
+    btnBack.addEventListener('click', ()=> {
+      // vuelve atrás si se puede
+      if(history.length > 1) history.back();
+      else window.location.href = '/app/grupos?tab=' + encodeURIComponent(CHAT_TIPO);
+    });
+  }
+
+  // ===== Fullscreen =====
+  const btnFullscreen = document.getElementById('btnFullscreen');
+  if(btnFullscreen){
+    btnFullscreen.addEventListener('click', ()=>{
+      const isFs = chatCard.classList.toggle('chat-fs');
+      btnFullscreen.setAttribute('aria-pressed', isFs ? 'true' : 'false');
+      document.documentElement.classList.toggle('chat-no-scroll', isFs);
+      document.body.classList.toggle('chat-no-scroll', isFs);
+    });
+  }
+
+  // ===== Header kebab =====
+  const headerKebab = document.getElementById('headerKebab');
+  const headerMenu  = document.getElementById('headerMenu');
+  function closeHeaderMenu(){
+    if(!headerMenu) return;
+    headerMenu.classList.remove('open');
+    headerMenu.setAttribute('aria-hidden','true');
+    if(headerKebab) headerKebab.setAttribute('aria-expanded','false');
+  }
+  if(headerKebab && headerMenu){
+    headerKebab.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const open = headerMenu.classList.toggle('open');
+      headerMenu.setAttribute('aria-hidden', open ? 'false' : 'true');
+      headerKebab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', closeHeaderMenu);
+  }
+
+  // ===== Share / Copy / Leave =====
+  const menuShare = document.getElementById('menuShare');
+  const menuCopy  = document.getElementById('menuCopy');
+  const menuLeave = document.getElementById('menuLeave');
+
+  function getShareUrl(){
+    // intenta usar URL actual
+    return window.location.href;
+  }
+  async function copyText(txt){
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast('Copiado ✅');
+    }catch(e){
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = txt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      toast('Copiado ✅');
+    }
+  }
+
+  if(menuCopy){
+    menuCopy.addEventListener('click', async ()=>{
+      closeHeaderMenu();
+      await copyText(getShareUrl());
+    });
+  }
+  if(menuShare){
+    menuShare.addEventListener('click', async ()=>{
+      closeHeaderMenu();
+      const url = getShareUrl();
+      if(navigator.share){
+        try{ await navigator.share({ title: document.title, url }); }
+        catch(e){ /* cancel */ }
+      } else {
+        await copyText(url);
+      }
+    });
+  }
+  if(menuLeave){
+    menuLeave.addEventListener('click', async ()=>{
+      closeHeaderMenu();
+      // intentos de endpoints (no rompe si tu backend usa otro)
+      const candidates = [
+        `/app/grupos/<%= subject.id %>/leave${CHAT_QS}`,
+        `/app/grupos/<%= subject.id %>/salir${CHAT_QS}`,
+        `/app/grupos/<%= subject.id %>/members/leave${CHAT_QS}`
+      ];
+      let ok = false;
+      for(const url of candidates){
+        try{
+          const r = await fetch(url, { method:'POST', credentials:'same-origin' });
+          if(r.ok){ ok = true; break; }
+        }catch(e){}
+      }
+      if(ok) window.location.href = `/app/grupos?tab=${encodeURIComponent(CHAT_TIPO)}`;
+      else toast('No se pudo salir (endpoint no encontrado).');
+    });
+  }
+
+  // ===== Side panel toggle (FIX height + mobile 2/3 width) =====
+  const btnTogglePanel = document.getElementById('btnTogglePanel');
+  const sidePanel = document.getElementById('sidePanel');
+  const panelBackdrop = document.getElementById('panelBackdrop');
+  const btnClosePanel = document.getElementById('btnClosePanel');
+
+  function openPanel(){
+    if(!sidePanel) return;
+    sidePanel.classList.add('open');
+    sidePanel.setAttribute('aria-hidden','false');
+    if(panelBackdrop){
+      panelBackdrop.classList.add('open');
+      panelBackdrop.setAttribute('aria-hidden','false');
+    }
+    if(btnTogglePanel) btnTogglePanel.setAttribute('aria-expanded','true');
+  }
+  function closePanel(){
+    if(!sidePanel) return;
+    sidePanel.classList.remove('open');
+    sidePanel.setAttribute('aria-hidden','true');
+    if(panelBackdrop){
+      panelBackdrop.classList.remove('open');
+      panelBackdrop.setAttribute('aria-hidden','true');
+    }
+    if(btnTogglePanel) btnTogglePanel.setAttribute('aria-expanded','false');
+  }
+  if(btnTogglePanel) btnTogglePanel.addEventListener('click', openPanel);
+  if(btnClosePanel) btnClosePanel.addEventListener('click', closePanel);
+  if(panelBackdrop) panelBackdrop.addEventListener('click', closePanel);
+
+  // ===== Member menu dropdowns =====
+  document.addEventListener('click', (e)=>{
+    // cerrar menús de miembros si click afuera
+    document.querySelectorAll('.member-menu-content.open').forEach(el=>{
+      if(!el.contains(e.target) && !el.previousElementSibling.contains(e.target)){
+        el.classList.remove('open');
+      }
+    });
+  });
+
+  document.querySelectorAll('.js-member-menu').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const menu = btn.parentElement.querySelector('.member-menu-content');
+      if(!menu) return;
+      menu.classList.toggle('open');
+    });
+  });
+
+  // ===== Member "Mandar mensaje" =====
+  document.querySelectorAll('.js-member-dm').forEach(it=>{
+    it.addEventListener('click', ()=>{
+      const uname = it.getAttribute('data-username') || 'Usuario';
+      it.closest('.member-menu-content')?.classList.remove('open');
+      closePanel();
+      if(msgText){
+        const prefix = `@${uname.replace(/\s+/g,' ').trim()} `;
+        if(!(msgText.value || '').includes(prefix)){
+          msgText.value = (msgText.value || '') + prefix;
+        }
+        msgText.focus();
+      }
+    });
+  });
+
+  document.querySelectorAll('.js-member-kick').forEach(it=>{
+    it.addEventListener('click', async ()=>{
+      const uid = it.getAttribute('data-userid') || '';
+      it.closest('.member-menu-content')?.classList.remove('open');
+      if(!uid) return;
+      if(!confirm('¿Eliminar a este miembro del grupo?')) return;
+
+      // intentos de endpoints
+      const candidates = [
+        `/app/grupos/<%= subject.id %>/members/${encodeURIComponent(uid)}/kick${CHAT_QS}`,
+        `/app/grupos/<%= subject.id %>/kick/${encodeURIComponent(uid)}${CHAT_QS}`,
+        `/app/grupos/<%= subject.id %>/members/remove`
+      ];
+
+      let ok = false;
+      for(const url of candidates){
+        try{
+          const opts = { method:'POST', credentials:'same-origin', headers: { 'Content-Type':'application/json' } };
+          const body = (url.endsWith('/remove')) ? JSON.stringify({ userId: uid }) : undefined;
+          if(body) opts.body = body;
+          const r = await fetch(url, opts);
+          if(r.ok){ ok = true; break; }
+        }catch(e){}
+      }
+      if(ok){
+        toast('Miembro eliminado ✅');
+        // remove from UI
+        document.querySelector(`.member-card[data-userid="${CSS.escape(uid)}"]`)?.remove();
+      } else {
+        toast('No se pudo eliminar (endpoint no encontrado).');
+      }
+    });
+  });
+
+  // ===== Context menu (mine messages) =====
+  document.querySelectorAll('.js-menu').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const bubble = btn.closest('.bubble');
+      const menu = bubble?.querySelector('.ctx-menu');
+      if(!menu) return;
+      // cerrar otros
+      document.querySelectorAll('.ctx-menu.open').forEach(m=>{ if(m!==menu) m.classList.remove('open'); });
+      menu.classList.toggle('open');
+    });
+  });
+  document.addEventListener('click', ()=>{
+    document.querySelectorAll('.ctx-menu.open').forEach(m=>m.classList.remove('open'));
+  });
+
+  document.querySelectorAll('.js-copy').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const bubble = btn.closest('.bubble');
+            const txt =
+        bubble?.querySelector('.text')?.innerText ||
+        bubble?.querySelector('.wa-card')?.getAttribute('data-wa-copy') ||
+        '';
+      await copyText(txt);
+      bubble?.querySelector('.ctx-menu')?.classList.remove('open');
+    });
+  });
+
+  async function deleteOneMessage(msgId){
+    const candidates = [
+      `/app/grupos/<%= subject.id %>/messages/${encodeURIComponent(msgId)}/delete${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/message/${encodeURIComponent(msgId)}/delete${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/delete-message${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/messages/delete${CHAT_QS}`
+    ];
+    for(const url of candidates){
+      try{
+        const opts = { method:'POST', credentials:'same-origin', headers: { 'Content-Type':'application/json' } };
+        if(url.endsWith('/delete-message') || url.endsWith('/delete')){
+          // some endpoints expect {id}
+          opts.body = JSON.stringify({ id: msgId, messageId: msgId });
+        }
+        const r = await fetch(url, opts);
+        if(r.ok) return true;
+      }catch(e){}
+    }
+    return false;
+  }
+
+  document.querySelectorAll('.js-delete').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const row = btn.closest('.row');
+      const msgId = row?.getAttribute('data-msgid');
+      btn.closest('.ctx-menu')?.classList.remove('open');
+      if(!msgId) return;
+
+      if(!confirm('¿Eliminar este mensaje?')) return;
+      const ok = await deleteOneMessage(msgId);
+      if(ok){
+        toast('Mensaje eliminado ✅');
+        row?.remove();
+      }else{
+        toast('No se pudo eliminar (endpoint no encontrado).');
+      }
+    });
+  });
+
+  // ===== Admin bulk selection (FIX REAL) =====
+  const btnSelectAllMsgs   = document.getElementById('btnSelectAllMsgs');
+  const btnClearSelection  = document.getElementById('btnClearSelection');
+  const btnDeleteSelected  = document.getElementById('btnDeleteSelected');
+  const btnBulkDelete      = document.getElementById('btnBulkDelete');
+  const selectedCount      = document.getElementById('selectedCount');
+
+  function getAllAdminChecks(){
+    return Array.from(document.querySelectorAll('.msg-admin-check'));
+  }
+  function getSelectedIds(){
+    return getAllAdminChecks().filter(c=>c.checked).map(c=>c.getAttribute('data-msg-id')).filter(Boolean);
+  }
+  function syncSelectedUI(){
+    const ids = getSelectedIds();
+    const count = ids.length;
+    if(selectedCount) selectedCount.textContent = String(count);
+    if(btnDeleteSelected) btnDeleteSelected.disabled = (count === 0);
+
+    // resaltar filas
+    getAllAdminChecks().forEach(c=>{
+      const id = c.getAttribute('data-msg-id');
+      const row = c.closest('.row');
+      if(!row) return;
+      row.classList.toggle('is-selected', !!c.checked);
+    });
+  }
+
+  async function bulkDelete(ids){
+    // intenta endpoints comunes (sin romper si tu backend usa otro)
+    const candidates = [
+      `/app/grupos/<%= subject.id %>/messages/bulk-delete${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/bulk-delete${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/messages/delete-selected${CHAT_QS}`,
+      `/app/grupos/<%= subject.id %>/messages/delete${CHAT_QS}`
+    ];
+    for(const url of candidates){
+      try{
+        const r = await fetch(url, {
+          method:'POST',
+          credentials:'same-origin',
+          headers: { 'Content-Type':'application/json' },
+          body: JSON.stringify({ ids, messageIds: ids })
+        });
+        if(r.ok) return true;
+      }catch(e){}
+    }
+    // fallback: delete uno por uno
+    let okAll = true;
+    for(const id of ids){
+      const ok = await deleteOneMessage(id);
+      if(!ok) okAll = false;
+    }
+    return okAll;
+  }
+
+  if(IS_ADMIN){
+    // click checkbox => update
+    getAllAdminChecks().forEach(c=>{
+      c.addEventListener('change', syncSelectedUI);
+    });
+
+    if(btnSelectAllMsgs){
+      btnSelectAllMsgs.addEventListener('click', ()=>{
+        getAllAdminChecks().forEach(c=>{ c.checked = true; });
+        syncSelectedUI();
+      });
+    }
+    if(btnClearSelection){
+      btnClearSelection.addEventListener('click', ()=>{
+        getAllAdminChecks().forEach(c=>{ c.checked = false; });
+        syncSelectedUI();
+      });
+    }
+
+    async function handleDeleteSelected(){
+      const ids = getSelectedIds();
+      if(ids.length === 0) return;
+      if(!confirm(`¿Borrar ${ids.length} mensaje(s) seleccionados?`)) return;
+
+      if(btnDeleteSelected) btnDeleteSelected.disabled = true;
+      if(btnBulkDelete) btnBulkDelete.disabled = true;
+
+      const ok = await bulkDelete(ids);
+
+      if(ok){
+        ids.forEach(id=>{
+          const row = document.querySelector(`.row[data-msgid="${CSS.escape(id)}"]`);
+          row?.remove();
+        });
+        // limpiar checks (por si quedan)
+        getAllAdminChecks().forEach(c=>{ c.checked = false; });
+        syncSelectedUI();
+        toast('Mensajes eliminados ✅');
+      }else{
+        toast('No se pudieron borrar todos (revisá endpoint).');
+        syncSelectedUI();
+      }
+
+      if(btnBulkDelete) btnBulkDelete.disabled = false;
+    }
+
+    if(btnDeleteSelected) btnDeleteSelected.addEventListener('click', handleDeleteSelected);
+    if(btnBulkDelete) btnBulkDelete.addEventListener('click', handleDeleteSelected);
+
+    // init
+    syncSelectedUI();
+  }
+
+  // ===== Simple toast =====
+  function toast(text){
+    let t = document.getElementById('__toast');
+    if(!t){
+      t = document.createElement('div');
+      t.id = '__toast';
+      t.style.position = 'fixed';
+      t.style.left = '50%';
+      t.style.bottom = '26px';
+      t.style.transform = 'translateX(-50%)';
+      t.style.padding = '10px 14px';
+      t.style.borderRadius = '9999px';
+      t.style.background = 'rgba(255,255,255,.85)';
+      t.style.border = '1px solid rgba(15,23,42,.12)';
+      t.style.boxShadow = '0 18px 30px rgba(15,23,42,.16)';
+      t.style.backdropFilter = 'blur(12px) saturate(150%)';
+      t.style.webkitBackdropFilter = 'blur(12px) saturate(150%)';
+      t.style.fontWeight = '900';
+      t.style.color = '#0f172a';
+      t.style.zIndex = '2147483647';
+      t.style.opacity = '0';
+      t.style.transition = 'opacity .18s ease, transform .18s ease';
+      document.body.appendChild(t);
+    }
+    t.textContent = text;
+    t.style.opacity = '1';
+    t.style.transform = 'translateX(-50%) translateY(0)';
+    clearTimeout(window.__toastTO);
+    window.__toastTO = setTimeout(()=>{
+      t.style.opacity = '0';
+      t.style.transform = 'translateX(-50%) translateY(6px)';
+    }, 1800);
+  }
+
+  // ===== Emoji picker =====
+  const emojiBtn = document.getElementById('emojiBtn');
+  const emojiPicker = document.getElementById('emojiPicker');
+  const emojiGrid = document.getElementById('emojiGrid');
+  const msgText = document.getElementById('msgText');
+
+  const EMOJIS = {
+    // ✅ Caras (ordenadas de “feliz” → “triste/enojo” → “sorpresa” → “otros”)
+    faces: [
+      "🙂","😀","😁","😄","😃","😊","☺️","😌","😉","😋","😛","😜","🤪","😝","😅","😂","🤣","🥹","😇",
+      "😍","🥰","😘","😗","😚","😙","🤩","😎","🥳","😏","😒","🙃","🤔","🫡","🤗",
+      "😐","😑","😶","🫥","😬","🫤","😮","😯","😲","😳","🥺","😢","😭","😤","😠","😡","🤬","🤯",
+      "😴","😪","🥱","😵","😵‍💫","🤐","🤢","🤮","🤧","😷","🤒","🤕",
+      "👻","💀","☠️","🤖","🎃"
+    ],
+
+    // ✅ Gestos (ordenados “positivo” → “mano” → “señales” → “rezo/abrazo”)
+    gestures: [
+      "👍","👍🏻","👍🏼","👍🏽","👍🏾","👍🏿","👎","👏","🙌","🫶","🤝","🙏","💪","✊","👊",
+      "👌","🤌","🤏","✌️","🤞","🤟","🤘","🖐️","✋","👋","🫡",
+      "👉","👈","☝️","👇","🫵","🖕",
+      "🤗","🫂"
+    ],
+
+    // ✅ Amor / corazones
+    hearts: [
+      "❤️","🧡","💛","💚","💙","💜","🩷","🩵","🩶","🤍","🖤","🤎",
+      "💖","💘","💝","💗","💓","💕","💞","💟","❤️‍🔥","❤️‍🩹"
+    ],
+
+    // ✅ Animales (ordenados: mascotas → selva → granja → mar → bichos)
+    animals: [
+      "🐶","🐕","🐩","🐺","🦊","🐱","🐈","🐯","🦁","🐻","🐻‍❄️","🐼","🐨",
+      "🐭","🐹","🐰","🦝","🦓","🦒","🐘","🦏","🦛",
+      "🐮","🐷","🐽","🐸","🐵","🐔","🐧","🐦","🦉",
+      "🐟","🐠","🐡","🦈","🐬","🐳","🐋","🦭",
+      "🐝","🐞","🦋","🐜","🪲","🪳","🕷️",
+      "🦄"
+    ],
+
+    // ✅ Comida (ordenada: café/infusiones → snacks → comidas → postres)
+    food: [
+      "☕","🧉","🫖","🥤","🧃","🍵",
+      "🍪","🍫","🍿","🥨","🥐","🥯",
+      "🍕","🌭","🍔","🍟","🌮","🌯","🥗","🍝","🍜","🍣","🍛",
+      "🍦","🍰","🧁","🍩","🍮",
+      "🍎","🍌","🍓","🍇","🍉"
+    ],
+
+    // ✅ Viaje / lugares (ordenados: transporte → clima → lugares)
+    travel: [
+      "🚗","🚕","🚌","🚎","🚙","🏍️","🚲","✈️","🛫","🛬","🚀","🚢","🚆","🚇",
+      "🧳","🗺️","🧭","📍",
+      "☀️","🌤️","⛅","🌧️","⛈️","❄️",
+      "🏙️","🏠","🏫","🏖️","🏔️","🏟️"
+    ],
+
+    // ✅ Objetos (ordenados: estudio → tech → herramientas → varios)
+    objects: [
+      "📚","📖","📝","✏️","🖊️","🖋️","📌","📎","🧷","📒","📔","📄","📑","🗂️","📂","📁",
+      "💻","🖥️","⌨️","🖱️","📱","🔌","🔋","🎧","📷",
+      "🧠","💡","🔧","🧰","🪛","🔨","🧲",
+      "🗑️","🔒","🔑","🧾","🪪"
+    ],
+
+    // ✅ Facu (para tu app)
+    study: [
+      "📚","📝","✅","❌","⚠️","⏰","📌","📎","🧠","💡","📖","📒","📄","📑","🧾",
+      "🧑‍🎓","🏫","🧮","📐","📏","🧪","🔬","💻","🖥️","⌨️","🎧"
+    ],
+
+    // ✅ Símbolos
+    symbols: [
+      "✅","☑️","❌","⚠️","❗","❓","➕","➖","➗","✖️",
+      "⭐","✨","🔥","💯","📌","🔁","🔄","🔔","🧿",
+      "🟦","🟩","🟨","🟥","⬛","⬜"
+    ]
+  };
+
+
+  function renderEmoji(cat){
+    if(!emojiGrid) return;
+    emojiGrid.innerHTML = '';
+    (EMOJIS[cat] || EMOJIS.faces).forEach(e=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'emoji';
+      b.textContent = e;
+      b.addEventListener('click', ()=>{
+        if(msgText){
+          msgText.value = (msgText.value || '') + e;
+          msgText.focus();
+        }
+      });
+      emojiGrid.appendChild(b);
+    });
+  }
+
+  function openEmoji(){
+    if(!emojiPicker) return;
+    emojiPicker.classList.add('open');
+    emojiPicker.setAttribute('aria-hidden','false');
+    if(emojiBtn) emojiBtn.setAttribute('aria-expanded','true');
+  }
+  function closeEmoji(){
+    if(!emojiPicker) return;
+    emojiPicker.classList.remove('open');
+    emojiPicker.setAttribute('aria-hidden','true');
+    if(emojiBtn) emojiBtn.setAttribute('aria-expanded','false');
+  }
+
+  if (emojiBtn && emojiPicker) {
+  const emojiTabs = document.getElementById('emojiTabs');
+  const emojiTabsPrev = document.getElementById('emojiTabsPrev');
+  const emojiTabsNext = document.getElementById('emojiTabsNext');
+
+  function getEmojiTabButtons() {
+    return Array.from(document.querySelectorAll('.emoji-tab'));
+  }
+
+  function centerEmojiTab(target) {
+    if (!emojiTabs || !target) return;
+
+    const cRect = emojiTabs.getBoundingClientRect();
+    const tRect = target.getBoundingClientRect();
+
+    const delta = (tRect.left + tRect.width / 2) - (cRect.left + cRect.width / 2);
+
+    emojiTabs.scrollTo({
+      left: emojiTabs.scrollLeft + delta,
+      behavior: 'smooth'
+    });
+  }
+  function setEmojiCategory(cat) {
+    const tabs = getEmojiTabButtons();
+    const target = tabs.find(t => (t.getAttribute('data-cat') || '') === cat) || tabs[0];
+    if (!target) return;
+
+    tabs.forEach(t => t.setAttribute('aria-selected', 'false'));
+    target.setAttribute('aria-selected', 'true');
+
+    renderEmoji(target.getAttribute('data-cat') || 'faces');
+
+    // ✅ SOLO mueve la barra de tabs (no el chat)
+    centerEmojiTab(target);
+  }
+
+  function moveEmojiCategory(dir) {
+    const tabs = getEmojiTabButtons();
+    if (!tabs.length) return;
+
+    let idx = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    if (idx < 0) idx = 0;
+
+    idx = (idx + dir + tabs.length) % tabs.length;
+    const nextTab = tabs[idx];
+    setEmojiCategory(nextTab.getAttribute('data-cat') || 'faces');
+  }
+
+  // Inicializar categoría ANTES de abrir
+  setEmojiCategory('faces');
+
+  emojiBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (emojiPicker.classList.contains('open')) closeEmoji();
+    else openEmoji();
+  });
+
+  // click afuera cierra
+  document.addEventListener('click', (e) => {
+    if (!emojiPicker.classList.contains('open')) return;
+    if (!emojiPicker.contains(e.target) && e.target !== emojiBtn) {
+      closeEmoji();
+    }
+  });
+
+  // Click en tabs
+  document.querySelectorAll('.emoji-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      setEmojiCategory(tab.getAttribute('data-cat') || 'faces');
+    });
+  });
+
+  // Flechas
+  if (emojiTabsPrev) {
+    emojiTabsPrev.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      moveEmojiCategory(-1);
+    });
+  }
+
+  if (emojiTabsNext) {
+    emojiTabsNext.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      moveEmojiCategory(1);
+    });
+  }
+}
+  // ===== Attach menu =====
+  // ===== Attach menu =====
+  const attachBtn = document.getElementById('attachBtn');
+  const attachMenu = document.getElementById('attachMenu');
+
+  // WhatsApp modal refs
+  const waModal = document.getElementById('waModal');
+  const waNumberInput = document.getElementById('waNumberInput');
+  const waModalClose = document.getElementById('waModalClose');
+  const waModalCancel = document.getElementById('waModalCancel');
+  const waModalSend = document.getElementById('waModalSend');
+
+  function openAttach(){
+    if(!attachMenu || !attachBtn) return;
+    attachMenu.classList.add('open');
+    attachMenu.setAttribute('aria-hidden','false');
+    attachBtn.setAttribute('aria-expanded','true');
+
+    requestAnimationFrame(()=>{
+      const r = attachBtn.getBoundingClientRect();
+      const mw = attachMenu.offsetWidth || 260;
+      const mh = attachMenu.offsetHeight || 140;
+
+      let left = r.left + (r.width/2) - (mw/2);
+      let top  = r.top - mh - 10;
+
+      left = Math.max(10, Math.min(left, window.innerWidth - mw - 10));
+      top  = Math.max(10, top);
+
+      attachMenu.style.left = left + 'px';
+      attachMenu.style.top  = top + 'px';
+    });
+  }
+
+  function closeAttach(){
+    if(!attachMenu) return;
+    attachMenu.classList.remove('open');
+    attachMenu.setAttribute('aria-hidden','true');
+    if(attachBtn) attachBtn.setAttribute('aria-expanded','false');
+  }
+
+  function openWaModal(){
+    try{
+      const saved = localStorage.getItem(WA_STORAGE_KEY) || '';
+      if(waNumberInput) waNumberInput.value = saved;
+    }catch(e){}
+    if(!waModal) return;
+    waModal.classList.add('open');
+    waModal.setAttribute('aria-hidden','false');
+    setTimeout(()=>waNumberInput?.focus(), 0);
+  }
+
+  function closeWaModal(){
+    if(!waModal) return;
+    waModal.classList.remove('open');
+    waModal.setAttribute('aria-hidden','true');
+  }
+
+  if(attachBtn){
+    attachBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      e.stopPropagation();
+      if(attachMenu?.classList.contains('open')) closeAttach();
+      else openAttach();
+    });
+  }
+
+  // cerrar attach al click afuera
+  document.addEventListener('click', (e)=>{
+    if(!attachMenu?.classList.contains('open')) return;
+    if(!attachMenu.contains(e.target) && e.target !== attachBtn){
+      closeAttach();
+    }
+  });
+
+  // cerrar attach al resize/scroll
+  window.addEventListener('resize', closeAttach);
+  window.addEventListener('scroll', closeAttach, true);
+
+  // modal WA: cerrar
+  if(waModalClose) waModalClose.addEventListener('click', closeWaModal);
+  if(waModalCancel) waModalCancel.addEventListener('click', closeWaModal);
+  if(waModal){
+    waModal.addEventListener('click', (e)=>{
+      if(e.target === waModal) closeWaModal();
+    });
+  }
+
+    async function submitWhatsappCard(){
+    const raw = (waNumberInput?.value || '').trim();
+
+    const groupLink = normalizeWaGroupLink(raw);
+    const digits    = normalizeWaNumber(raw);
+
+    let markerText = '';
+    let successMsg = '';
+
+    if(groupLink){
+      markerText = WA_GROUP_MARKER_PREFIX + groupLink;
+      successMsg = 'Link de grupo compartido ✅';
+    } else if(digits && digits.length >= 8){
+      markerText = WA_CONTACT_MARKER_PREFIX + digits;
+      successMsg = 'Contacto compartido ✅';
+    } else {
+      toast('Pegá un número válido o un link de grupo válido');
+      waNumberInput?.focus();
+      return;
+    }
+
+    if(waModalSend){
+      waModalSend.disabled = true;
+      waModalSend.style.opacity = '0.7';
+      waModalSend.textContent = 'Enviando...';
+    }
+
+    try{
+      localStorage.setItem(WA_STORAGE_KEY, raw);
+    }catch(e){}
+
+    closeWaModal();
+
+    const ok = await sendChatText(markerText, { clearComposer: false });
+
+    if(ok) toast(successMsg);
+    else toast('No se pudo compartir');
+
+    if(waModalSend){
+      waModalSend.disabled = false;
+      waModalSend.style.opacity = '';
+      waModalSend.textContent = 'Enviar';
+    }
+  }
+
+  if(waModalSend){
+    waModalSend.addEventListener('click', submitWhatsappCard);
+  }
+  if(waNumberInput){
+    waNumberInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){
+        e.preventDefault();
+        submitWhatsappCard();
+      }else if(e.key === 'Escape'){
+        closeWaModal();
+      }
+    });
+  }
+  
+  // ===== Search in chat (mini) =====
+  const searchOverlay = document.getElementById('searchOverlay');
+  const findInput = document.getElementById('findInput');
+  const findPrev = document.getElementById('findPrev');
+  const findNext = document.getElementById('findNext');
+  const findClose = document.getElementById('findClose');
+  const findCount = document.getElementById('findCount');
+
+  let matches = [];
+  let curIdx = -1;
+
+  function clearMarks(){
+    if(!chatBody) return;
+    chatBody.querySelectorAll('mark.hl').forEach(m=>{
+      const parent = m.parentNode;
+      parent.replaceChild(document.createTextNode(m.textContent), m);
+      parent.normalize();
+    });
+    chatBody.querySelectorAll('.current-match').forEach(el=>el.classList.remove('current-match'));
+  }
+
+  function markAll(q){
+    clearMarks();
+    matches = [];
+    curIdx = -1;
+    if(!q || !chatBody) {
+      if(findCount) findCount.textContent = '0/0';
+      return;
+    }
+    const rows = Array.from(chatBody.querySelectorAll('.row'));
+    const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'ig');
+
+    rows.forEach(row=>{
+      const textEl = row.querySelector('.text');
+      if(!textEl) return;
+      const raw = textEl.innerText;
+      if(!raw || !rx.test(raw)) return;
+
+      // rebuild with marks
+      const parts = raw.split(rx);
+      const found = raw.match(rx);
+      if(!found) return;
+
+      const frag = document.createDocumentFragment();
+      for(let i=0;i<parts.length;i++){
+        frag.appendChild(document.createTextNode(parts[i]));
+        if(i < found.length){
+          const mk = document.createElement('mark');
+          mk.className = 'hl';
+          mk.textContent = found[i];
+          frag.appendChild(mk);
+        }
+      }
+      textEl.innerHTML = '';
+      textEl.appendChild(frag);
+
+      row.querySelectorAll('mark.hl').forEach(mk=>matches.push(mk));
+    });
+
+    if(findCount) findCount.textContent = matches.length ? `1/${matches.length}` : '0/0';
+    if(matches.length){
+      curIdx = 0;
+      focusMatch(0);
+    }
+  }
+
+  function focusMatch(i){
+    if(!matches.length) return;
+    curIdx = (i + matches.length) % matches.length;
+    matches.forEach(mk=>mk.closest('.row')?.classList.remove('current-match'));
+    const mk = matches[curIdx];
+    const row = mk.closest('.row');
+    row?.classList.add('current-match');
+    row?.scrollIntoView({ behavior:'smooth', block:'center' });
+    if(findCount) findCount.textContent = `${curIdx+1}/${matches.length}`;
+  }
+
+  function openSearch(){
+    if(!searchOverlay) return;
+    searchOverlay.classList.add('open');
+    searchOverlay.setAttribute('aria-hidden','false');
+    setTimeout(()=>findInput?.focus(), 0);
+  }
+  function closeSearch(){
+    if(!searchOverlay) return;
+    searchOverlay.classList.remove('open');
+    searchOverlay.setAttribute('aria-hidden','true');
+    clearMarks();
+    matches = [];
+    curIdx = -1;
+    if(findCount) findCount.textContent = '0/0';
+  }
+
+  const btnPanelSearch = document.getElementById('btnPanelSearch');
+
+    // ===== Panel Leave button =====
+  const btnPanelLeave = document.getElementById('btnPanelLeave');
+  if(btnPanelLeave){
+    btnPanelLeave.addEventListener('click', async ()=>{
+      closePanel();
+      if(!confirm('¿Querés salir del grupo?')) return;
+      try{
+        const r = await fetch(`/app/grupos/<%= subject.id %>/salir${CHAT_QS}`, { method:'POST', credentials:'same-origin' });
+        if(r.ok){
+          window.location.href = '/app/grupos';
+        } else {
+          toast('No se pudo salir del grupo');
+        }
+      }catch(e){
+        toast('Error de red al salir');
+      }
+    });
+  }
+
+
+  if(btnPanelSearch) btnPanelSearch.addEventListener('click', ()=>{
+    openSearch();
+    closePanel();
+  });
+
+  if(findInput){
+    findInput.addEventListener('input', ()=> markAll(findInput.value.trim()));
+    findInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter'){ e.preventDefault(); focusMatch(curIdx+1); }
+      if(e.key === 'Escape'){ closeSearch(); }
+    });
+  }
+  if(findPrev) findPrev.addEventListener('click', ()=> focusMatch(curIdx-1));
+  if(findNext) findNext.addEventListener('click', ()=> focusMatch(curIdx+1));
+  if(findClose) findClose.addEventListener('click', closeSearch);
+
+  // =========================================================
+  // ✅ FIX: Envío de mensajes (evita refresh) + SSE realtime
+  // =========================================================
+  const SUBJECT_ID = <%= Number(subject?.id || 0) %>;
+  const ME_ID      = <%= Number(user?.id || 0) %>;
+
+  const composer = document.getElementById('composer');
+  const sendBtn  = document.getElementById('sendBtn');
+
+  const seen = new Set(
+  Array.from(document.querySelectorAll('#chatBody .row[data-msgid]'))
+    .map(el => String(el.getAttribute('data-msgid') || '').trim())
+    .filter(Boolean)
+);
+
+  // ===== Utils =====
+  function escHtml(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  // ===== WhatsApp card helpers =====
+  const WA_CONTACT_MARKER_PREFIX = '__CW_WA__:';       // compatibilidad con lo que ya tenías
+  const WA_GROUP_MARKER_PREFIX   = '__CW_WA_GROUP__:'; // nuevo
+  const WA_STORAGE_KEY           = 'cw_whatsapp_share_value_v2';
+  const WA_DEFAULT_TEXT          = 'Hola! me pasaste tu numero por *Clever Wave*';
+
+  function normalizeWaNumber(raw){
+    return String(raw || '').replace(/[^\d]/g, '');
+  }
+
+  function normalizeWaGroupLink(raw){
+    let s = String(raw || '').trim();
+    if(!s) return null;
+
+    // Si pega sin protocolo
+    if(/^chat\.whatsapp\.com\//i.test(s)){
+      s = 'https://' + s;
+    }
+
+    try{
+      const u = new URL(s);
+      const host = (u.hostname || '').toLowerCase();
+
+      // links válidos de invitación a grupo
+      if(host !== 'chat.whatsapp.com' && host !== 'www.chat.whatsapp.com'){
+        return null;
+      }
+
+      // formato típico: /ABCDefGhIJKlmNopQRstuV
+      const code = (u.pathname || '').replace(/^\/+/, '').trim();
+      if(!code || code.length < 10) return null;
+
+      return `https://chat.whatsapp.com/${code}`;
+    }catch(e){
+      return null;
+    }
+  }
+
+  function parseWaPayload(rawText){
+    const s = String(rawText || '').trim();
+    if(!s) return null;
+
+    // ✅ compatibilidad con mensajes viejos (contacto)
+    if(s.startsWith(WA_CONTACT_MARKER_PREFIX)){
+      const n = normalizeWaNumber(s.slice(WA_CONTACT_MARKER_PREFIX.length));
+      if(n && n.length >= 8){
+        return { kind: 'contact', value: n };
+      }
+      return null;
+    }
+
+    // ✅ nuevo: link de grupo
+    if(s.startsWith(WA_GROUP_MARKER_PREFIX)){
+      const link = normalizeWaGroupLink(s.slice(WA_GROUP_MARKER_PREFIX.length));
+      if(link){
+        return { kind: 'group', value: link };
+      }
+      return null;
+    }
+
+    return null;
+  }
+
+  function buildWaHref(phoneDigits){
+    const n = normalizeWaNumber(phoneDigits);
+    const txt = encodeURIComponent(WA_DEFAULT_TEXT);
+    return `https://wa.me/${n}?text=${txt}`;
+  }
+
+  function buildWhatsAppCardHTML(payload){
+    if(!payload) return '';
+
+    if(payload.kind === 'contact'){
+      const n = normalizeWaNumber(payload.value);
+      if(!n) return '';
+
+      const href = buildWaHref(n);
+      const pretty = '+' + n;
+
+      return `
+        <div class="wa-card" data-wa-copy="${escHtml(pretty)}">
+          <div class="wa-card-title">Contacto de WhatsApp</div>
+          <div class="wa-card-number">${escHtml(pretty)}</div>
+          <a class="wa-card-btn" href="${escHtml(href)}" target="_blank" rel="noopener">
+            Escribime al WhatsApp
+          </a>
+        </div>
+      `;
+    }
+
+    if(payload.kind === 'group'){
+      const link = normalizeWaGroupLink(payload.value);
+      if(!link) return '';
+
+      return `
+        <div class="wa-card" data-wa-copy="${escHtml(link)}">
+          <div class="wa-card-title">Invitación a grupo de WhatsApp</div>
+          <div class="wa-card-number" style="font-size:.88rem; word-break: break-all;">${escHtml(link)}</div>
+          <a class="wa-card-btn" href="${escHtml(link)}" target="_blank" rel="noopener">
+            Unirme al grupo
+          </a>
+        </div>
+      `;
+    }
+
+    return '';
+  }
+
+  function hydrateWhatsappCardsInDOM(){
+    document.querySelectorAll('.row .bubble .text').forEach(textEl => {
+      const raw = (textEl.textContent || '').trim();
+      const payload = parseWaPayload(raw);
+      if(!payload) return;
+      textEl.outerHTML = buildWhatsAppCardHTML(payload);
+    });
+  }
+
+    function parseServerTimestamp(ts){
+    if(!ts) return null;
+
+    const s = String(ts).trim();
+    if(!s) return null;
+
+    // Si ya viene con zona horaria, usar tal cual
+    if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(s)) {
+      return new Date(s);
+    }
+
+    // SQLite/libSQL CURRENT_TIMESTAMP suele venir como "YYYY-MM-DD HH:MM:SS" en UTC
+    return new Date(s.replace(' ', 'T') + 'Z');
+  }
+
+  function fmtLocal(ts){
+    try{
+      const d = parseServerTimestamp(ts);
+      if(d && !isNaN(d.getTime())){
+        return d.toLocaleString('es-AR', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+          year:'numeric',
+          month:'2-digit',
+          day:'2-digit',
+          hour:'2-digit',
+          minute:'2-digit',
+          hour12:false
+        }).replace(',', ' -');
+      }
+    }catch(e){}
+    return String(ts || '');
+  }
+
+  function buildAttachmentHTML(msg){
+    if(!msg || !msg.attachment_url) return '';
+    const url = String(msg.attachment_url);
+    if(msg.attachment_type === 'image'){
+      return `
+        <div style="margin-top:10px;">
+          <img src="${escHtml(url)}" alt="Imagen" style="max-width:260px;width:100%;border-radius:14px;border:1px solid rgba(15,23,42,.12);box-shadow:0 10px 18px rgba(15,23,42,.08);display:block;">
+        </div>
+      `;
+    }
+    // doc
+    return `
+      <div style="margin-top:10px;">
+        <a href="${escHtml(url)}" target="_blank" rel="noopener"
+           style="display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.75);border:1px solid rgba(15,23,42,.12);font-weight:900;color:#0f172a;text-decoration:none;">
+          📎 <span>${escHtml(msg.text || 'Archivo')}</span>
+        </a>
+      </div>
+    `;
+  }
+
+  function appendMessage(msg){
+    if(!chatBody || !msg || !msg.id) return;
+    const id = String(msg.id);
+    if(seen.has(id)) return;
+    seen.add(id);
+
+    const mine = String(msg.user_id) === String(ME_ID);
+    const who  = mine ? (msg.user_name || 'Vos') : (msg.user_name || 'Usuario');
+    const init = (who && who[0] ? who[0] : 'U').toUpperCase();
+
+    const row = document.createElement('div');
+    row.className = 'row ' + (mine ? 'me' : 'other');
+    row.setAttribute('data-msgid', id);
+
+    // admin checkbox
+    if(IS_ADMIN){
+      const chk = document.createElement('input');
+      chk.type = 'checkbox';
+      chk.className = 'msg-admin-check';
+      chk.setAttribute('data-msg-id', id);
+      chk.setAttribute('aria-label', 'Seleccionar mensaje');
+      chk.addEventListener('change', () => {
+        // reutiliza tu syncSelectedUI si existe
+        try{ syncSelectedUI(); }catch(e){}
+      });
+      row.appendChild(chk);
+    }
+
+    // avatar izq (si other)
+    if(!mine){
+      const av = document.createElement('div');
+      av.className = 'msg-avatar';
+      av.setAttribute('data-userid', msg.user_id);
+      av.innerHTML = `
+        <img src="/public/avatars/${escHtml(msg.user_id)}.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+        <span class="initial">${escHtml(init)}</span>
+      `;
+      row.appendChild(av);
+    }
+
+    // bubble
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const rawText = String(msg.text || '');
+    const waPayload = parseWaPayload(rawText);
+    const safeText = escHtml(rawText);
+
+    const bodyHtml = waPayload
+      ? buildWhatsAppCardHTML(waPayload)
+      : `<div class="text">${safeText.replaceAll('\n','<br>')}</div>`;
+
+    bubble.innerHTML = `
+      <div class="bubble-head">
+        ${mine ? `<button class="menu-btn js-menu" type="button" aria-label="Más opciones">⋯</button>` : ``}
+        <span class="who">${escHtml(who)}</span>
+      </div>
+      ${bodyHtml}
+      ${buildAttachmentHTML(msg)}
+      ${mine ? `
+        <div class="ctx-menu" role="menu">
+          <div class="ctx-item js-copy" role="menuitem">Copiar</div>
+          <div class="ctx-item danger js-delete" role="menuitem">Eliminar</div>
+        </div>` : ``}
+    `;
+    row.appendChild(bubble);
+
+    // avatar der (si mine)
+    if(mine){
+      const av = document.createElement('div');
+      av.className = 'msg-avatar';
+      av.setAttribute('data-userid', msg.user_id);
+      av.innerHTML = `
+        <img src="/public/avatars/${escHtml(msg.user_id)}.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+        <span class="initial">${escHtml(init)}</span>
+      `;
+      row.appendChild(av);
+    }
+
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp';
+    stamp.textContent = fmtLocal(msg.created_at);
+    row.appendChild(stamp);
+
+    chatBody.appendChild(row);
+
+    // habilitar menús de mensajes recién agregados
+    if(mine){
+      const menuBtn = row.querySelector('.js-menu');
+      const ctx = row.querySelector('.ctx-menu');
+      if(menuBtn && ctx){
+        menuBtn.addEventListener('click', (e)=>{
+          e.stopPropagation();
+          document.querySelectorAll('.ctx-menu.open').forEach(m=>{ if(m!==ctx) m.classList.remove('open'); });
+          ctx.classList.toggle('open');
+        });
+      }
+      const copyBtn = row.querySelector('.js-copy');
+      if(copyBtn){
+        copyBtn.addEventListener('click', async ()=>{
+                    await copyText(
+            row.querySelector('.text')?.innerText ||
+            row.querySelector('.wa-card')?.getAttribute('data-wa-copy') ||
+            ''
+          );
+          row.querySelector('.ctx-menu')?.classList.remove('open');
+        });
+      }
+      const delBtn = row.querySelector('.js-delete');
+      if(delBtn){
+        delBtn.addEventListener('click', async ()=>{
+          row.querySelector('.ctx-menu')?.classList.remove('open');
+          if(!confirm('¿Eliminar este mensaje?')) return;
+          const ok = await deleteOneMessage(id);
+          if(ok){ row.remove(); toast('Mensaje eliminado ✅'); }
+          else toast('No se pudo eliminar.');
+        });
+      }
+    }
+
+    // scroll abajo
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+
+    // =========================================================
+  // ✅ OPTIMISTIC UI: mostrar el mensaje instantáneamente
+  // =========================================================
+  const pending = new Map(); // tempId -> row element
+
+  function appendPendingMessage(text){
+  if(!chatBody) return null;
+
+  const tempId = 'tmp-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+
+  const row = document.createElement('div');
+  row.className = 'row me is-pending';
+  row.setAttribute('data-msgid', tempId);
+
+  // (opcional) checkbox admin para mantener consistencia visual
+  if(IS_ADMIN){
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.className = 'msg-admin-check';
+    chk.setAttribute('data-msg-id', tempId);
+    chk.setAttribute('aria-label', 'Seleccionar mensaje');
+    chk.disabled = true; // no seleccionable mientras está pendiente
+    row.appendChild(chk);
+  }
+
+  const rawText = String(text || '');
+  const safeText = escHtml(rawText);
+  const waPayload = parseWaPayload(rawText);
+
+  const pendingBody = waPayload
+    ? buildWhatsAppCardHTML(waPayload)
+    : `<div class="text">${safeText.replaceAll('\n','<br>')}</div>`;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = `
+    <div class="bubble-head">
+      <span class="who">Vos</span>
+    </div>
+    ${pendingBody}
+  `;
+  row.appendChild(bubble);
+
+  // avatar derecha (mensaje mío)
+  const av = document.createElement('div');
+  av.className = 'msg-avatar';
+  av.setAttribute('data-userid', String(ME_ID));
+  av.innerHTML = `
+    <img src="/public/avatars/${escHtml(String(ME_ID))}.png" alt="Avatar" onerror="this.parentElement.setAttribute('data-fallback','1')">
+    <span class="initial">V</span>
+  `;
+  row.appendChild(av);
+
+  const stamp = document.createElement('div');
+  stamp.className = 'stamp';
+  stamp.textContent = 'Enviando…';
+  row.appendChild(stamp);
+
+  chatBody.appendChild(row);
+  chatBody.scrollTop = chatBody.scrollHeight;
+
+  pending.set(tempId, row);
+  return { tempId, row };
+}
+
+  function resolvePending(tempId, serverMsg){
+    const row = pending.get(tempId);
+    if(row){
+      row.remove();
+      pending.delete(tempId);
+    }
+    if(serverMsg) appendMessage(serverMsg);
+  }
+
+  function failPending(tempId, label){
+    const row = pending.get(tempId);
+    if(!row) return;
+    row.classList.remove('is-pending');
+    row.classList.add('send-failed');
+    const st = row.querySelector('.stamp');
+    if(st) st.textContent = label || 'No enviado';
+  }
+
+
+  // ✅ SSE realtime
+  function startStream(){
+    try{
+      const es = new EventSource(`/app/grupos/${SUBJECT_ID}/stream${CHAT_QS}`);
+      es.addEventListener('history', (e)=>{
+        try{
+          const arr = JSON.parse(e.data || '[]');
+          (arr || []).forEach(appendMessage);
+        }catch(_){}
+      });
+      es.addEventListener('ping', ()=>{});
+      es.onmessage = (e)=>{
+        try{
+          const data = JSON.parse(e.data || '{}');
+          if(data && data.type === 'message'){
+            const payload = data.payload;
+            // bulk delete aviso
+            if(payload && payload.kind === 'messages-deleted' && Array.isArray(payload.ids)){
+              payload.ids.forEach(mid=>{
+                const el = document.querySelector(`.row[data-msgid="${CSS.escape(String(mid))}"]`);
+                if(el) el.remove();
+                seen.delete(String(mid));
+              });
+              try{ syncSelectedUI(); }catch(e){}
+              return;
+            }
+            appendMessage(payload);
+          }
+        }catch(_){}
+      };
+      es.onerror = ()=>{ /* el browser reintenta solo */ };
+    }catch(e){}
+  }
+  startStream();
+
+  // ✅ Submit FIX (sin refresh)
+  // ✅ Submit FIX (sin refresh) + ✅ OPTIMISTIC (aparece instantáneo)
+    async function sendChatText(rawText, opts = {}){
+    const text = String(rawText || '').trim();
+    if(!text) return false;
+
+    const clearComposer = !!opts.clearComposer;
+    if(clearComposer && msgText) msgText.value = '';
+
+    const pendingItem = appendPendingMessage(text);
+
+    try{
+      const r = await fetch(`/app/grupos/${SUBJECT_ID}/messages${CHAT_QS}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        body: new URLSearchParams({ text })
+      });
+
+      const j = await r.json().catch(()=>null);
+
+      if(!r.ok || !j || !j.ok){
+        toast((j && j.error) ? j.error : 'No se pudo enviar');
+        if(pendingItem) failPending(pendingItem.tempId, 'Error al enviar');
+        return false;
+      }else{
+        if(pendingItem) resolvePending(pendingItem.tempId, j.message);
+        else if(j.message) appendMessage(j.message);
+        return true;
+      }
+    }catch(err){
+      toast('Error de red al enviar');
+      if(pendingItem) failPending(pendingItem.tempId, 'Error de red');
+      return false;
+    }finally{
+      msgText?.focus();
+    }
+  }
+
+  // ✅ Submit FIX (sin refresh) + ✅ OPTIMISTIC
+  if(composer && msgText){
+    composer.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      await sendChatText(msgText.value, { clearComposer: true });
+    });
+
+    // Enter envía (sin shift)
+    msgText.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        composer.requestSubmit();
+      }
+    });
+  }
+
+
+  // =========================================================
+  // ✅ Adjuntos: subir imagen/archivo a los endpoints reales
+  // =========================================================
+  const fileImg = document.createElement('input');
+  fileImg.type = 'file';
+  fileImg.accept = 'image/*';
+  fileImg.multiple = true;
+  fileImg.style.display = 'none';
+
+  const fileDoc = document.createElement('input');
+  fileDoc.type = 'file';
+  fileDoc.accept = '.pdf,.doc,.docx,.ppt,.pptx,application/pdf';
+  fileDoc.multiple = true;
+  fileDoc.style.display = 'none';
+
+  document.body.appendChild(fileImg);
+  document.body.appendChild(fileDoc);
+
+  async function uploadFiles(kind, files){
+    if(!files || !files.length) return;
+    const fd = new FormData();
+    const field = (kind === 'image') ? 'photos' : 'docs';
+    for(const f of files) fd.append(field, f);
+
+    const url = (kind === 'image')
+      ? `/app/grupos/${SUBJECT_ID}/upload/photos${CHAT_QS}`
+      : `/app/grupos/${SUBJECT_ID}/upload/docs${CHAT_QS}`;
+
+    try{
+      toast('Subiendo...');
+      const r = await fetch(url, { method:'POST', credentials:'same-origin', body: fd });
+      const j = await r.json().catch(()=>null);
+      if(!r.ok || !j || !j.ok){
+        toast((j && j.error) ? j.error : 'No se pudo subir');
+        return;
+      }
+      // agrega inmediato (SSE también lo va a replicar, dedupe por id)
+      (j.messages || []).forEach(appendMessage);
+      toast('Subido ✅');
+    }catch(e){
+      toast('Error de red al subir');
+    }
+  }
+
+  // click en menú adjuntos
+  if(attachMenu){
+    attachMenu.querySelectorAll('.attach-item').forEach(item=>{
+      item.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+
+        const t = item.getAttribute('data-type');
+        closeAttach();
+
+        // ✅ WhatsApp abre el modal (y NO archivos)
+        if(t === 'whatsapp'){
+          openWaModal();
+          return;
+        }
+
+        // ✅ Imagen / Archivo: por ahora solo cartel
+        if(t === 'image' || t === 'file'){
+          toast('Próximamente');
+          return;
+        }
+      });
+    });
+  }
+
+  fileImg.addEventListener('change', async ()=>{
+    const files = Array.from(fileImg.files || []);
+    fileImg.value = '';
+    await uploadFiles('image', files);
+  });
+
+  fileDoc.addEventListener('change', async ()=>{
+    const files = Array.from(fileDoc.files || []);
+    fileDoc.value = '';
+    await uploadFiles('doc', files);
+  });
+  // hidrata tarjetas de WhatsApp guardadas como texto especial
+  hydrateWhatsappCardsInDOM();
+  // ===== Scroll to bottom on load =====
+  if(chatBody) chatBody.scrollTop = chatBody.scrollHeight;
+
+})();
+</script>

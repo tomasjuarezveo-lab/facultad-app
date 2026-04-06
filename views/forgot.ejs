@@ -1,0 +1,144 @@
+<% const pageTitle = 'Olvidé mi contraseña'; %>
+<% if (typeof title === 'undefined') { title = pageTitle; } %>
+
+<style>
+@media (max-width: 640px){
+  html.auth-html .auth-brand{
+    position: fixed !important;
+    left: 14px !important;
+    top: calc(10px + env(safe-area-inset-top)) !important;
+    z-index: 60 !important;
+    display:block !important;
+  }
+  html.auth-html .auth-brand img{
+    height: 22px !important;
+    width:auto !important;
+    max-width: 160px !important;
+    display:block !important;
+    object-fit:contain !important;
+  }
+}
+@media (max-width: 430px){
+  html.auth-html .auth-brand img{
+    height: 18px !important;
+  }
+}
+
+.forgot-inline-row{
+  display:grid;
+  grid-template-columns: 1.45fr .85fr;
+  gap:12px;
+}
+.forgot-compact-select{
+  font-size:14px !important;
+  min-height:52px !important;
+}
+@media (max-width: 390px){
+  .forgot-inline-row{
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+  }
+  .forgot-compact-select{
+    font-size:13px !important;
+    padding-left:12px !important;
+    padding-right:30px !important;
+  }
+}
+</style>
+
+<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <section class="px-6 sm:px-10 lg:pr-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">
+        <%= pageTitle %>
+      </h1>
+
+      <p class="text-sm sm:text-base text-slate-500 mb-8">
+        Ingresá tu email, carrera y plan. Si coinciden con tu cuenta, te vamos a enviar un código de verificación por email para que puedas cambiar tu mail, tu contraseña o ambos.
+      </p>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="mb-5 text-sm text-red-600">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form action="/forgot" method="post" class="space-y-5 max-w-md">
+        <label class="block">
+          <span class="ios-label">Email</span>
+          <input
+            class="ios-input"
+            type="email"
+            name="email"
+            required
+            placeholder="tu@email.com"
+            value="<%= (form && form.email) || '' %>"
+          />
+        </label>
+
+        <div class="forgot-inline-row">
+          <label class="block">
+            <span class="ios-label">Carrera</span>
+            <select name="career" required class="ios-input forgot-compact-select">
+              <% (careerOptions || []).forEach(function(c){ %>
+                <option value="<%= c %>" <%= ((form && form.career)===c)?'selected':'' %>>
+                  <%= c %>
+                </option>
+              <% }) %>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="ios-label">Plan</span>
+            <select name="plan" required class="ios-input forgot-compact-select">
+              <% (planOptions || []).forEach(function(p){
+                   var sp = String(p);
+                   var sel = (String((form && form.plan) || '') === sp) ? 'selected' : ''; %>
+                <option value="<%= sp %>" <%= sel %>>
+                  <%= p %>
+                </option>
+              <% }) %>
+            </select>
+          </label>
+        </div>
+
+        <button class="ios-btn-primary w-full mt-2 bg-[#F8C160]">
+          Verificar datos
+        </button>
+
+        <p class="text-center text-sm mt-2">
+          <a href="/login" class="ios-link" style="color: orange;">
+            Volver a iniciar sesión
+          </a>
+        </p>
+      </form>
+    </section>
+
+    <section class="hidden lg:block"></section>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const authLogo = document.querySelector('.auth-brand img');
+  if (!authLogo) return;
+
+  const src = authLogo.getAttribute('src') || '';
+  if (src.includes('dropbox.com') && src.includes('clear-way.png') && src.includes('dl=1') && !src.includes('raw=1')){
+    authLogo.setAttribute('src', src.replace('dl=1','raw=1'));
+  }
+
+  authLogo.setAttribute('loading','eager');
+  authLogo.setAttribute('decoding','async');
+  authLogo.setAttribute('referrerpolicy','no-referrer');
+
+  authLogo.addEventListener('error', () => {
+    const s = authLogo.getAttribute('src') || '';
+    if (s.includes('raw=1')){
+      authLogo.setAttribute('src', s.replace('raw=1','dl=1'));
+    }
+  }, { once:true });
+});
+</script>

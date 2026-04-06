@@ -1,0 +1,272 @@
+<style>
+  /* Contenedor principal para centrar la tarjeta */
+  .auth-page {
+    min-height: calc(100dvh - 80px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  /* Tarjeta estilo iOS Glassmorphism */
+  .ios-card {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+    padding: 40px 30px;
+    text-align: center;
+    box-sizing: border-box;
+  }
+
+  .ios-eyebrow {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #007AFF;
+    margin-bottom: 12px;
+  }
+
+  .ios-title {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #1c1c1e;
+    margin-bottom: 12px;
+    line-height: 1.1;
+  }
+
+  .ios-subtitle {
+    font-size: 15px;
+    color: #636366;
+    line-height: 1.5;
+    margin-bottom: 25px;
+  }
+
+  .ios-label {
+    display: block;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 700;
+    color: #3a3a3c;
+    margin-bottom: 8px;
+    margin-left: 4px;
+  }
+
+  .ios-input-verify {
+    width: 100%;
+    height: 60px;
+    background: #f2f2f7;
+    border: 1.5px solid transparent;
+    border-radius: 16px;
+    padding: 0 16px;
+    font-size: 32px;
+    font-weight: 800;
+    color: #1c1c1e;
+    text-align: center;
+    letter-spacing: 0.3em;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+  }
+
+  .ios-input-verify:focus {
+    outline: none;
+    background: #ffffff;
+    border-color: #007AFF;
+    box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+  }
+
+  .ios-btn-main {
+    width: 100%;
+    height: 54px;
+    background: #F8C160;
+    border: none;
+    border-radius: 16px;
+    color: #000;
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 20px;
+    cursor: pointer;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+
+  .ios-btn-main:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+
+  .spam-notice {
+    margin-top: 20px;
+    padding: 12px;
+    background: rgba(0, 122, 255, 0.05);
+    border-radius: 16px;
+    border: 1px dashed rgba(0, 122, 255, 0.2);
+  }
+
+  /* BOTONES EN FILA (IZQUIERDA Y DERECHA) */
+  .ios-actions {
+    margin-top: 25px;
+    display: flex;
+    flex-direction: row; /* Cambio a fila */
+    justify-content: center;
+    gap: 10px; /* Espacio entre botones */
+    align-items: center;
+  }
+
+  .ios-link {
+    font-size: 14px;
+    font-weight: 600;
+    color: #007AFF;
+    text-decoration: none;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px 12px;
+    transition: opacity 0.2s;
+    white-space: nowrap; /* Evita que el texto salte de línea */
+  }
+
+  .ios-link:disabled {
+    color: #8e8e93;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .ios-link--red { color: #ff3b30; }
+
+  .ios-alert {
+    padding: 12px;
+    border-radius: 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 20px;
+  }
+  .ios-alert--error { background: rgba(255, 59, 48, 0.1); color: #ff3b30; }
+  .ios-alert--success { background: rgba(52, 199, 89, 0.1); color: #248a3d; }
+
+  /* Soporte Modo Oscuro */
+  html.cw-dark .ios-card { background: rgba(28, 28, 30, 0.8); border-color: rgba(255, 255, 255, 0.1); }
+  html.cw-dark .ios-title { color: #ffffff; }
+  html.cw-dark .ios-subtitle { color: #8e8e93; }
+  html.cw-dark .ios-input-verify { background: #2c2c2e; color: #ffffff; }
+
+  @media (max-width: 400px) {
+    .ios-card { padding: 30px 20px; }
+    .ios-title { font-size: 24px; }
+    .ios-input-verify { font-size: 26px; }
+    .ios-actions { gap: 5px; }
+    .ios-link { font-size: 13px; }
+  }
+</style>
+
+<div class="auth-page">
+  <div class="ios-card">
+    <div class="ios-eyebrow">Seguridad</div>
+    <h1 class="ios-title">Verificá tu Email</h1>
+    
+    <p class="ios-subtitle">
+      Hola, enviamos un código de 6 dígitos a <br>
+      <strong><%= email %></strong>
+    </p>
+
+    <div id="statusContainer" style="margin-top: 20px;">
+      <% if (sent || resent) { %>
+        <div class="ios-alert ios-alert--success">
+          <%= resent ? 'Nuevo código enviado.' : 'Código enviado correctamente.' %>
+        </div>
+      <% } %>
+
+      <% if (error) { %>
+        <div class="ios-alert ios-alert--error">
+          <%= error %>
+        </div>
+      <% } %>
+    </div>
+
+    <form method="POST" action="/verificar" novalidate>
+      <label class="ios-label" for="verifyCode">Código de verificación</label>
+      <input
+        id="verifyCode"
+        name="code"
+        type="text"
+        inputmode="numeric"
+        maxlength="6"
+        class="ios-input-verify"
+        placeholder="000000"
+        required
+        autofocus
+      />
+
+      <button type="submit" class="ios-btn-main">Activar Cuenta</button>
+    </form>
+
+    <div class="spam-notice">
+      <p style="margin:0; font-size: 13px; color: #007AFF; font-weight: 600;">
+        💡 ¿No llega? Revisá la carpeta de <strong>Spam</strong> o <strong>Promociones</strong>.
+      </p>
+    </div>
+
+    <div class="ios-actions">
+      <form id="resendForm" method="POST" action="/verificar/reenviar">
+        <button type="submit" id="resendBtn" class="ios-link">Reenviar código</button>
+      </form>
+      
+      <form method="POST" action="/verificar/cancelar" onsubmit="return confirm('¿Seguro? Se borrará tu progreso de registro.');">
+        <button type="submit" class="ios-link ios-link--red">Cancelar</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const input = document.getElementById('verifyCode');
+    const resendBtn = document.getElementById('resendBtn');
+    const resendForm = document.getElementById('resendForm');
+
+    input.addEventListener('input', (e) => {
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    });
+
+    function updateBtn() {
+      const now = Date.now();
+      const unlockTime = parseInt(localStorage.getItem('resend_unlock_time') || '0');
+      
+      if (now < unlockTime) {
+        resendBtn.disabled = true;
+        const remaining = Math.ceil((unlockTime - now) / 1000);
+        
+        if (remaining > 60) {
+          const mins = Math.ceil(remaining / 60);
+          resendBtn.innerText = `Esperar ${mins} min`;
+        } else {
+          resendBtn.innerText = `Reenviar en ${remaining}s`;
+        }
+        setTimeout(updateBtn, 1000);
+      } else {
+        resendBtn.disabled = false;
+        resendBtn.innerText = "Reenviar código";
+      }
+    }
+
+    resendForm.addEventListener('submit', (e) => {
+      let attempts = parseInt(localStorage.getItem('resend_attempts') || '0') + 1;
+      let waitTime = 60000;
+
+      if (attempts >= 3) {
+        waitTime = 59 * 60000;
+      }
+
+      localStorage.setItem('resend_attempts', attempts);
+      localStorage.setItem('resend_unlock_time', Date.now() + waitTime);
+      setTimeout(updateBtn, 50); 
+    });
+
+    updateBtn();
+  })();
+</script>

@@ -1,0 +1,224 @@
+<style>
+  .cp-wrap{
+    min-height: calc(100dvh - 120px);
+    display:grid;
+    place-items:center;
+    padding:24px 16px;
+  }
+  .cp-card{
+    width:min(100%, 460px);
+    border-radius:32px;
+    border:1px solid rgba(255,255,255,.48);
+    background:rgba(255,255,255,.80);
+    box-shadow:0 24px 70px rgba(15,23,42,.14);
+    backdrop-filter:blur(24px) saturate(140%);
+    -webkit-backdrop-filter:blur(24px) saturate(140%);
+    padding:24px;
+  }
+  .cp-eyebrow{
+    font-size:11px;
+    font-weight:900;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:#f59e0b;
+    margin-bottom:10px;
+  }
+  .cp-title{
+    font-size:30px;
+    line-height:1.04;
+    font-weight:950;
+    color:#0f172a;
+    letter-spacing:-.03em;
+  }
+  .cp-sub{
+    margin-top:10px;
+    font-size:14px;
+    line-height:1.55;
+    color:rgba(15,23,42,.72);
+    font-weight:600;
+  }
+  .cp-error{
+    margin-top:16px;
+    border-radius:18px;
+    background:rgba(239,68,68,.10);
+    border:1px solid rgba(239,68,68,.18);
+    color:#b91c1c;
+    padding:12px 14px;
+    font-size:13px;
+    font-weight:800;
+  }
+  .cp-form{
+    margin-top:20px;
+    display:grid;
+    gap:14px;
+  }
+  .cp-label{
+    display:block;
+  }
+  .cp-label span{
+    display:block;
+    margin:0 0 8px;
+    font-size:12px;
+    font-weight:900;
+    letter-spacing:.02em;
+    color:#475569;
+  }
+  .cp-select{
+    width:100%;
+    height:54px;
+    border-radius:20px;
+    border:1px solid rgba(255,255,255,.62);
+    background:rgba(255,255,255,.82);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.72), 0 8px 24px rgba(15,23,42,.06);
+    padding:0 16px;
+    font-size:15px;
+    font-weight:800;
+    color:#0f172a;
+    outline:none;
+  }
+  .cp-select:focus{
+    border-color:rgba(248,193,96,.92);
+    box-shadow:0 0 0 4px rgba(248,193,96,.18), inset 0 1px 0 rgba(255,255,255,.72);
+  }
+  .cp-btn{
+    width:100%;
+    min-height:56px;
+    border:none;
+    border-radius:22px;
+    background:#F8C160;
+    color:#0f172a;
+    font-size:16px;
+    font-weight:950;
+    letter-spacing:-.01em;
+    box-shadow:0 16px 32px rgba(248,193,96,.30);
+    cursor:pointer;
+    transition:transform .16s ease, box-shadow .16s ease;
+  }
+  .cp-btn:hover{
+    transform:translateY(-1px);
+    box-shadow:0 20px 36px rgba(248,193,96,.36);
+  }
+  .cp-btn:active{
+    transform:translateY(0);
+  }
+  .cp-foot{
+    margin-top:14px;
+    text-align:center;
+    font-size:12px;
+    line-height:1.5;
+    color:#64748b;
+    font-weight:700;
+  }
+
+  html.cw-dark .cp-card{
+    background:rgba(2,6,23,.78);
+    border-color:rgba(255,255,255,.08);
+    box-shadow:0 24px 70px rgba(0,0,0,.34);
+  }
+  html.cw-dark .cp-title{
+    color:#f8fafc;
+  }
+  html.cw-dark .cp-sub{
+    color:rgba(226,232,240,.75);
+  }
+  html.cw-dark .cp-label span{
+    color:#cbd5e1;
+  }
+  html.cw-dark .cp-select{
+    background:rgba(15,23,42,.82);
+    color:#f8fafc;
+    border-color:rgba(255,255,255,.08);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 8px 24px rgba(0,0,0,.20);
+  }
+  html.cw-dark .cp-foot{
+    color:#94a3b8;
+  }
+
+  @media (max-width: 640px){
+    .cp-wrap{
+      padding:18px 12px;
+      align-items:start;
+    }
+    .cp-card{
+      border-radius:28px;
+      padding:20px;
+      margin-top:8px;
+    }
+    .cp-title{
+      font-size:26px;
+    }
+  }
+</style>
+
+<div class="cp-wrap">
+  <div class="cp-card">
+    <div class="cp-eyebrow">Último paso</div>
+    <h1 class="cp-title">Elegí tu carrera y plan</h1>
+    <div class="cp-sub">
+      <%= userName || 'Hola' %>, antes de entrar necesitamos esto para mostrarte las materias, bibliografía, finales y grupos correctos.
+    </div>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="cp-error"><%= error %></div>
+    <% } %>
+
+    <form method="POST" action="/complete-career-plan" class="cp-form" novalidate>
+      <label class="cp-label">
+        <span>Carrera</span>
+        <select id="careerSelect" name="career" class="cp-select" required>
+          <% (careerOptions || []).forEach(function(c){ %>
+            <option value="<%= c %>" <%= (form && form.career === c) ? 'selected' : '' %>><%= c %></option>
+          <% }) %>
+        </select>
+      </label>
+
+      <label class="cp-label">
+        <span>Plan</span>
+        <select id="planSelect" name="plan" class="cp-select" required></select>
+      </label>
+
+      <button type="submit" class="cp-btn">Continuar</button>
+    </form>
+
+    <div class="cp-foot">
+      Este paso se hace una sola vez para dejar tu cuenta configurada correctamente.
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const plansByCareer = <%- JSON.stringify(plansByCareer || {}) %>;
+  const currentCareer = <%- JSON.stringify((form && form.career) || '') %>;
+  const currentPlan = <%- JSON.stringify((form && form.plan) || '') %>;
+
+  const careerSelect = document.getElementById('careerSelect');
+  const planSelect = document.getElementById('planSelect');
+
+  if (!careerSelect || !planSelect) return;
+
+  const renderPlans = () => {
+    const career = careerSelect.value || '';
+    const plans = Array.isArray(plansByCareer[career]) ? plansByCareer[career] : [];
+
+    planSelect.innerHTML = plans.map((p) => {
+      const selected = String(p) === String(currentPlan) ? 'selected' : '';
+      return `<option value="${p}" ${selected}>Plan ${p}</option>`;
+    }).join('');
+  };
+
+  if (currentCareer && careerSelect.value !== currentCareer) {
+    careerSelect.value = currentCareer;
+  }
+
+  renderPlans();
+  careerSelect.addEventListener('change', () => {
+    const career = careerSelect.value || '';
+    const plans = Array.isArray(plansByCareer[career]) ? plansByCareer[career] : [];
+    planSelect.innerHTML = plans.map((p, idx) => {
+      const selected = idx === 0 ? 'selected' : '';
+      return `<option value="${p}" ${selected}>Plan ${p}</option>`;
+    }).join('');
+  });
+})();
+</script>

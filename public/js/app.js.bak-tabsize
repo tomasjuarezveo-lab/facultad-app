@@ -1,0 +1,316 @@
+﻿// ===== Tooltip global para íconos de documentos =====
+function initDocTooltip(){
+  let tip = document.getElementById('docTooltip');
+  if (!tip){
+    tip = document.createElement('div');
+    tip.id = 'docTooltip';
+    document.body.appendChild(tip);
+  }
+  const show = (el)=>{
+    const title = el.getAttribute('data-title') || el.getAttribute('title') || '';
+    if (!title) return;
+    tip.textContent = title;
+    tip.style.display = 'block';
+    // Posicionar a la IZQUIERDA del botón
+    const r = el.getBoundingClientRect();
+    // medir ancho del tooltip
+    tip.style.left = '-9999px'; tip.style.top = '-9999px';
+    const tmp = tip.getBoundingClientRect();
+    const tw = tmp.width, th = tmp.height;
+    const left = Math.max(8, r.left - tw - 12);
+    const top  = Math.max(8, Math.min(window.innerHeight - th - 8, r.top + r.height/2 - th/2));
+    tip.style.left = left + 'px';
+    tip.style.top  = top  + 'px';
+  };
+  const hide = ()=>{ tip.style.display = 'none'; };
+
+  const bind = (el)=>{
+    el.addEventListener('mouseenter', ()=> show(el));
+    el.addEventListener('mouseleave', hide);
+    // táctil: mostrar 1.2s
+    let t;
+    el.addEventListener('touchstart', ()=>{ show(el); clearTimeout(t); t=setTimeout(hide, 1200); }, {passive:true});
+  };
+
+  document.querySelectorAll('.doc-item-icon').forEach(bind);
+}
+
+// ===== Resto de utilidades existentes =====
+window.filterByYear = function(year) {
+  document.querySelectorAll('[data-year]').forEach(el => {
+    el.style.display = (year === 'all' || el.dataset.year === String(year)) ? '' : 'none';
+  });
+  const ay = document.getElementById('activeYear');
+  if (ay) ay.textContent = year;
+};
+
+window.searchList = function(inputId, listSelector) {
+  const q = document.getElementById(inputId)?.value?.toLowerCase() || "";
+  document.querySelectorAll(listSelector).forEach(el => {
+    el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+  });
+};
+
+window.spinWheel = function() {
+  const wheel = document.getElementById('wheel');
+  if (!wheel) return;
+  const deg = 720 + Math.floor(Math.random()*360);
+  wheel.style.transition = 'transform 2.4s cubic-bezier(.17,.67,.32,1)';
+  wheel.style.transform = `rotate(${deg}deg)`;
+  setTimeout(() => { alert('¡Respondé la pregunta! (demo)'); }, 2500);
+};
+
+window.startQuiz = async function(subjectId) {
+  const res = await fetch('/app/autoevaluaciones/iniciar', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ subject_id: subjectId }) });
+  const data = await res.json();
+  const cont = document.getElementById('quizBox');
+  if (!cont) return;
+  cont.innerHTML = '';
+  const answers = [];
+  let idx = 0;
+  function renderQ() {
+    const q = data.questions[idx];
+    cont.innerHTML = `
+      <div class="card glass p-4">
+        <div class="text-sm text-gray-500 mb-2">Pregunta ${idx+1} de 5</div>
+        <div class="text-lg font-medium mb-4">${q.q}</div>
+        ${['a','b','c','d'].map(opt => `
+          <label style="display:block;margin-bottom:8px;">
+            <input type="radio" name="opt" value="${opt}"/> ${q[opt]}
+          </label>`).join('')}
+        <button class="btn" id="nextBtn">${idx===4?'Finalizar':'Siguiente'}</button>
+      </div>`;
+    document.getElementById('nextBtn').onclick = async () => {
+      const chosen = cont.querySelector('input[name="opt"]:checked');
+      if (!chosen) return alert('Elegí una opción');
+      answers.push({ id:q.id, choice: chosen.value });
+      if (idx===4) {
+        const r = await fetch('/app/autoevaluaciones/responder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ subject_id: subjectId, answers }) });
+        const rr = await r.json();
+        cont.innerHTML = `<div class="card glass p-6 text-center"><div class="text-2xl font-semibold">Puntaje: ${rr.score}/${rr.total}</div><div class="mt-2 text-gray-600">(2 puntos por respuesta correcta)</div></div>`;
+      } else { idx++; renderQ(); }
+    };
+  }
+  renderQ();
+};
+
+window.renameDoc = async function(docId, currentTitle, subjectId, category) {
+  const nt = prompt('Nuevo nombre del documento:', currentTitle || '');
+  if (!nt) return;
+  try {
+    await fetch(`/upload/${docId}/rename`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: nt, subject_id: subjectId, category })
+    });
+    window.location.href = `/app/materias/${subjectId}?category=${encodeURIComponent(category)}&doc=${docId}`;
+  } catch (e) { alert('No se pudo renombrar el documento'); }
+};
+
+document.addEventListener('DOMContentLoaded', initDocTooltip);
+function initTabbar(){
+  const bar = document.querySelector(".tabbar"); if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+  const path = window.location.pathname;
+
+  // Encontrar ítem activo por prefijo de ruta
+  const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+
+  // Posicionar indicador
+  const place = () => {
+    const r = active.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  };
+  requestAnimationFrame(place);
+  window.addEventListener("resize", place);
+
+  // Animar al click (mientras navega)
+  items.forEach(i => i.addEventListener("click", () => {
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    const r = i.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  }));
+}
+document.addEventListener("DOMContentLoaded", initTabbar);
+function initTabbar2025(){
+  const bar = document.querySelector(".tabbar.crystal"); if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+  const path = window.location.pathname;
+
+  const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+  items.forEach(i => i.classList.toggle("active", i===active));
+
+  const place = (el) => {
+    const r = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    ind.style.width = r.width + "px";
+    ind.style.transform = `translateX(${r.left - br.left}px)`;
+  };
+
+  requestAnimationFrame(()=> place(active));
+  window.addEventListener("resize", ()=> place(document.querySelector(".tabbar-item.active") || active));
+
+  items.forEach(i => i.addEventListener("click", ()=>{
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    place(i);
+    if (window.navigator?.vibrate) navigator.vibrate(8); // micro-feedback
+  }));
+}
+document.addEventListener("DOMContentLoaded", initTabbar2025);
+/* --- FIX: cálculo exacto de X = itemLeft - barLeft - paddingLeft --- */
+(function fixTabbarIndicator(){
+  const bar = document.querySelector(".tabbar.crystal");
+  if(!bar) return;
+  const items = Array.from(bar.querySelectorAll(".tabbar-item"));
+  const ind = bar.querySelector(".tabbar-indicator");
+
+  const getPadL = () => parseFloat(getComputedStyle(bar).paddingLeft) || 0;
+
+  const place = (el) => {
+    const r  = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    const x  = Math.max(0, Math.round((r.left - br.left) - getPadL()));  // restamos padding-left
+    ind.style.width = Math.round(r.width) + "px";
+    ind.style.transform = `translateX(${x}px)`;
+  };
+
+  const setActiveByPath = () => {
+    const path = window.location.pathname;
+    const active = items.find(i => path.startsWith(i.dataset.route)) || items[0];
+    items.forEach(i => i.classList.toggle("active", i===active));
+    place(active);
+  };
+
+  // Inicial
+  requestAnimationFrame(setActiveByPath);
+
+  // Recalcular en resize/orientation
+  window.addEventListener("resize", () => {
+    const current = document.querySelector(".tabbar-item.active") || items[0];
+    place(current);
+  });
+
+  // Animar al click y ajustar
+  items.forEach(i => i.addEventListener("click", () => {
+    items.forEach(x => x.classList.remove("active"));
+    i.classList.add("active");
+    place(i);
+    if (window.navigator?.vibrate) navigator.vibrate(8);
+  }));
+})();
+/* === ALIGN: centra el pill bajo el ítem activo compensando padding/borde === */
+(function alignTabbarPill(){
+  const bar = document.querySelector(".tabbar.crystal");
+  if (!bar) return;
+  const ind = bar.querySelector(".tabbar-indicator");
+  const items = [...bar.querySelectorAll(".tabbar-item")];
+
+  function getActive(){
+    return document.querySelector(".tabbar-item.active") ||
+           items.find(i => location.pathname.startsWith(i.dataset.route)) ||
+           items[0];
+  }
+  function padLeft(el){ return parseFloat(getComputedStyle(el).paddingLeft) || 0; }
+  function borLeft(el){ return parseFloat(getComputedStyle(el).borderLeftWidth) || 0; }
+
+  function place(el){
+    if (!el) return;
+    const r  = el.getBoundingClientRect();
+    const br = bar.getBoundingClientRect();
+    const x  = (r.left - br.left) - padLeft(bar) - borLeft(bar); // <- compensaciones reales
+    ind.style.width = `${r.width}px`;
+    ind.style.transform = `translateX(${x}px)`;
+  }
+
+  function setActive(el){
+    items.forEach(i => i.classList.toggle("active", i === el));
+    place(el);
+  }
+
+  // Init + resize
+  const init = ()=> setActive(getActive());
+  requestAnimationFrame(init);
+  window.addEventListener("resize", ()=> place(getActive()));
+
+  // Recolocar tras cambios de fuente/DOM
+  new ResizeObserver(()=> place(getActive())).observe(bar);
+
+  // Click en cualquier tab (esperamos al layout antes de medir)
+  bar.addEventListener("click", (e)=>{
+    const a = e.target.closest(".tabbar-item");
+    if (!a) return;
+    setTimeout(()=> setActive(a), 0);
+    if (navigator.vibrate) navigator.vibrate(8);
+  });
+
+  // Recolocar tras navegación SPA (si la hay)
+  window.addEventListener("popstate", init);
+})();
+/* ===== Sync dinámico de la altura del brand para centrar exacto ===== */
+(function syncBrandHeight(){
+  const brand = document.querySelector(".auth-brand");
+  if (!brand) return;
+  const set = () => {
+    const h = brand.offsetHeight || 60;
+    document.documentElement.style.setProperty("--brandH", h + "px");
+  };
+  set();
+  window.addEventListener("resize", set, { passive: true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(set).observe(brand);
+  }
+})();
+/* ===== Sync dinámico de la altura del brand para centrar exacto ===== */
+(function syncBrandHeight(){
+  const brand = document.querySelector(".auth-brand");
+  if (!brand) return;
+  const set = () => {
+    const h = brand.offsetHeight || 60;
+    document.documentElement.style.setProperty("--brandH", h + "px");
+  };
+  set();
+  window.addEventListener("resize", set, { passive: true });
+  if ("ResizeObserver" in window){
+    new ResizeObserver(set).observe(brand);
+  }
+})();
+/* ==== Password toggles (Login/Register) ==== */
+function initPasswordToggles(){
+  document.querySelectorAll(".ios-pw-toggle[data-pw-target]").forEach(btn=>{
+    const id = btn.getAttribute("data-pw-target");
+    const input = document.getElementById(id);
+    if(!input) return;
+    btn.addEventListener("click", ()=>{
+      const show = input.type === "password";
+      input.type = show ? "text" : "password";
+      btn.textContent = show ? "Ocultar" : "Mostrar";
+      input.focus({ preventScroll: true });
+    });
+  });
+}
+document.addEventListener("DOMContentLoaded", initPasswordToggles);
+/* === Alinear badge fijo con el centro vertical de la tabbar === */
+(function alignBadgeToTabbar(){
+  const badge = document.getElementById("userBadge");
+  if (!badge) return;
+  const bar = document.querySelector(".tabbar");
+  if (!bar) return;
+
+  function place(){
+    const r = bar.getBoundingClientRect();
+    const y = r.top + (r.height/2);   // coordenada viewport
+    badge.style.top = y + "px";
+  }
+  place();
+  window.addEventListener("resize", place, { passive: true });
+  // En caso de cambios de orientación / fuentes
+  if ("ResizeObserver" in window){ new ResizeObserver(place).observe(bar); }
+})();

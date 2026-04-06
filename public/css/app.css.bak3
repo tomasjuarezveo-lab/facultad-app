@@ -1,0 +1,29 @@
+/* Estética iOS minimalista */
+body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Arial, sans-serif; }
+.glass { backdrop-filter: blur(10px); background: rgba(255,255,255,0.7); }
+.btn { padding: 10px 14px; border-radius: 14px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); transition: transform .05s ease; }
+.btn:active { transform: translateY(1px); }
+.tab { padding: 8px 14px; border-radius: 14px; }
+.card { border-radius: 18px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+.fixed-bottom { position: fixed; left: 50%; transform: translateX(-50%); bottom: 14px; z-index: 40; }
+.search { border-radius: 14px; padding: 10px 14px; background: #f2f3f5; }
+.menu-3dots { cursor: pointer; padding: 6px 10px; border-radius: 10px; }
+.sidebar { width: 300px; max-width: 35vw; }
+
+/* Full-screen viewer overlays */
+.viewer-iframe { position: fixed; inset: 0; width: 100vw; height: 100vh; border: none; z-index: 1; }
+.viewer-empty { position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; color:#6b7280; z-index: 1; }
+
+.top-tabs { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 20; }
+.top-right-controls { position: fixed; top: 12px; right: 12px; z-index: 20; }
+
+.sidebar-floating { position: fixed; top: 90px; right: 12px; bottom: 90px; width: 180px; overflow: auto; z-index: 20; }
+.sidebar-floating .doc-item { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Ensure overlays remain above iframe and below bottom nav */
+nav.fixed-bottom { z-index: 40; }
+
+/* Narrower right sidebar */
+.sidebar-floating { width: 60px; }
+.sidebar-floating .doc-item a { font-size: 10px; display:flex; align-items:center; gap:6px; }
+.sidebar-floating .doc-icon { width:14px; height:14px; flex:0 0 14px; }

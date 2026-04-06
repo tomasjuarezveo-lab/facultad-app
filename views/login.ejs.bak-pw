@@ -1,0 +1,38 @@
+﻿<div class="auth-split relative">
+  <div class="auth-line" aria-hidden="true"></div>
+
+  <div class="auth-center grid grid-cols-1 lg:grid-cols-2 items-center relative z-10">
+    <!-- IZQUIERDA: INICIO DE SESIÓN (sin tarjeta) -->
+    <section class="px-6 sm:px-10 lg:pr-20">
+      <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight mb-4">Iniciar sesión</h1>
+      <p class="text-sm sm:text-base text-slate-500 mb-8">Accedé a tu cuenta para ver tu carrera y plan.</p>
+
+      <% if (typeof error !== "undefined" && error) { %>
+        <div class="mb-5 text-sm text-red-600"><%= error %></div>
+      <% } %>
+
+      <form method="POST" action="/login" class="space-y-5 max-w-md">
+        <label class="block">
+          <span class="ios-label">Email</span>
+          <input class="ios-input" type="email" name="email" required placeholder="tu@email.com" />
+        </label>
+
+        <label class="block">
+          <span class="ios-label">Contraseña</span>
+          <input class="ios-input" type="password" name="password" required placeholder="••••••••" />
+        </label>
+
+        <button class="ios-btn-primary w-full mt-1">Entrar</button>
+      </form>
+
+      <div class="mt-8 text-sm text-slate-500">
+        ¿No tenés cuenta?
+        <a class="ios-link" href="/register">Crear cuenta</a>
+      </div>
+    </section>
+
+    <!-- DERECHA VACÍA -->
+    <section class="hidden lg:block"></section>
+  </div>
+</div>
+
